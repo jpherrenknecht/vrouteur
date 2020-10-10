@@ -1484,7 +1484,7 @@ var controller = function () {
                 uid = userId;
                 type = "friend";
             }
-
+            // verification github
             /*var url = baseURL + "/" + urlBeta + "/chart.pl?lat=" + pos.lat + "&lon=" + pos.lon +
                 "&o=" + options + "&twa=" + twa + "&userid=" + uid + "&type=" + type;
             window.open(url, cbReuseTab.checked ? urlBeta : "_blank");*/
