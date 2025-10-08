@@ -1,0 +1,145 @@
+<html>
+    <head>
+    <title>Vrouteur Home </title>
+   
+        <meta name="Author" content="JP Herrenknecht">
+        <meta charset="utf-8"/>   
+        <meta  name="viewport" content="width=device-width, initial-scale=1.0, shrink-to-fit=no"    />
+        <script src="https://unpkg.com/leaflet@1.4.0/dist/leaflet.js"></script>
+        <script src="https://api.windy.com/assets/map-forecast/libBoot.js"></script>
+        <script src="https://code.jquery.com/jquery-3.3.1.min.js"></script>
+        <script src="https://unpkg.com/leaflet-arc/bin/leaflet-arc.min.js"></script>
+        <script  type="text/javascript" src="{{ url_for('static', filename='js/windleaf.js') }}"></script>
+        <link rel="stylesheet" type="text/css" href="{{ url_for('static', filename='css/windbase.css') }}">
+        <link rel="shortcut icon" href="{{ url_for('static', filename='img/favicon.ico') }}">
+
+<script>
+
+        
+        //console.log ('tableau des courses en local storage'+tabcoursesini)
+        // on ne sait pas de qui il s'agit on va considerer que c'est le dernier element qui nous importe 
+
+        listecourses        = {{listecourses | tojson}}
+        listecoursecomplete = {{listecoursecomplete | tojson }}
+        tabcourses          = {{tabcourses | tojson }}
+        t0                  = {{t0}}    
+        console.log ('listecourses  : '+listecourses)
+        // console.log ('t0 '+t0)
+
+        // console.log ('course par defaut '+listecourses[0][0])
+        // console.log (' ')
+        // console.log ('course par defaut '+listecourses[0][4])
+        // console.log (' ')
+        // console.log ('course par defaut '+listecourses[0][6])
+
+        race=listecourses[0][0]+'.'+listecourses[0][2]
+        y0=(listecourses[0][6])[0][0]
+        x0=(listecourses[0][6])[0][1]
+        y1=(listecourses[0][6])[1][0]
+        x1=(listecourses[0][6])[1][1]
+        console.log (' ')
+
+        
+
+
+    // // localStorage.clear();     // si on veut nettoyer localstorage
+    //     if (localStorage.getItem("trajetsvrouteur") === null)
+    //         {   console.log ('trajetsvrouteur est nul')
+    //             //var a=new Array(10)       // 10 positions:  nom course t0 y0,x0,y1,x1,dep,ari,source  
+    //             var a=[0,0,0,0,0,0,0,0,0,0]     // 10 positions:  nom course t0 y0,x0,y1,x1,dep,ari,source  
+    //             var tabcoursesini= [a,a,a,a,a,a,a,a,a,a]      // possibilite de stocker 10 courses a la fois 
+              
+    //             // A faire *****les coordonnees du depart et de l'arrivee pourront etre mis par defaut pour la course par defaut
+    //             // je stocke trajetcourses en localstorage
+    //             trajetini=['Mon bateau',race,y0,x0,t0,y1,x1,0,1,'index']
+    //             tabcoursesini[9]=trajetini
+    //             localStorage.setItem('trajetsvrouteur',JSON.stringify(tabcoursesini))
+    //         }
+    //     else {
+    //         tabcoursesini=JSON.parse(localStorage.getItem("trajetsvrouteur"))
+    //         trajetini=tabcoursesini[9]
+    //         console.log (trajetini)
+    //     }
+
+
+
+function affichetableau(){
+    tabcoursesini=JSON.parse(localStorage.getItem("trajetsvrouteur"))
+    var textetableau= " <h4>Tableau des trajets dans localstorage"
+    +"<table class='tableautrajets'>"
+        +" <tbody>"
+        +" <thead><td>Bateau</td> <td>Course </td><td>y0 </td><td>x0 </td><td>t0</td><td>y1 </td><td>x1 </td><td>depart </td><td> Arrivee</td><td> Index</td></thead>"
+                for (var i=0;i<(tabcoursesini.length);i++)
+                    {   textetableau +="<tr>"
+                        for (var j=0;j<10;j++)     
+                            {    textetableau +="<td>"+tabcoursesini[i][j]+"</td>"
+                            }
+                        textetableau +="</tr>"  
+                    }
+                    +"</tbody></table>" 
+                            
+    document.getElementById('tableau').innerHTML=textetableau
+    document.getElementById('listecoursescomplete').innerHTML=listecoursecomplete
+    document.getElementById('tabcourses').innerHTML=tabcourses
+                }
+// function clear(){
+//                 var clear=document.getElementById('clear')                                 
+//     clear.addEventListener("click", function (evt)     // Changement de depart ou arrivee  
+//         {   console.log ('Declenchement de clear')
+//              localStorage.clear(); 
+          
+//         });
+//     }
+ </script>
+
+
+
+
+ <html>
+ <body onload="affichetableau()">
+
+    <H2>Vrouteur  
+    <p>Storage.html</p></H2>
+    <h5>Cette page charge la liste des courses en cours 
+    <p>Elle recupere dans localstorage les valeurs eventuelles du dernier trajet enregistré</p>
+    <p> Si il n'y a rien dans local storage elle initie un trajet avec la valeur de local storage la plus recente (indice9)</p>     
+    <p> Pour consulter local Storage onglet application Local Storage et trajetsvrouteur </p>
+    <p> </p>
+    <p> Liste des courses</p>
+    <div id='listecoursescomplete'>  </div>
+    <p> Liste des courses actives</p>
+    <div id='tabcourses'>  </div>
+
+
+</h5>
+    <div id='tableau'>  </div> 
+
+<h4>La page redirige ensuite vers Windbase2 avec le parametre trajetini</h4>
+    <!-- <input type="button" value="Generate a table." onclick="generate_table()" /> -->
+
+
+   
+   <button  id='clear' class='blackwhite11' value='Clear'  > Clear Local storage</button><br>
+ </body>
+
+
+</html>
+
+
+<!-- 
+    //onreroute vers -->
+<script>   
+ var clear=document.getElementById('clear')                                 
+    clear.addEventListener("click", function (evt)     // Changement de depart ou arrivee  
+        {   console.log ('Declenchement de clear')
+            localStorage.clear(); 
+            affichetableau()
+          
+        });
+
+//window.location="windbase2?source=index"                            // redirection 
+</script> 
+
+
+
+ 

@@ -1,0 +1,125 @@
+<html>
+    <head>
+    <title>Vrouteur Home </title>
+   
+        <meta name="Author" content="JP Herrenknecht">
+        <meta charset="utf-8"/>   
+        <meta  name="viewport" content="width=device-width, initial-scale=1.0, shrink-to-fit=no"    />
+        <script src="https://unpkg.com/leaflet@1.4.0/dist/leaflet.js"></script>
+        <script src="https://api.windy.com/assets/map-forecast/libBoot.js"></script>
+        <script src="https://code.jquery.com/jquery-3.3.1.min.js"></script>
+        <script src="https://unpkg.com/leaflet-arc/bin/leaflet-arc.min.js"></script>
+        <script  type="text/javascript" src="{{ url_for('static', filename='js/windleaf.js') }}"></script>
+        <link rel="stylesheet" type="text/css" href="{{ url_for('static', filename='css/windbase.css') }}">
+        <link rel="shortcut icon" href="{{ url_for('static', filename='img/favicon.ico') }}">
+
+
+
+
+
+
+
+        
+<script>
+
+        
+        //console.log ('tableau des courses en local storage'+tabcoursesini)
+        // on ne sait pas de qui il s'agit on va considerer que c'est le dernier element qui nous importe 
+
+        polychemin        = {{polychemin | tojson}}
+        typevoile         = {{typevoile | tojson}}
+
+        function afficheroute(){
+        // console.log('typevoile')
+        // console.log(typevoile)
+
+        
+
+
+
+   var textetableau="<table class='table4'>"
+    textetableau+="<th  >N </th><th>Lat</th><th>Lon</th><th>Date </th><th>Twa</th><th>Cap</th><th>Tws</th><th>Twd</th><th>Speed</th><th>Voile</th>"
+    for (var i=0;i<(polychemin.length);i++)
+            {    textetableau +="<tr><td class='c10' >"+ i+" <td>"+polychemin[i][0].toFixed(4)+"</td>"
+                +"<td>"+polychemin[i][1].toFixed(4)+"</td>"
+                
+                +"<td>"+intlhmn.format(polychemin[i][2]*1000)+"</td>"
+                if (polychemin[i][3]> 0)
+                {textetableau+="<td class='green' >"+polychemin[i][3].toFixed(2)+"</td>"}
+                else{
+                    textetableau+="<td class='red' >"+polychemin[i][3].toFixed(2)+"</td>"
+                }
+                textetableau+="<td>"+polychemin[i][4].toFixed(2)+"</td>"
+                +"<td>"+polychemin[i][5].toFixed(2)+"</td>"
+                +"<td>"+polychemin[i][6].toFixed(2)+"</td>"
+                +"<td>"+polychemin[i][7].toFixed(2)+"</td>"
+                +"<td>"+typevoile[parseInt(polychemin[i][8])]+"</td>"
+                +"</tr>"
+            }
+            textetableau +=" </table>"
+
+        // console.log (textetableau)    
+
+        document.getElementById('tableau').innerHTML=textetableau
+    
+    }
+        // console.log ('t0 '+t0)
+
+        // console.log ('course par defaut '+listecourses[0][0])
+        // console.log (' ')
+        // console.log ('course par defaut '+listecourses[0][4])
+        // console.log (' ')
+        // console.log ('course par defaut '+listecourses[0][6])
+
+     
+
+
+
+function affichetableau(){
+    tabcoursesini=JSON.parse(localStorage.getItem("trajetsvrouteur"))
+    var textetableau= " <h4>Tableau des trajets dans localstorage"
+    +"<table class='tableautrajets'>"
+        +" <tbody>"
+        +" <thead><td>Bateau</td> <td>Course </td><td>y0 </td><td>x0 </td><td>t0</td><td>y1 </td><td>x1 </td><td>depart </td><td> Arrivee</td><td> Index</td></thead>"
+                for (var i=0;i<(tabcoursesini.length);i++)
+                    {   textetableau +="<tr>"
+                        for (var j=0;j<10;j++)     
+                            {    textetableau +="<td>"+tabcoursesini[i][j]+"</td>"
+                            }
+                        textetableau +="</tr>"  
+                    }
+                    +"</tbody></table>" 
+                            
+    document.getElementById('tableau').innerHTML=textetableau
+    document.getElementById('listecoursescomplete').innerHTML=listecoursecomplete
+    document.getElementById('tabcourses').innerHTML=tabcourses
+                }
+// function clear(){
+//                 var clear=document.getElementById('clear')                                 
+//     clear.addEventListener("click", function (evt)     // Changement de depart ou arrivee  
+//         {   console.log ('Declenchement de clear')
+//              localStorage.clear(); 
+          
+//         });
+//     }
+ </script>
+
+
+
+
+ <html>
+ <body onload="afficheroute()" >
+
+    <H2>Routage détaillé  
+    
+
+
+</h5>
+    <div id='tableau'>  </div> 
+
+
+
+</html>
+
+
+ 

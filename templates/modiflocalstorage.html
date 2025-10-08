@@ -1,0 +1,164 @@
+<html>
+    <head>
+    <title>Modif local Storage</title>   
+
+    <script>
+var tabcourses=JSON.parse(localStorage.getItem('trajetsvrouteur'))
+//tabcourses.push([0,0,0,0,0,0,0,0,0,0,0,0,0])
+
+console.log(tabcourses[9])
+//tabcourses [9][0]='Takron-BSP'
+tabcourses [9][0]='Takron-BSP'
+tabcourses [9][1]='654.1'
+
+tabcourses [9][10]=[1,2]                   //ari = waypoints selectionnes  1 correspond a waypoint 1  
+tabcourses[9][11]=[[1,'WP1',-5.1151,-23,100],[2,'WP2',24.453,-21.2412,100]]
+
+console.log ('Nouvelle valeur')
+console.log(tabcourses[9])
+localStorage.setItem('trajetsvrouteur',JSON.stringify(tabcourses))
+
+//var memoiretrajets=new Array()
+// on va creer memoiretrajets
+
+
+localStorage.removeItem("memoiretrajets");
+//creation d'un localstorage memoiretrajets
+
+if (localStorage.getItem("memoiretrajets") !== null) {
+    memoiretrajets= JSON.parse(localStorage.getItem('memoiretrajets'))
+
+    console.log("memoiretrajets existe deja ");
+} else {
+    // on la crée
+    memoiretrajets=[[0,0,0,0,0,0,0,0,0,0,0,0,0]]
+    console.log("La variable n'existe pas !");
+    localStorage.setItem('memoiretrajets',JSON.stringify(memoiretrajets))
+}
+
+
+// ajoute un trajet
+trajet=  ['Takron-BSP','654.1',0,0,0,0,0,0,0,0,0,0,0] 
+trajet2= ['Sacron','654.1',0,0,0,0,0,0,0,0,0,0,0] 
+trajet3= ['Sacron','727.2',0,10,125,0,0,0,0,0,0,0,0] 
+
+
+//effecer
+
+
+
+
+function ajoutetrajet (trajet)
+{
+   memoiretrajets = JSON.parse(localStorage.getItem("memoiretrajets"))
+   console.log('memoiretrajets \n'+memoiretrajets)
+   memoiretrajets.unshift(trajet)
+   localStorage.setItem('memoiretrajets',JSON.stringify(memoiretrajets))
+}
+
+ajoutetrajet(trajet3)
+
+
+
+
+
+
+
+// var memoiretrajets= JSON.parse(localStorage.getItem('memoiretrajets'))
+// derniertrajet=[1,2,0,0,0,0,0,0,0,0,0,0,0]
+// memoiretrajets.unshift(derniertrajet)
+// console.log (memoiretrajets)
+
+// //on stocke memeoiretrajet en localstorage 
+// localStorage.setItem('memoiretrajets',JSON.stringify(memoiretrajets))
+
+
+    </script>
+    </head>
+
+
+
+
+    <!-- <body onload="zezo()"> -->
+    <body>       
+        <!-- <h1 style='color:blue'><center> Vrouteur {{nom}} pour {{valeur}}</center></h1> -->
+        <h2>Modif Local Storage</h2>
+        
+        <div>Localstorage remis a jour </div>
+        <br><table>
+        <tr><td>Username</td><td id="derniertrajet0">    </td></tr>
+        <tr><td>Course</td><td id="derniertrajet1">    </td></tr>
+        <tr><td>ycoord</td><td id="derniertrajet2">    </td></tr>
+        <tr><td>xcoord</td><td id="derniertrajet3">    </td></tr>
+        <tr><td>y0vr</td><td id="derniertrajet4">    </td></tr>
+        <tr><td>x0vr</td><td id="derniertrajet5">    </td></tr>
+        <tr><td>t0</td><td id="derniertrajet6">    </td></tr>
+        <tr><td>y1</td><td id="derniertrajet7">    </td></tr>
+        <tr><td>x1</td><td id="derniertrajet8">    </td></tr>
+        <tr><td>dep</td><td id="derniertrajet9">    </td></tr>
+        <tr><td>ari</td><td id="derniertrajet10">   </td></tr>
+        <tr><td>WP</td><td id="derniertrajet11">   </td></tr>
+        <tr><td>Source</td><td id="derniertrajet12">   </td></tr>
+    </table>
+
+    <button id ="supprimerdernier" value="0" >Supprimer le dernier </button><br>
+
+    </body>
+
+    <script>
+ //document.getElementById('selectc').innerHTML=selectcourse
+
+ document.getElementById("derniertrajet0").innerHTML =tabcourses[9][0]
+ document.getElementById("derniertrajet1").innerHTML =tabcourses[9][1]
+ document.getElementById("derniertrajet2").innerHTML =tabcourses[9][2]
+ document.getElementById("derniertrajet3").innerHTML =tabcourses[9][3]
+ document.getElementById("derniertrajet4").innerHTML =tabcourses[9][4]
+ document.getElementById("derniertrajet5").innerHTML =tabcourses[9][5]
+ document.getElementById("derniertrajet6").innerHTML =tabcourses[9][6]
+ document.getElementById("derniertrajet7").innerHTML =tabcourses[9][7]
+ document.getElementById("derniertrajet8").innerHTML =tabcourses[9][8]
+ document.getElementById("derniertrajet9").innerHTML =tabcourses[9][9]
+ document.getElementById("derniertrajet10").innerHTML =tabcourses[9][10]
+ document.getElementById("derniertrajet11").innerHTML =tabcourses[9][11]
+ document.getElementById("derniertrajet12").innerHTML =tabcourses[9][12]
+
+
+ for (let i = 0; i < 13; i++) {
+    let input = document.createElement("input");
+    input.type = "text";
+    input.id = "derniertrajet"+i;
+    input.placeholder = "Dernier trajet " + i; // Optionnel
+
+    document.body.appendChild(input); // Ajoute au `body` ou à un autre élément
+    document.body.appendChild(document.createElement("br")); // Saut de ligne (optionnel)
+}
+
+
+
+
+
+
+
+
+
+
+// Ecouteur pour supprimer dernier 
+const supprimerdernier= document.getElementById('supprimerdernier');
+supprimerdernier.addEventListener("click", function (evt)
+    { 
+   console.log ('On supprime le dernier element')
+   var tabcourses=JSON.parse(localStorage.getItem('trajetsvrouteur'))
+   tabcourses.pop()
+   localStorage.setItem('trajetsvrouteur',JSON.stringify(tabcourses))
+
+
+    });
+
+
+
+
+
+
+
+    </script>
+</html>

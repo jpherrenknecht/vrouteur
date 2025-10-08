@@ -1,0 +1,96 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <title>Windy + OSM</title>
+  <style>
+    html, body {
+      margin: 0;
+      padding: 0;
+      height: 100%;
+    }
+    #windy, #leafletMap {
+      position: absolute;
+      top: 0; bottom: 0; left: 0; right: 0;
+    }
+    #leafletMap {
+      z-index: 1000;
+      display: none; /* caché par défaut */
+      pointer-events: none; /* laisse Windy recevoir les clics */
+    }
+  </style>
+</head>
+<body>
+
+<!-- Conteneurs -->
+<div id="windy"></div>
+<div id="leafletMap"></div>
+
+<!-- Charger Windy -->
+<script src="https://api.windy.com/assets/map-forecast/libBoot.js"></script>
+
+<script>
+  const options = {
+    key: 'ydO74Xuxv2WWOEShDpel1kaiae8zCnLO',
+    lat: 46.1551,
+    lon: -1.2297,
+    zoom: 6
+  };
+
+  // attendre que Windy soit chargé
+  function initWhenReady() {
+    if (typeof windyInit === 'undefined') {
+      setTimeout(initWhenReady, 100);
+      return;
+    }
+
+    // Appel Windy
+    windyInit(options, windyAPI => {
+      const { map } = windyAPI;
+
+      // attendre que L soit dispo
+      function waitForLeaflet() {
+        if (typeof window.L === 'undefined') {
+          setTimeout(waitForLeaflet, 500);
+          return;
+        }
+
+        const L = window.L;
+
+        // Créer une carte Leaflet
+        const leafletMap = L.map('leafletMap', {
+          attributionControl: false,
+          zoomControl: false,
+          dragging: false,
+          scrollWheelZoom: false
+        }).setView([options.lat, options.lon], options.zoom);
+
+        // Ajouter les tuiles OSM
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+          maxZoom: 19,
+          attribution: '© OpenStreetMap'
+        }).addTo(leafletMap);
+
+        // Sync entre les cartes
+        function syncMaps() {
+          const zoom = map.getZoom();
+          const center = map.getCenter();
+          leafletMap.setView([center.lat, center.lng], zoom);
+
+          // Afficher/cacher Leaflet
+          document.getElementById('leafletMap').style.display = zoom > 11 ? 'block' : 'none';
+        }
+
+        map.on('zoomend moveend', syncMaps);
+        syncMaps();
+      }
+
+      waitForLeaflet();
+    });
+  }
+
+  initWhenReady();
+</script>
+
+</body>
+</html>

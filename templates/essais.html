@@ -1,0 +1,209 @@
+<html>
+    <head>
+    <title>Vrouteur </title>   
+
+    <script>
+function toDecimal(latDeg, latMin, latSec, latDir, lngDeg, lngMin, lngSec, lngDir) {
+    // Convert DMS to decimal for latitude
+    let lat = parseFloat(latDeg) + parseFloat(latMin) / 60 + parseFloat(latSec) / 3600;
+    if (latDir === "S") lat = -lat;
+
+    // Convert DMS to decimal for longitude
+    let lng = parseFloat(lngDeg) + parseFloat(lngMin) / 60 + parseFloat(lngSec) / 3600;
+    if (lngDir === "W") lng = -lng;
+
+    return { lat, lng };
+}
+
+function fromDecimal(latDecimal, lngDecimal) {
+    // Latitude
+    let latDir = latDecimal >= 0 ? "N" : "S";
+    let absLat = Math.abs(latDecimal);
+    let latDeg = Math.floor(absLat);
+    let latMin = Math.floor((absLat - latDeg) * 60);
+    let latSec = ((absLat - latDeg - latMin / 60) * 3600).toFixed(2);
+
+    // Longitude
+    let lngDir = lngDecimal >= 0 ? "E" : "W";
+    let absLng = Math.abs(lngDecimal);
+    let lngDeg = Math.floor(absLng);
+    let lngMin = Math.floor((absLng - lngDeg) * 60);
+    let lngSec = ((absLng - lngDeg - lngMin / 60) * 3600).toFixed(2);
+
+    return { latDeg, latMin, latSec, latDir, lngDeg, lngMin, lngSec, lngDir };
+}
+
+// Event listeners for buttons
+
+
+
+
+
+
+document.addEventListener("DOMContentLoaded", () => {
+document.getElementById("toDecimal").addEventListener("click", () => {
+    const latDeg = document.getElementById("latDeg").value;
+    const latMin = document.getElementById("latMin").value;
+    const latSec = document.getElementById("latSec").value;
+    const latDir = document.getElementById("latDir").value;
+
+    const lngDeg = document.getElementById("lngDeg").value;
+    const lngMin = document.getElementById("lngMin").value;
+    const lngSec = document.getElementById("lngSec").value;
+    const lngDir = document.getElementById("lngDir").value;
+
+    const { lat, lng } = toDecimal(latDeg, latMin, latSec, latDir, lngDeg, lngMin, lngSec, lngDir);
+
+    // Afficher les résultats dans les champs
+    document.getElementById("latDecimalResult").innerText = lat.toFixed(6);
+    document.getElementById("lngDecimalResult").innerText = lng.toFixed(6);
+});
+
+document.getElementById("fromDecimal").addEventListener("click", () => {
+    const latDecimal = parseFloat(prompt("Enter Latitude in Decimal:"));
+    const lngDecimal = parseFloat(prompt("Enter Longitude in Decimal:"));
+
+    const { latDeg, latMin, latSec, latDir, lngDeg, lngMin, lngSec, lngDir } = fromDecimal(latDecimal, lngDecimal);
+
+    document.getElementById("latDeg").value = latDeg;
+    document.getElementById("latMin").value = latMin;
+    document.getElementById("latSec").value = latSec;
+    document.getElementById("latDir").value = latDir;
+
+    document.getElementById("lngDeg").value = lngDeg;
+    document.getElementById("lngMin").value = lngMin;
+    document.getElementById("lngSec").value = lngSec;
+    document.getElementById("lngDir").value = lngDir;
+});
+
+
+
+// Écouteur pour l'événement "paste"
+document.getElementById("inputCoordinates").addEventListener("paste", (event) => {
+    // Empêcher le comportement par défaut si nécessaire
+    event.preventDefault();
+
+    // Récupérer le texte collé
+    const clipboardData = event.clipboardData || window.clipboardData;
+    const pastedData = clipboardData.getData("text");
+
+    // Insérer le texte collé dans le champ
+    event.target.value = pastedData;
+
+    // Conversion des coordonnées en décimales
+    const { latDecimal, lngDecimal } = dmsToDecimal(pastedData);
+
+    // Afficher les résultats
+    document.getElementById("latDecimalResult").innerText = latDecimal !== undefined ? latDecimal.toFixed(6) : "Erreur";
+    document.getElementById("lngDecimalResult").innerText = lngDecimal !== undefined ? lngDecimal.toFixed(6) : "Erreur";
+});
+
+
+
+
+});
+
+
+function dmsToDecimal(dmsString) {
+    const regex = /(\d+)°(\d+)'([\d.]+)"([NSEW])/g;
+    let matches, latDecimal, lngDecimal;
+    while ((matches = regex.exec(dmsString)) !== null) {
+        const degrees = parseFloat(matches[1]);
+        const minutes = parseFloat(matches[2]);
+        const seconds = parseFloat(matches[3]);
+        const direction = matches[4];
+        let decimal = degrees + minutes / 60 + seconds / 3600;
+
+        // Ajuster pour Sud et Ouest (valeurs négatives)
+        if (direction === 'S' || direction === 'W') {
+            decimal *= -1;
+        }
+
+        if (direction === 'N' || direction === 'S') {
+            latDecimal = decimal; // Latitude
+        } else if (direction === 'E' || direction === 'W') {
+            lngDecimal = decimal; // Longitude
+        }
+    }
+
+    return { latDecimal, lngDecimal };
+}
+
+
+
+
+
+
+
+
+
+    </script>
+    </head>
+
+
+
+
+    <!-- <body onload="zezo()"> -->
+    <body>       
+        <!-- <h1 style='color:blue'><center> Vrouteur {{nom}} pour {{valeur}}</center></h1> -->
+        <h2>Accueil</h2>
+          
+        <div id="coordinateInput">
+            <!-- Latitude -->
+            <div id="latitude">
+                <label>Latitude:</label>
+                <input class="classinput" type="number" id="latDeg" min="0" max="90" step="1" value="0">°
+                <input class="classinput2" type="number" id="latMin" min="0" max="60" step="1" value="0">' 
+                <input class="classinput2" type="number" id="latSec" min="0" max="60" step="1" value="0">"
+                <select id="latDir" class="classinput5">
+                    <option value="N" selected>N</option>
+                    <option value="S">S</option>
+                </select>
+            </div>
+        
+            <!-- Longitude -->
+            <div id="longitude">
+                <label>Longitude:</label>
+                <input class="classinput" type="number" id="lngDeg" min="0" max="180" step="1" value="0">°
+                <input class="classinput2" type="number" id="lngMin" min="0" max="60" step="1" value="0">' 
+                <input class="classinput2" type="number" id="lngSec" min="0" max="60" step="1" value="0">"
+                <select id="lngDir" class="classinput5">
+                    <option value="E" selected>E</option>
+                    <option value="W">W</option>
+                </select>
+            </div>
+        
+            <!-- Boutons -->
+            <button id="toDecimal">Convert to Decimal</button>
+            <button id="fromDecimal">Convert from Decimal</button>
+        
+            <!-- Affichage des résultats -->
+            <div id="result">
+                <p><strong>Résultats:</strong></p>
+                <p>Latitude Décimale: <span id="latDecimalResult">0</span></p>
+                <p>Longitude Décimale: <span id="lngDecimalResult">0</span></p>
+            </div>
+        </div>   
+
+
+
+
+        <div id="coordinateInput">
+            <label for="inputCoordinates">Collez ici les coordonnées (DMS) :</label>
+            <input type="text" id="inputCoordinates" placeholder="Collez ici avec Ctrl+V" size="40">
+            
+            <div id="result">
+                <p><strong>Résultats :</strong></p>
+                <p>Latitude Décimale : <span id="latDecimalResult">0</span></p>
+                <p>Longitude Décimale : <span id="lngDecimalResult">0</span></p>
+            </div>
+        </div>
+
+
+
+    </body>
+
+    <script>
+ //document.getElementById('selectc').innerHTML=selectcourse
+    </script>
+</html>

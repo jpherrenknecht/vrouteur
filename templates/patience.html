@@ -1,0 +1,250 @@
+<html>
+    <head>
+    <title>Vrouteur </title>
+   
+        <meta name="Author" content="JP Herrenknecht">
+        <meta charset="utf-8"/>   
+        <meta  name="viewport" content="width=device-width, initial-scale=1.0, shrink-to-fit=no"    />
+        <script src="https://unpkg.com/leaflet@1.4.0/dist/leaflet.js"></script>
+        <script src="https://api.windy.com/assets/map-forecast/libBoot.js"></script>
+        <script src="https://code.jquery.com/jquery-3.3.1.min.js"></script>
+        <script src="https://unpkg.com/leaflet-arc/bin/leaflet-arc.min.js"></script>
+        <script  type="text/javascript" src="{{ url_for('static', filename='js/windleaf.js') }}"></script>
+        <link rel="stylesheet" type="text/css" href="{{ url_for('static', filename='css/windbase.css') }}">
+        <link rel="shortcut icon" href="{{ url_for('static', filename='img/favicon.ico') }}">
+
+   
+    <script type="text/javascript">
+
+  
+    // ici ce sont les donnees transmises par render template dans application
+
+        lat        = {{ lat }} 
+        lon        = {{ lon }} 
+        userid     = '{{ userid }}' 
+        username   = '{{ username }}' 
+        teamname   = '{{ teamname }}' 
+        type       = '{{ type }}' 
+        clat       = {{ clat }} 
+        clon       = {{ clon }} 
+        ts         = {{ ts }} 
+        o          = {{ o }} 
+        auto       = '{{ auto }}' 
+        twa        = {{ twa }} 
+        tws        = {{ tws }} 
+        twd        = {{ twd }} 
+        course     = '{{ course }}' 
+        rank       = {{ rank }} 
+        voile      = {{ voile }} 
+        depart     = {{ depart }} 
+        source     = '{{ source }}' 
+
+
+
+// Donnees necessaires pour zezo
+// stmalo
+// lat
+// lon
+// clat
+// clon
+// ts
+// o
+// twa
+// userid
+// type
+// auto
+
+race=course.split('.')[0]
+leg=course.split('.')[1]
+
+console.log ('Source : '+source)
+
+
+        // valeurs rajoutees par application
+        tabmarques = {{ tabmarques| tojson }};     // necessaire pour ajouter les marques sur la carte
+        y1         = {{ y1 }}                      // necessaire pour definir le trajet  stocké dans local storage
+        x1         = {{ x1 }}
+        // valeur rajoutee
+        var ari        =1
+        var dep        =depart
+
+    
+     trajet=[username,course,lat,lon,ts,y1,x1,depart,ari,'dashmap']   
+    
+     console.log('l 71 trajet '+trajet)
+
+
+
+        function maj_tableau_trajets(trajet)
+		// cette fonction met a jour le tableau des trajets localstorage apres l'avoir eventuellement créé s'il n'existait pas 
+		{
+			var tabcourses=JSON.parse(localStorage.getItem('trajetsvrouteur'))
+            if (localStorage.getItem("trajetsvrouteur") === null)
+                {   var a=new Array(10)       // 10 positions:  nom course t0 y0,x0,y1,x1,dep,ari,source  
+                    var tabcoursesini= [a,a,a,a,a,a,a,a,a,trajet]      // possibilite de stocker 10 courses a la fois 
+                    localStorage.setItem('trajetsvrouteur',JSON.stringify(tabcoursesini))
+                }
+            else{
+                for ( var i=0 ;i< tabcourses.length ;i++)
+                    
+                    { if ( tabcourses[i][0]==username && tabcourses[i][1]==course )   // si la course a deja ete initiee
+                        {   
+                            tabcourses[i]=trajet
+                            localStorage.setItem('trajetsvrouteur',JSON.stringify(tabcourses))
+                            console.log ('la modification sur course existante a ete enregistree')
+                        var chgt='ok'
+                        } 
+                    }
+                if (chgt!='ok')      // si on a pas trouve la course dans le tableau  on considere que le depart est y0 x0 et l arrivee la marque ari=1
+                    {   tabcourses.shift()    //on rajoute la course en faisant sauter l'element le plis ancien
+                        tabcourses.push(trajet)
+                        localStorage.setItem('trajetsvrouteur',JSON.stringify(tabcourses))
+                    }   
+                }
+        }
+
+    // si local storage n existe pas 
+        if (localStorage.getItem("trajetsvrouteur") === null)
+            {   var a=new Array(10)       // 10 positions:  nom course t0 y0,x0,y1,x1,dep,ari,source  
+                trajet=[username,course,lat,lon,ts,y1,x1,depart,1,'dashmap'] 
+                var tabcoursesini= [a,a,a,a,a,a,a,a,a,trajet]      // possibilite de stocker 10 courses a la fois 
+                localStorage.setItem('trajetsvrouteur',JSON.stringify(tabcoursesini))
+            }
+
+
+
+
+	// si local storage existe et si la course existe deja dans local storage
+    var existe='non'
+        var tabcourses=JSON.parse(localStorage.getItem('trajetsvrouteur'))
+        for ( var i=0 ;i< tabcourses.length ;i++)
+            { if ( tabcourses[i][0]==username && tabcourses[i][1]==course )   // si la course a deja ete initiee
+                {  trajet=tabcourses[i]
+                   console.log ('Trajet trouve : '+ trajet)
+                   // on met a jour le trajet avec le nouveau point de depart qui  vient de dashmap
+                   ari=trajet[8]
+                   trajet=[username,course,lat,lon,ts,y1,x1,depart,ari,'dashmap']  
+                   maj_tableau_trajets(trajet)
+                   var  existe='oui'
+                }
+            }
+        
+    if (existe !='oui')
+
+            {trajet=[username,course,lat,lon,ts,y1,x1,depart,1,'dashmap']   // on prend 1 comme arrivee par defaut 
+              maj_tableau_trajets(trajet)
+            }
+
+
+    
+
+            //localStorage.setItem('trajetsvrouteur',JSON.stringify(tabcourses))
+            //console.log ('la modification sur course existante a ete enregistree')
+      // si on a pas trouve la course dans le tableau  on considere que le depart est y0 x0 et l arrivee la marque ari=1
+
+
+    
+  
+
+
+   
+
+
+
+    console.log('tabmarques'+tabmarques)    
+    var textebox = "<div align='center'><br><div id='box'  ><h2>  Vrouteur !"
+        
+        +"</div> <h3>course : "+course+"</h3></div>"
+        +"</div> <h3>Tws : "+tws.toFixed(2)+" Twd :" +twd.toFixed(2)+" Twa "+twa.toFixed(2)+" voile "+voile+"     </h3></div>"
+        +"<div  align='center'><h3> Routage en cours De Position VR "+lat.toFixed(4)+"  "+lon.toFixed(4)+"</h3></div>"
+        +"<div  align='center'><h3> <br>Vers "+tabmarques[ari][0] +"</h3></div>"
+        +"</h2></div>"    
+
+
+
+    var windiv=document.getElementById("windy")
+    const options = 
+	
+    { key: 'ydO74Xuxv2WWOEShDpel1kaiae8zCnLO', verbose: true,lat: lat,lon: lon, zoom:4  };             //Positionné sur La Rochelle
+    
+    windyInit(options, windyAPI => {
+    const {map, picker, utils, broadcast,store } = windyAPI;
+    var tcarte=store.get('timestamp')
+    var decalageh=0                                          // essai de decalage du temps initial dans windy
+    store.set('timestamp',tcarte+decalageh*3600000) 
+
+
+
+    // on va rajouter des div  a windy
+    let elt = document.getElementById("windy");
+    const newElt1 = document.createElement("div");  
+   
+    elt.appendChild(newElt1);
+    newElt1.classList.add("boite1");
+
+
+    newElt1.innerHTML=textebox  
+
+   
+    for (var i=0;i<tabmarques.length;i++)                                                                           // marques de parcours            
+            {  var latm=tabmarques [i][1]
+               var lngm=tabmarques [i][2]
+               L.marker([latm,lngm ],    {icon: blackIcon}).bindTooltip(tabmarques [i][0]).addTo(map); 
+            } 
+
+    
+
+    L.marker([lat,lon ],    {icon: greenIcon}).bindTooltip('Position actuelle VR').addTo(map); 
+   
+ source='patience'
+ broadcast.once('redrawFinished', () => {
+            //picker.open({ lat: 48.4, lon: 14.3 });
+            // Opening of a picker (async)
+            var tcarte=store.get('timestamp')
+            console.log('Dans redraw finished once    '+tcarte)  
+            window.location="vroutage?lat="+lat
+            +"&lon="+ lon
+            +"&userid="+userid
+            +"&username="+username   
+            +"&teamname="+teamname  
+            +"&type="+type     
+            +"&clat="+clat    
+            +"&clon="+clon    
+            +"&ts="+ts    
+            +"&o="+o    
+            +"&auto="+auto    
+            +"&twa="+twa    
+            +"&tws="+tws   
+            +"&twd="+twd   
+            +"&course="+course    
+            +"&rank="+rank    
+            +"&voile="+voile  
+            +"&source="+source
+            // valeurs issues de local storage   
+            +"&y1="+y1  
+            +"&x1="+x1  
+            +"&ari="+ari  
+            +"&dep="+dep 
+            +"&passage=1"  
+
+        });
+        
+    });
+    </script>
+    </head>
+
+
+    <body>
+        <div id="windy"></div>   
+
+
+    </body>
+
+<script>
+
+
+//on redirige vers le site avec le routage
+</script>
+
+
+</html>

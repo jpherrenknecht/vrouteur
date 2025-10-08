@@ -1,0 +1,441 @@
+<html>
+    <head>
+    <title>Modif local Storage</title>
+
+    <script>
+// var tabcourses=JSON.parse(localStorage.getItem('trajetsvrouteur'))
+// //tabcourses.push([0,0,0,0,0,0,0,0,0,0,0,0,0])
+
+// console.log(tabcourses[9])
+// //tabcourses [9][0]='Takron-BSP'
+// tabcourses [9][0]='Takron-BSP'
+// tabcourses [9][1]='654.1'
+
+// tabcourses [9][10]=[1,2]                   //ari = waypoints selectionnes  1 correspond a waypoint 1
+// tabcourses[9][11]=[[1,'WP1',-5.1151,-23,100],[2,'WP2',24.453,-21.2412,100]]
+
+// console.log ('Nouvelle valeur')
+// console.log(tabcourses[9])
+// localStorage.setItem('trajetsvrouteur',JSON.stringify(tabcourses))
+
+// //var memoiretrajets=new Array()
+// // on va creer memoiretrajets
+
+
+
+
+//creation d'un localstorage memoiretrajets si la valeur n existe pas deja
+
+
+
+
+// ajoute un trajet
+
+
+//effacer
+
+
+titres=[]
+
+
+//******************************************************************************************************************
+//*********   Fonctions de gestion du localstorage    **************************************************************
+//******************************************************************************************************************
+
+//vider la variable
+
+function effacertout(nomlocalstorage){
+localStorage.removeItem(nomlocalstorage);
+}
+
+
+
+function initialiselocalstorage(){
+    //initialisememoiretrajets
+    if (localStorage.getItem("memoiretrajets") !== null) {
+        memoiretrajets= JSON.parse(localStorage.getItem('memoiretrajets'))
+
+        console.log("memoiretrajets existe deja ");
+    } else {
+        // on la crée
+        memoiretrajets=[[0,0,0,0,0,0,0,0,0,0,0,0,0]]
+        console.log("La variable n'existe pas !");
+        localStorage.setItem('memoiretrajets',JSON.stringify(memoiretrajets))
+    }
+}
+
+
+
+
+function trouvetrajet(nomlocalstorage, username, course) {
+    //trouve le trajet et le reinstalle en première position
+    let  tableau = JSON.parse(localStorage.getItem(nomlocalstorage))
+    // Trouver l'index du trajet
+    let index = tableau.findIndex(ligne => ligne[0] === username && ligne[1] === course);
+    if (index === -1) {
+        return [] ; // Retourner un tableau vide si rien n'est trouvé
+    }
+    if (index > 0) { // L'élément est trouvé mais pas en premier
+        let ligneCible = tableau.splice(index, 1)[0]; // Extraire la ligne ciblée
+        tableau.unshift(ligneCible); // Réinsérer en première position
+        localStorage.setItem('memoiretrajets', JSON.stringify(tableau)); // Mettre à jour localStorage
+        return ligneCible;
+    }
+    return tableau[0];  // L'élément est déjà en première position
+}
+
+
+
+
+
+function ajouteoumodifietrajet(username,course,trajet){
+// on cherche si le trajet existe deja
+let  memoiretrajets = JSON.parse(localStorage.getItem(nomlocalstorage))
+    // Trouve l'index du trajet
+    let index = memoiretrajets.findIndex(ligne => ligne[0] === username && ligne[1] === course);
+
+    if (index ==-1 ) { // L'élément n'est pas trouvé on le rajoute
+    memoiretrajets.unshift(trajet)
+    memoiretrajets = JSON.parse(localStorage.getItem(nomlocalstorage))
+    }
+
+else{ // le trajet existe deja , on l extrait }
+    let trajetold  = memoiretrajets.splice(index, 1)[0]; // Extraire la ligne ciblée
+    // on le modifie  course et username existent deja
+    // on modifie le terme
+    trajet[13]='Mise à jour '
+    // on le remet en premièreposition
+    memoiretrajets.unshift(trajet);
+    // on sauve
+    localStorage.setItem('memoiretrajets', JSON.stringify(memoiretrajets)); // Mettre à jour localStorage
+}
+
+
+}
+
+
+
+
+
+
+
+
+// trajet=  ['Takron-BSP','654.1',0,0,0,0,0,0,0,0,0,0,0]
+// trajet2= ['Sacron','654.1',0,10,0,0,0,0,0,0,0,0,0]
+
+
+// effacer(valeur)
+// initialiselocalstorage()
+
+username='Sacron'
+course='727.2'
+nomlocalstorage='memoiretrajets'
+
+trajet =trouvetrajet(nomlocalstorage,username,course)
+
+if (trajet.length === 0) {
+    console.log("Aucun trajet trouvé");
+} else {
+    console.log("Trajet trouvé :", trajet);
+}
+
+
+
+var memoiretrajets= JSON.parse(localStorage.getItem('memoiretrajets'))
+// derniertrajet=[1,2,0,0,0,0,0,0,0,0,0,0,0]
+// memoiretrajets.unshift(derniertrajet)
+// console.log (memoiretrajets)
+
+// //on stocke memeoiretrajet en localstorage
+// localStorage.setItem('memoiretrajets',JSON.stringify(memoiretrajets))
+
+titres=['username','course','ycoord','xcoord','y0vr','x0vr','t0','y1','x1','dep','ari','aritab','WP','Source']
+
+    </script>
+    </head>
+
+
+
+
+    <!-- <body onload="zezo()"> -->
+    <body>
+        <!-- <h1 style='color:blue'><center> Vrouteur {{nom}} pour {{valeur}}</center></h1> -->
+        <h2>Modif Local Storage</h2>
+
+        <div>Localstorage remis a jour </div>
+        <br><table>
+        <tr><td>Username</td><td id="derniertrajet0">    </td></tr>
+        <tr><td>Course</td><td id="derniertrajet1">    </td></tr>
+        <tr><td>ycoord</td><td id="derniertrajet2">    </td></tr>
+        <tr><td>xcoord</td><td id="derniertrajet3">    </td></tr>
+        <tr><td>y0vr</td><td id="derniertrajet4">    </td></tr>
+        <tr><td>x0vr</td><td id="derniertrajet5">    </td></tr>
+        <tr><td>t0</td><td id="derniertrajet6">    </td></tr>
+        <tr><td>y1</td><td id="derniertrajet7">    </td></tr>
+        <tr><td>x1</td><td id="derniertrajet8">    </td></tr>
+        <tr><td>dep</td><td id="derniertrajet9">    </td></tr>
+        <tr><td>ari</td><td id="derniertrajet10">   </td></tr>
+        <tr><td>aritab><td id="derniertrajet11">   </td></tr>
+        <tr><td>WP</td><td id="derniertrajet12">   </td></tr>
+        <tr><td>Source</td><td id="derniertrajet13">   </td></tr>
+    </table>
+
+    <button id ="supprimerdernier" value="0" >Supprimer le dernier </button><br>
+
+    </body>
+
+    <script>
+ //document.getElementById('selectc').innerHTML=selectcourse
+
+//  document.getElementById("derniertrajet0").innerHTML  =memoiretrajets[0][0]
+//  document.getElementById("derniertrajet1").innerHTML  =memoiretrajets[0][1]
+//  document.getElementById("derniertrajet2").innerHTML  =memoiretrajets[0][2]
+//  document.getElementById("derniertrajet3").innerHTML  =memoiretrajets[0][3]
+//  document.getElementById("derniertrajet4").innerHTML  =memoiretrajets[0][4]
+//  document.getElementById("derniertrajet5").innerHTML  =memoiretrajets[0][5]
+//  document.getElementById("derniertrajet6").innerHTML  =memoiretrajets[0][6]
+//  document.getElementById("derniertrajet7").innerHTML  =memoiretrajets[0][7]
+//  document.getElementById("derniertrajet8").innerHTML  =memoiretrajets[0][8]
+//  document.getElementById("derniertrajet9").innerHTML  =memoiretrajets[0][9]
+//  document.getElementById("derniertrajet10").innerHTML =memoiretrajets[0][10]
+//  document.getElementById("derniertrajet11").innerHTML =memoiretrajets[0][11]
+//  document.getElementById("derniertrajet12").innerHTML =memoiretrajets[0][12]
+//  document.getElementById("derniertrajet13").innerHTML =memoiretrajets[0][13]
+
+initialiselocalstorage()
+
+function ajoutetrajet (trajet)
+{
+   memoiretrajets = JSON.parse(localStorage.getItem("memoiretrajets"))
+   console.log('memoiretrajets \n'+memoiretrajets)
+   memoiretrajets.unshift(trajet)
+   localStorage.setItem('memoiretrajets',JSON.stringify(memoiretrajets))
+}
+
+
+
+
+// Ecouteur pour supprimer dernier
+const supprimerdernier= document.getElementById('supprimerdernier');
+supprimerdernier.addEventListener("click", function (evt)
+    {
+   console.log ('On supprime le dernier element')
+   var tabcourses=JSON.parse(localStorage.getItem('trajetsvrouteur'))
+   tabcourses.pop()
+   localStorage.setItem('trajetsvrouteur',JSON.stringify(tabcourses))
+    });
+
+
+
+
+let titres = ['username','course','ycoord','xcoord','y0vr','x0vr','t0','y1','x1','dep','ari','aritab','WP','Source'];
+// memoiretrajets = JSON.parse(localStorage.getItem("memoiretrajets"))
+// let container = document.createElement("div"); // Conteneur principal
+// document.body.appendChild(container);
+
+// for (let i = 0; i < 14; i++) {
+//     let ligne = document.createElement("div"); // Ligne individuelle
+//     ligne.style.display = "flex"; // Utiliser Flexbox pour l'alignement
+//     ligne.style.marginBottom = "5px"; // Espacement entre les lignes
+
+//     let label = document.createElement("label");
+//     label.textContent = titres[i] + " : ";
+//     label.style.width = "100px"; // Largeur fixe pour alignement
+
+//     let input = document.createElement("input");
+//     input.type = "text";
+//     input.value= memoiretrajets[0][i]
+//     input.id = "derniertrajet" + i;
+//     input.placeholder = "Entrer " + titres[i];
+
+//     ligne.appendChild(label);
+//     ligne.appendChild(input);
+//     container.appendChild(ligne);
+// }
+
+// for (let i = 0; i < 13; i++) {
+//     let input = document.createElement("input");
+//     input.type = "text";
+//     input.id = "derniertrajet"+i;
+//     input.placeholder = "Dernier trajet " + i; // Optionnel
+
+
+//     document.body.appendChild(input); // Ajoute au `body` ou à un autre élément
+//     document.body.appendChild(document.createElement("br")); // Saut de ligne (optionnel)
+// }
+
+
+
+// function updateTrajet(username, course, trajet) {
+//     // Récupérer le tableau depuis le localStorage
+//     let memoiretrajets = JSON.parse(localStorage.getItem('memoiretrajets')) || [];
+    
+//     // Trouver l'index de la ligne à remplacer
+//     let index = memoiretrajets.findIndex(row => row[0].trim() === username.trim() && row[1] == course);
+    
+//     if (index !== -1) {
+//         // Supprimer la ligne existante
+//         memoiretrajets.splice(index, 1);
+//     }
+    
+//     // Ajouter la nouvelle ligne en tête de liste
+//     memoiretrajets.unshift(trajet);
+    
+//     // Sauvegarder dans le localStorage
+//     localStorage.setItem('memoiretrajets', JSON.stringify(memoiretrajets));
+// }
+
+
+// function ajouteoumodifietrajet2(username,course,trajet){
+// //cherche trajet pour username et course
+// //si on trouve on modifie, si on trouve pas on ajoute et on met en haut
+// memoiretrajets = JSON.parse(localStorage.getItem(nomlocalstorage))
+// console.log (memoiretrajets)
+// let index = memoiretrajets.findIndex(ligne => ligne[0] === username && ligne[1] === course);
+// // Trouve l'index du trajet
+
+// console.log ('valeur index trouvé '+index )
+
+// if (index ==-1 ) { // L'élément n'est pas trouvé on le rajoute
+// console.log ('On a rien trouve on rajoute ')
+// memoiretrajets.unshift(trajet)
+// localStorage.setItem('memoiretrajets', JSON.stringify(memoiretrajets)); // Mettre à jour localStorage
+// }
+// else{
+
+// console.log ('On a trouve un trajet en position ' +index)
+// memoiretrajets= memoiretrajets.splice(index, 1); // on retire  1 ligne à l 'index ciblée
+// console.log (memoiretrajets)
+// memoiretrajets.splice(0,1,trajet); // on rajoute trajet en position 0
+// console.log (memoiretrajets)
+// //localStorage.setItem('memoiretrajets', JSON.stringify(memoiretrajets)); // Mettre à jour localStorage
+// }
+// }
+
+console.log ('Ligne 262 \n******************')
+
+
+
+trajet3= ['Sacron','727.2',0,10,125,0,0,0,0,0,[1],[[1,'WP1',-5.1151,-23,100],[2,'WP2',24.453,-21.2412,100]],'Création']
+trajet4= ['Sacron','654.1',0,10,125,0,0,0,0,0,[1],[[1,'WP1',-5.1151,-23,100],[2,'WP2',24.453,-21.2412,100]],'Création']
+trajet5=["Takron-BSP", "654.1", 33.41476, -18.5957, 33.41476, -18.5957,0,0,0,0,['WP1'],[[1,'WP1',-5.1151,-23,100],[2,'WP2',24.453,-21.2412,100]],'maj']
+trajet6=["Sacron  ", "657.1", 4500, -2010, 33.41476, -18.5957,0,0,0,0,['WP1'],[[1,'WP1',-5.1151,-23,100],[2,'WP2',24.453,-21.2412,100]],'maj']
+
+
+
+
+// effacertout('memoiretrajets')
+// initialiselocalstorage()
+// ajoutetrajet(trajet3)
+// ajoutetrajet(trajet4)
+// ajoutetrajet(trajet5)
+// ajoutetrajet(trajet6)
+
+
+username ='Takron-BSP'
+course   ='654.1'
+trajet=["Takron-BSP", "654.1", 45, -20, 33.41476, -18.5957,0,0,0,0,['WP1'],[[1,'WP1',-5.1151,-23,100],[2,'WP2',24.453,-21.2412,100]],'maj']
+
+username ='Sacron'
+course   ='654.1'
+trajet=["Sacron", "654.1", 10.5, 12.30, 33.41476, -18.5957,0,0,0,0,['WP1'],[[1,'WP1',-5.1151,-23,100],[2,'WP2',24.453,-21.2412,100]],'maj']
+
+
+username ='Sacron'
+course   ='654.1'
+trajet=["Sacron", "654.1", 10.5, 12.30, 33.41476, -18.5957,0,0,0,0,['WP1'],[[1,'WP1',-5.1151,-23,100],[2,'WP2',24.453,-21.2412,100]],'maj']
+
+
+
+
+function cleanMemoire() {
+  const KEY = 'memoiretrajets';
+  try {
+    const raw = localStorage.getItem(KEY);
+    if (!raw) return;
+    let arr = JSON.parse(raw);
+    if (!Array.isArray(arr)) return;
+
+    arr = arr
+      .map(row => {
+        if (Array.isArray(row)) return row;
+        if (row && typeof row === 'object') {
+          // Convertit objet -> tableau minimal
+          return [String(row.username ?? ''), String(row.course ?? ''), row];
+        }
+        return null;
+      })
+      .filter(row => Array.isArray(row) && row.length >= 2);
+
+    localStorage.setItem(KEY, JSON.stringify(arr));
+  } catch(e) {
+    console.warn('Nettoyage memoiretrajets ignoré:', e);
+  }
+};
+
+cleanMemoire()
+
+function updateTrajet(username, course, trajet) {
+  const KEY = 'memoiretrajets';
+
+  // Lecture sécurisée
+  let memoiretrajets;
+  try {
+    const raw = localStorage.getItem(KEY);
+    memoiretrajets = raw ? JSON.parse(raw) : [];
+  } catch (e) {
+    console.warn('memoiretrajets corrompu, réinitialisation.', e);
+    memoiretrajets = [];
+  }
+  if (!Array.isArray(memoiretrajets)) memoiretrajets = [];
+
+  const normUser   = String(username ?? '').trim();
+  const normCourse = String(course ?? '');
+
+  // Fonction de correspondance qui accepte tableaux OU objets
+  const isSameTrajet = (row) => {
+    if (!row) return false;
+
+    if (Array.isArray(row)) {
+      const u = String(row[0] ?? '').trim();
+      const c = String(row[1] ?? '');
+      return u === normUser && c == normCourse; // == pour gérer "654.1" vs 654.1
+    }
+
+    if (typeof row === 'object') {
+      const u = String(row.username ?? '').trim();
+      const c = String(row.course ?? '');
+      return u === normUser && c == normCourse;
+    }
+
+    return false;
+  };
+
+  // Supprime l’éventuelle ligne existante (quelle que soit sa forme)
+  const index = memoiretrajets.findIndex(isSameTrajet);
+  if (index !== -1) memoiretrajets.splice(index, 1);
+
+  // Ajoute la nouvelle ligne en tête
+  memoiretrajets.unshift(trajet);
+
+  // Sauvegarde
+  localStorage.setItem(KEY, JSON.stringify(memoiretrajets));
+}
+
+
+
+//localStorage.removeItem('memoiretrajets');
+updateTrajet(username,course,trajet)
+
+
+
+
+
+
+
+
+
+
+
+    </script>
+</html>

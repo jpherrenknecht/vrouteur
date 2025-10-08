@@ -1,0 +1,134 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.7.1/dist/leaflet.css" />
+
+
+
+
+
+    <title>Carte Windy avec Leaflet et Spline</title>
+    <meta name="Author" content="JP Herrenknecht">
+    <meta charset="utf-8"/>   
+    <meta  name="viewport" content="width=device-width, initial-scale=1.0, shrink-to-fit=no"    />
+    <script src="https://unpkg.com/leaflet@1.4.0/dist/leaflet.js"></script>
+    <script src="https://api.windy.com/assets/map-forecast/libBoot.js"></script>
+    <script src="https://code.jquery.com/jquery-3.3.1.min.js"></script>
+    <script src="https://unpkg.com/leaflet-arc/bin/leaflet-arc.min.js"></script>
+    <script  type="text/javascript" src="{{ url_for('static', filename='js/windleaf.js') }}"></script>
+    <script src="https://unpkg.com/leaflet.boatmarker/leaflet.boatmarker.min.js"></script>
+    <!-- <script src="https://unpkg.com/leaflet-path-drag@0.0.7/Leaflet.Path.Drag.js"></script> -->
+    
+    <link rel="stylesheet" type="text/css" href="{{ url_for('static', filename='css/windbase.css') }}">
+    <link rel="shortcut icon" href="{{ url_for('static', filename='img/favicon.ico') }}">
+
+    <script  type="text/javascript" src="{{ url_for('static', filename='js/leaflet.curve.js') }}"></script>
+    <script  type="text/javascript" src="{{ url_for('static', filename='js/Path.Drag.js') }}"></script>
+
+</head>
+<body>
+    <div id="windy" style="width: 100%; height: 800px;"></div>
+
+    <script type="module">
+        const options = {
+            key: 'ydO74Xuxv2WWOEShDpel1kaiae8zCnLO', // Remplacez par votre clé API Windy
+            verbose: true,
+            lat: 46.1551,
+            lon: -1.2297,
+            zoom: 6
+        };
+
+        var textepopup=" "
+        +"<div  id='popup2' >"
+        +'<h2>Paramètres du WP  </h2>'
+        +"<table class='tableposition'>"
+        +"<td>Lat  </td><td  id ='y0wp'>125.245</td><td> Lon  </td><td  id ='x0wp'> </td>"
+        +"</table>"
+        +'<label for="param1">Nom :</label>'
+        +'<input type="text" id="nom_wp" name="nom_wp" required><br><br>'
+        +'<label for="param2">Rayon:</label>'
+        +'<input type="text" id="rayon_wp" name="rayon_wp" value=2 required><br><br>'
+        +'<button id="sauvewp" >Sauvegarder</button>'
+        +'<button id="closewp">Fermer</button>'
+        +'</div>'
+   
+
+
+
+    windyInit(options, windyAPI => {
+            const { map } = windyAPI;
+            var elt = document.getElementById("windy");
+       
+
+
+
+
+
+
+    var path = L.curve(['M',[50.54136296522163,28.520507812500004],
+					'C',[52.214338608258224,28.564453125000004],
+						[48.45835188280866,33.57421875000001],
+						[50.680797145321655,33.83789062500001],
+					'V',[48.40003249610685],
+					'L',[47.45839225859763,31.201171875],
+						[48.40003249610685,28.564453125000004],'Z'],
+					{color:'red',fill:true}).addTo(map);
+
+
+    var circle = L.circle([48.8566, 2.3522], {
+                    color: 'red',
+                    fillColor: '#f03',
+                    fillOpacity: 0.5,
+                    radius: 10000,
+                    draggable: true, // Activer le déplacement
+                }).addTo(map);
+     
+        circle.dragging.enable(); // Activer le déplacement du cercle
+
+        circle.on('dragend', function (e) 
+            {
+                var newCoords = e.target.getLatLng();
+                alert('Nouvelles coordonnées : ' + newCoords.lat + ', ' + newCoords.lng);
+            });
+
+
+
+    // on va inserer une boite de dialogue 
+
+
+            const newElt7 = document.createElement("div");     // c est la boite cachée pour ajout de Wp
+            elt.appendChild(newElt7);
+            //newElt7.classList.add("popup2"); 
+            newElt7.innerHTML= textepopup 
+            var popup2        = document.getElementById('popup2');
+           // popup2.style.display = 'block';
+
+
+
+            // var closewp=document.getElementById('closewp') 
+            // closewp.addEventListener("click", function (evt){
+            //     var popup2        = document.getElementById('popup2');
+            //     popup2.style.display = 'none';
+
+
+
+            // // Exemple de données pour une polyligne
+            // const latlngs = [
+            //     [46.1551, -1.2297],
+            //     [47.0, -0.5],
+            //     [48.0, 0.5],
+            //     [49.0, 1.0]
+            // ];
+
+            // // Créer une spline à partir des données de la polyligne
+            // const spline = L.spline(latlngs, {
+            //     color: 'blue',
+            //     weight: 3,
+            //     opacity: 0.7
+            // }).addTo(map);
+        });
+    </script>
+</body>
+</html>

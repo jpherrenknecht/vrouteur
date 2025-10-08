@@ -1,0 +1,109 @@
+<html>
+    <head>
+    <title>Windleaf </title>
+   
+        <meta name="Author" content="JP Herrenknecht">
+        <meta charset="utf-8"/>   
+        <meta  name="viewport" content="width=device-width, initial-scale=1.0, shrink-to-fit=no"    />
+        <script src="https://unpkg.com/leaflet@1.4.0/dist/leaflet.js"></script>
+        <script src="https://api.windy.com/assets/map-forecast/libBoot.js"></script>
+        <script src="https://code.jquery.com/jquery-3.3.1.min.js"></script>
+        <script src="https://unpkg.com/leaflet-arc/bin/leaflet-arc.min.js"></script>
+        <script  type="text/javascript" src="{{ url_for('static', filename='js/windleaf.js') }}"></script>
+        <script src="https://unpkg.com/leaflet.boatmarker/leaflet.boatmarker.min.js"></script>
+        <link rel="stylesheet" type="text/css" href="{{ url_for('static', filename='css/windbase.css') }}">
+        <link rel="shortcut icon" href="{{ url_for('static', filename='img/favicon.ico') }}">
+        <script  type="text/javascript" src="{{ url_for('static', filename='js/leaflet.curve.js') }}"></script>
+   
+    <script type="text/javascript">
+
+document.onmousemove = suitsouris2;
+
+            function suitsouris2(evenement)
+                {
+                        if(navigator.appName=="Microsoft Internet Explorer")
+                        {       var x = event.x+document.body.scrollLeft;
+                                var y = event.y+document.body.scrollTop;
+                        }
+                        else
+                        {       var x =  evenement.pageX;
+                                var y =  evenement.pageY;
+                        }
+                        document.getElementById("box").style.position='relative';
+                        document.getElementById("box").style.left = (x+20)+'px';
+                        document.getElementById("box").style.top  = (y)+'px';
+                        document.getElementById("box").innerHTML   = x ;
+
+                }
+
+ // on va rajouter une div  a windy
+
+        var textebox= "<div id='box'  >  tatare</div>"
+      //  let elt = document.getElementById("windy");
+
+       //style='position:absolute;display:block;z-index:5;'
+
+    var windiv=document.getElementById("windy")
+    const options = 
+	{ key: 'ydO74Xuxv2WWOEShDpel1kaiae8zCnLO', verbose: true,lat: 46.1551,lon: -1.2297, zoom:6  };             //Positionné sur La Rochelle
+    
+    windyInit(options, windyAPI => {
+        const {map, picker, utils, broadcast,store } = windyAPI;
+   
+        let elt = document.getElementById("windy");
+        const newElt1 = document.createElement("div");   
+        elt.appendChild(newElt1);
+        newElt1.classList.add("box");
+        newElt1.innerHTML=textebox   
+
+     L.popup()
+        .setLatLng([46.1551,-1.2297])
+        .setContent('Hello la Rochelle')
+        .openOn(map);
+
+
+
+// add the boatmarker at a startpoint
+
+
+boatMarkers = new L.LayerGroup()
+cap=320
+//jaune "#f1c40f"
+var boatMarker = L.boatMarker([47,-7], {  color: "#ff00ff",Heading :cap 	}).addTo(boatMarkers);
+
+    //boatMarker.setHeading(270);
+    //boatMarker.setLatLng([47,-5]);   
+    boatMarker.setHeadingWind(cap, 15, 45);
+    boatMarkers.addTo(map)    
+
+//boatMarkers.clearLayers();   
+
+
+var path = L.curve(['M',[50.54136296522163,28.520507812500004],
+					'C',[52.214338608258224,28.564453125000004],
+						[48.45835188280866,33.57421875000001],
+						[50.680797145321655,33.83789062500001],
+					'V',[48.40003249610685],
+					'L',[47.45839225859763,31.201171875],
+						[48.40003249610685,28.564453125000004],'Z'],
+					{color:'red',fill:true}).addTo(map);
+
+
+
+    
+});
+
+
+
+    </script>
+    </head>
+
+
+    <body>
+        <div id="windy"></div>   
+    </body>
+
+
+
+
+</html>

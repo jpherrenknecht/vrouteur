@@ -1,0 +1,205 @@
+
+    
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Modifier trajetsvrouteur</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+    }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-bottom: 20px;
+    }
+    table, th, td {
+      border: 1px solid #ccc;
+    }
+    th, td {
+      padding: 10px;
+      text-align: center;
+    }
+    .btn {
+      padding: 5px 10px;
+      background-color: #007BFF;
+      color: white;
+      border: none;
+      cursor: pointer;
+    }
+    .btn:hover {
+      background-color: #0056b3;
+    }
+  </style>
+</head>
+<body>
+  <h1>Modifier trajetsvrouteur</h1>
+  <div id="contenulocalstorage"></div>
+  <div id="editor"></div>
+  <button class="btn" onclick="saveToLocalStorage()">Enregistrer dans localStorage</button>
+  
+
+
+
+
+
+
+  <script>
+    // Charger les données depuis localStorage
+    let trajetsvrouteur = JSON.parse(localStorage.getItem('trajetsvrouteur')) || [];
+   document.getElementById('contenulocalstorage').innerHTML=trajetsvrouteur;
+
+
+
+
+
+    function createEditor() {
+      const editorDiv = document.getElementById('editor');
+      editorDiv.innerHTML = ''; // Réinitialiser l'éditeur
+
+      // Afficher les lignes dans l'ordre inverse
+      const reversedTrajets = [...trajetsvrouteur].reverse();
+
+      reversedTrajets.forEach((row, rowIndex) => {
+        const table = document.createElement('table');
+        const headerRow = document.createElement('tr');
+        headerRow.innerHTML = `
+          <th>Index</th>
+          <th>Valeur</th>
+        `;
+        table.appendChild(headerRow);
+
+        row.forEach((value, colIndex) => {
+          const valueType = typeof value;
+          const tr = document.createElement('tr');
+          let cellContent = '';
+
+          // Gestion des différents types
+          if (valueType === 'string' || valueType === 'number') {
+            cellContent = `<input type="text" value="${value}" onchange="updateValue(${rowIndex}, ${colIndex}, this.value)" />`;
+          } else if (Array.isArray(value)) {
+            if (colIndex === 10) {
+              // Éditer directement l'élément 10 comme tableau
+              cellContent = `
+                <button class="btn" onclick="editArray1D(${rowIndex}, ${colIndex})">Éditer (Tableau 1D)</button>
+              `;
+            } else if (Array.isArray(value[0])) {
+              // Tableau 2D
+              cellContent = `
+                <button class="btn" onclick="editArray2D(${rowIndex}, ${colIndex})">Éditer (Tableau 2D)</button>
+              `;
+            } else {
+              // Tableau 1D
+              cellContent = `
+                <button class="btn" onclick="editArray1D(${rowIndex}, ${colIndex})">Éditer (Tableau 1D)</button>
+              `;
+            }
+          } else {
+            cellContent = `<span>Type non géré</span>`;
+          }
+
+          tr.innerHTML = `
+            <td>${colIndex}</td>
+            <td>${cellContent}</td>
+          `;
+          table.appendChild(tr);
+        });
+
+        editorDiv.appendChild(table);
+      });
+    }
+
+    function updateValue(rowIndex, colIndex, newValue) {
+      // Convertir le nouveau contenu si nécessaire
+      if (!isNaN(newValue)) {
+        newValue = parseFloat(newValue);
+      }
+      trajetsvrouteur[rowIndex][colIndex] = newValue;
+    }
+
+    function editArray1D(rowIndex, colIndex) {
+      const array1D = trajetsvrouteur[rowIndex][colIndex];
+      const newValues = prompt("Modifier les valeurs (séparées par des virgules) :", array1D.join(','));
+      if (newValues !== null) {
+        trajetsvrouteur[rowIndex][colIndex] = newValues.split(',').map(val => isNaN(val) ? val : parseFloat(val));
+        createEditor();
+      }
+    }
+
+    function editArray2D(rowIndex, colIndex) {
+      const array2D = trajetsvrouteur[rowIndex][colIndex];
+      let newValues = array2D.map(row => row.join(',')).join('\n');
+      newValues = prompt("Modifier les valeurs (une ligne par sous-tableau, valeurs séparées par des virgules) :", newValues);
+      if (newValues !== null) {
+        trajetsvrouteur[rowIndex][colIndex] = newValues.split('\n').map(row => row.split(',').map(val => isNaN(val) ? val : parseFloat(val)));
+        createEditor();
+      }
+    }
+
+    function editArray2D(rowIndex, colIndex) {
+  let value = trajetsvrouteur[rowIndex][colIndex];
+
+  // Vérifier si la valeur est un tableau ou autre
+  if (Array.isArray(value)) {
+    // Convertir en chaîne JSON pour l'édition
+    value = JSON.stringify(value, null, 2);
+  }
+
+  // Ouvrir un prompt pour modifier directement la valeur sous forme de chaîne
+  const newValue = prompt(
+    "Modifier la valeur (directement en tant que texte) :",
+    value
+  );
+
+  if (newValue !== null) {
+    try {
+      // Sauvegarder la valeur directement sans guillemets si applicable
+      let parsedValue;
+
+      // Vérifier si la nouvelle valeur est un tableau ou reste une chaîne
+      if (newValue.trim().startsWith("[") || newValue.trim().startsWith("{")) {
+        // Tenter de parser en JSON si c'est une structure valide
+        parsedValue = JSON.parse(newValue);
+      } else {
+        // Sinon, la traiter comme une chaîne brute (sans guillemets dans localStorage)
+        parsedValue = newValue;
+      }
+
+      trajetsvrouteur[rowIndex][colIndex] = parsedValue;
+      createEditor(); // Rafraîchir l'affichage
+    } catch (error) {
+      alert("Erreur : La valeur saisie est invalide. Veuillez vérifier le format.");
+      console.error(error);
+    }
+  }
+}
+
+
+
+
+
+
+
+
+
+    function saveToLocalStorage() {
+      // Enregistrer dans localStorage en respectant le type des éléments
+      const updatedTrajets = trajetsvrouteur.map(row => {
+        if (Array.isArray(row[10])) {
+          // S'assurer que l'élément 10 reste un tableau
+          row[10] = [...row[10]];
+        }
+        return row;
+      });
+
+      localStorage.setItem('trajetsvrouteur', JSON.stringify(updatedTrajets));
+      alert('Données enregistrées dans localStorage.');
+    }
+
+    // Initialiser l'éditeur
+    createEditor();
+  </script>
+</body>
+</html>

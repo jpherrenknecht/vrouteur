@@ -1,0 +1,48 @@
+<html>
+    <head>
+    <title>Windybasique </title>
+   
+        <meta name="Author" content="JP Herrenknecht">
+        <meta charset="utf-8"/>   
+        <meta  name="viewport" content="width=device-width, initial-scale=1.0, shrink-to-fit=no"    />
+        <script src="https://unpkg.com/leaflet@1.4.0/dist/leaflet.js"></script>
+        <script src="https://api.windy.com/assets/map-forecast/libBoot.js"></script>
+        <script src="https://code.jquery.com/jquery-3.3.1.min.js"></script>
+        <script src="https://unpkg.com/leaflet-arc/bin/leaflet-arc.min.js"></script>
+        <script  type="text/javascript" src="{{ url_for('static', filename='js/windleaf.js') }}"></script>
+        <script src="https://unpkg.com/leaflet.boatmarker/leaflet.boatmarker.min.js"></script>
+        <link rel="stylesheet" type="text/css" href="{{ url_for('static', filename='css/windbase.css') }}">
+
+        <link rel="shortcut icon" href="{{ url_for('static', filename='img/favicon.ico') }}">
+
+   
+    <script type="text/javascript">
+    var windiv=document.getElementById("windy")
+    const options = 
+	{ key: 'ydO74Xuxv2WWOEShDpel1kaiae8zCnLO', verbose: true,lat: 46.1551,lon: -1.2297, zoom:6  };             //Positionné sur La Rochelle
+    
+    windyInit(options, windyAPI => { const {map, picker, utils, broadcast,store } = windyAPI;
+var popup = L.popup(); 
+lignes=
+[
+[[45.602,-3.4060],[46.723,-3.7100],[46.627,-3.0791],[45.500,-2.3000],[44.500,-4.3000],],
+[[41.500,-8.150],[41.400,-8.93],[41.581,-8.417],[41.538,-8.995],[42.24,-8.09],]
+]
+
+var polyligne=L.polyline(lignes).setStyle({ color: 'red', weight:2, opacity:0.3, }).addTo(map); 
+map.on('contextmenu', function(e)
+        {  
+            popup.setLatLng(e.latlng) .setContent
+                ( "  <b>   Latitude &nbsp; &nbsp;: " +pos_dec_mn(e.latlng.lat)+" (" +arrondi(e.latlng.lat,4) + ") "
+                +" <br> Longitude : " +pos_dec_mn(e.latlng.lng)+" ("+arrondi(e.latlng.lng,4)+")"
+                )
+                .openOn(map);
+        }); 
+    
+});
+    </script>
+    </head>
+    <body>
+        <div id="windy"></div>   
+    </body>
+</html>

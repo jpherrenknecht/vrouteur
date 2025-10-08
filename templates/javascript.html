@@ -1,0 +1,312 @@
+<html>
+    <head>
+    <meta name="Author" content="JP Herrenknecht">
+    <meta charset="utf-8"/>   
+    <meta  name="viewport" content="width=device-width, initial-scale=1.0, shrink-to-fit=no"    />
+    <script src="https://unpkg.com/leaflet@1.4.0/dist/leaflet.js"></script>
+    <script src="https://api.windy.com/assets/map-forecast/libBoot.js"></script>
+    <script src="https://code.jquery.com/jquery-3.3.1.min.js"></script>
+    <script src="https://unpkg.com/leaflet-arc/bin/leaflet-arc.min.js"></script>
+    <script  type="text/javascript" src="{{ url_for('static', filename='js/windleaf.js') }}"></script>
+    <script src="https://unpkg.com/leaflet.boatmarker/leaflet.boatmarker.min.js"></script>
+    <link rel="stylesheet" type="text/css" href="{{ url_for('static', filename='css/windbase.css') }}">
+    <link rel="shortcut icon" href="{{ url_for('static', filename='img/favicon.ico') }}">
+    <script  type="text/javascript" src="{{ url_for('static', filename='js/leaflet.curve.js') }}"></script>
+    <script  type="text/javascript" src="{{ url_for('static', filename='js/Path.Drag.js') }}"></script>
+
+    <!-- <script  type="text/javascript" src="{{ url_for('static', filename='js/windzezo.js') }}"></script> -->
+    </head>
+
+    <script>
+
+
+
+// var serveur      = "http://127.0.0.1:5000" ;   //sur linux1
+// var tabNameCourses          = new Array ();
+
+
+
+// function initTableauTrajets(tabNameCourses,userName)
+//         {   console.log('tableau des courses en cours')
+// 			console.log (tabNameCourses)
+
+//             var tabcourses=JSON.parse(localStorage.getItem('trajetsvrouteur'))
+//             if (localStorage.getItem("trajetsvrouteur") === null)
+//             {  
+//                 var a=[0,0,0,0,0,0,0,0,0,0,0,0,0]               // 12 positions:  nom course  y0,x0,y0vr,x0vr,t0,,y1,x1,dep,ari,source,waypoints  
+//                 var tabcoursesini= [a,a,a,a,a,a,a,a,a,a]      // possibilite de stocker 10 courses a la fois 
+// 				console.log('tableau des courses en cours')
+// 				console.log (tabNameCourses)
+				
+// 				var iderniere=tabNameCourses.length   -1            // derniere course de la liste de courses 
+//                 console.log('idernière '+iderniere)
+//                 course  = tabNameCourses[iderniere][0]
+//                 latdep = tabNameCourses[iderniere] [4][0]
+//                 londep = tabNameCourses[iderniere] [4][1]
+// 				var dt              = new Date();
+//                 tstart = dt.getTime()  //en milli
+//                 latari = tabNameCourses[iderniere] [5][0]
+//                 lonari = tabNameCourses[iderniere] [5][1]
+//                 //La valeur 0 signifie depart sur la premier marque en base 
+//                 //la valeur 1 signifie arrivee sur la deuxieme marque en base               
+//                 // je stocke trajetcourses en localstorage,
+// 				waypoints=[]
+//                 trajetini=[userName,course,latdep,londep,latdep,londep,tstart,latari,lonari,0,1,waypoints,'localstorage']
+//                 tabcoursesini[9]=trajetini
+//                 localStorage.setItem('trajetsvrouteur',JSON.stringify(tabcoursesini))
+//                 console.log ('Initialisation du local storage trajetsvrouteur ')
+//                 return trajetini
+//             }
+//         }
+
+
+
+
+// // Fonction asynchrone pour aller chercher la liste des courses et initialiser localstorage si necessaire
+// async function ListeToutesCoursesEtInitLocalStorage() {
+//     // Va chercher la liste de toutes les courses sur le serveur
+//     const url = serveur + "/rechercheracesinfos";
+//     try {
+//         let response = await fetch(url);
+//         if (!response.ok) {
+//             throw new Error('La liste des courses n a pas ete trouvee: ' + response.statusText);
+//         }
+//         let data = await response.json();
+//         let listetoutescourses = data.result;
+//         listetoutescourses=JSON.parse (listetoutescourses)
+//         nombreCourses=listetoutescourses['res'].length
+//         tabNameCourses.length=nombreCourses
+//             for ( var i=0 ; i<nombreCourses ; i++ )
+//             { let  coursei=listetoutescourses['res'][i]
+//             numero    = coursei['raceId']+'.'+coursei['legNum']
+//             startdate = coursei['startDate']
+//             status    = coursei['status']
+//             depart    = [coursei['start']['lat'],coursei['start']['lon'],coursei['start']['name'],coursei['start']['heading'],coursei['start']['radius'],]
+//             end       = [coursei['end']['lat'],coursei['end']['lon'],coursei['end']['name'],coursei['end']['heading'],coursei['end']['radius'],]
+//             tabNameCourses[i]=[ numero,coursei['legName']+' (' + numero+')', startdate,status,depart,end];
+//             // initialisation  du localstorage
+//             }
+//             if (localStorage.getItem("trajetsvrouteur") === null) { initTableauTrajets(tabNameCourses,'Mon Bateau')}
+
+//         return tabNameCourses;
+//     } catch (error) {
+//         console.error('Erreur lors de la récupération de la liste des courses:', error);
+//         throw error; // Renvoyer l'erreur pour la gestion en amont
+//     }
+// }
+
+
+
+// // Appel de la fonction pour afficher la liste des courses
+// function rechercheTrajet(){
+//     var tabcourses=JSON.parse(localStorage.getItem('trajetsvrouteur'))
+//     trajet=tabcourses[9]
+
+//     username    =trajet [0]
+//     course      =trajet [1]
+//     ycoord      =trajet [2]                 // Derniers coordonnees rentres
+//     xcoord      =trajet [3]
+//     y0vr        =trajet [4]                 // Dernière position VR 
+//     x0vr        =trajet [5]
+//     t0          =trajet [6]                 // dernier temps de calcul
+//     y1          =trajet [7]                 // derniers coordonnés de l 'arrivee 
+//     x1          =trajet [8]
+//     dep         =trajet [9]                 // valeur de depart
+//     ari         =trajet [10]
+//     waypoints   =trajet [11]
+//     Source      =trajet [12]
+//     }
+
+
+
+// async function main() {
+
+//     console.log('Appel de afficherListeCourses');
+//     //await afficherListeCourses();
+    
+//     var tabNameCourses = await ListeToutesCoursesEtInitLocalStorage()
+  
+//         console.log(tabNameCourses)
+//         console.log('afficherListeCourses est terminé, on peut déclencher rechercheTrajet');
+//     await rechercheTrajet();
+//         console.log ('username '+username+' course '+course)
+//     // // Une fois terminé, attendre la fin de chargeDonnees
+//     // console.log('rechercheTrajet est terminé, on peut déclencher chargeDonnees');
+//     // await chargeDonnees();
+
+
+
+// }
+
+
+
+// main()
+
+
+
+
+// new Promise(function(resolve, reject) {
+// // premiere foncttion 
+// listetoutescourses=cherchelistetoutescourses()
+// listetoutescourses=JSON.parse (listetoutescourses)
+
+
+//         nombreCourses=listetoutescourses['res'].length
+//         tabNameCourses.length=nombreCourses
+//             for ( var i=0 ; i<nombreCourses ; i++ )
+//             { let  coursei=listetoutescourses['res'][i]
+//             numero    = coursei['raceId']+'.'+coursei['legNum']
+//             startdate = coursei['startDate']
+//             status    = coursei['status']
+//             depart    = [coursei['start']['lat'],coursei['start']['lon'],coursei['start']['name'],coursei['start']['heading'],coursei['start']['radius'],]
+//             end       = [coursei['end']['lat'],coursei['end']['lon'],coursei['end']['name'],coursei['end']['heading'],coursei['end']['radius'],]
+//             tabNameCourses[i]=[ numero,coursei['legName']+' (' + numero+')', startdate,status,depart,end];
+//             }
+
+// //console.log( tabNameCourses)
+
+
+// }).then(function(result) {
+
+// alert(result); // 1
+
+// return new Promise((resolve, reject) => { // (*)
+//   setTimeout(() => resolve(result * 2), 1000);
+// });
+
+// }).then(function(result) { // (**)
+
+// alert(result); // 2
+
+// return new Promise((resolve, reject) => {
+//   setTimeout(() => resolve(result * 2), 1000);
+// });
+
+// }).then(function(result) {
+
+// alert(result); // 4
+
+// });
+
+polylineCurve2= [[[46.4713,-1.83153  ],[42.673,-28.2027 ],[-0.474495,-26.9887],[-41.079,-25.0933]],[[-40.3478,15.2542],[-38.9525,35.3595],[-41.3979,43.4866 ],[-45.2296,53.2205],[-41.9669,65.9427],[-38.223,76.4896],[-41.4609,86.8607],[-44.4057,94.0237],[-41.5411,104.967],[-37.4837,116.7],[-43.7722,135.176],[-53.2959,155.687]],[[-52.969,-172.013],[-47.6437,-141.076],[-51.7551,-114.458],[-58.008,-78.0521],[-56.0667,-66.3874],[-54.4441,-56.1458],[-50.0073,-52.3665],[-20.9198,-34.3928],[-5.26561,-33.4017],[44.2293,-30.2712],[46.4886,-1.83901]]]
+points=[[46.4713,-1.83153  ],[42.673,-28.2027 ],[-0.474495,-26.9887],[-41.079,-25.0933],[-40.3478,15.2542],[-38.9525,35.3595],[-41.3979,43.4866 ],[-45.2296,53.2205],[-41.9669,65.9427],[-38.223,76.4896],[-41.4609,86.8607],[-44.4057,94.0237],[-41.5411,104.967],[-37.4837,116.7],[-43.7722,135.176],[-53.2959,155.687],[-52.969,-172.013],[-47.6437,-141.076],[-51.7551,-114.458],[-58.008,-78.0521],[-56.0667,-66.3874],[-54.4441,-56.1458],[-50.0073,-52.3665],[-20.9198,-34.3928],[-5.26561,-33.4017],[44.2293,-30.2712],[46.4886,-1.83901]]
+
+
+function couperPolyligneLongitude(points) {
+  const troncons = [];
+  let tronconCourant = [];
+
+  for (let i = 0; i < points.length - 1; i++) {
+    const [lat1, lon1] = points[i];
+    const [lat2, lon2] = points[i + 1];
+
+    // Ajouter le point actuel au tronçon courant
+    tronconCourant.push([lat1, lon1]);
+
+    // Vérifier si une coupure au niveau de l'antiméridien est détectée
+    if (Math.abs(lon1 - lon2) > 180) {
+      // Calculer le point d'intersection avec le méridien
+      const t = (180 - Math.abs(lon1)) / (Math.abs(lon2 - lon1));
+      const latIntersection = lat1 + t * (lat2 - lat1);
+      const lonIntersection = lon1 > 0 ? 180 : -180;
+
+      // Ajouter le point d'intersection et terminer le tronçon courant
+      tronconCourant.push([latIntersection, lonIntersection]);
+      troncons.push(tronconCourant);
+
+      // Démarrer un nouveau tronçon à partir de l'autre côté du méridien
+      const newLon = lon1 > 0 ? -180 : 180;
+      tronconCourant = [[latIntersection, newLon]];
+    }
+  }
+
+  // Ajouter le dernier point et le dernier tronçon
+  tronconCourant.push(points[points.length - 1]);
+  troncons.push(tronconCourant);
+
+  return troncons;
+}
+
+
+//     // Vérifier si la longitude traverse une coupure (entre -179.9 et 0.001)
+//     if ((lon1 > -179.9 && lon2 > 0.001) || (lon1 > 0.001 && lon2 > -179.9)) {
+//       // Calculer le point d'intersection avec la coupure
+//       let intersectionLat, intersectionLon;
+//       console.log ('on a un point coupant le meridien 0')
+
+//       if (lon1 < -179.9) {
+//         // Traversée de -179.9 à 0.001
+//         const t = (-179.9 - lon1) / (lon2 - lon1); // Interpolation linéaire
+//         intersectionLat = lat1 + t * (lat2 - lat1);
+//         intersectionLon = -179.9;
+
+//         // Ajouter le point d'intersection au tronçon courant
+//         tronconCourant.push([intersectionLat, intersectionLon]);
+//         troncons.push(tronconCourant); // Terminer le tronçon courant
+
+//         // Commencer un nouveau tronçon à partir de 0.001
+//         tronconCourant = [[intersectionLat, 0.001]];
+
+
+//       } else {
+//         // Traversée de 0.001 à -179.9
+//         const t = (0.001 - lon1) / (lon2 - lon1); // Interpolation linéaire
+//         intersectionLat = lat1 + t * (lat2 - lat1);
+//         intersectionLon = 0.001;
+
+//         // Ajouter le point d'intersection au tronçon courant
+//         tronconCourant.push([intersectionLat, intersectionLon]);
+//         troncons.push(tronconCourant); // Terminer le tronçon courant
+
+//         // Commencer un nouveau tronçon à partir de -179.9
+//         tronconCourant = [[intersectionLat, -179.9]];
+
+//         console.log ('tronconcourant'+tronconcourant)
+//       }
+//     }
+//   }
+
+//   // Ajouter le dernier point et le dernier tronçon
+//   tronconCourant.push(points[points.length - 1]);
+//   troncons.push(tronconCourant);
+
+
+
+
+
+
+
+console.log (points)
+
+
+poly2=couperPolyligneLongitude(points)
+
+
+console.log ('poly2')
+console.log (poly2)
+
+
+
+function affichage()
+{
+
+  
+document.getElementById('output').textContent = JSON.stringify(polylineCurve2, null, 2);
+//  document.getElementById('select').innerHTML=selectdepart
+ 
+ 
+}
+
+
+    </script>
+   
+
+   <body onload='affichage()'>
+ <h2> Test de javascript</h2>
+
+        <div id= 'output' ></div>  
+       
+
+   </body>
+   
+</html>

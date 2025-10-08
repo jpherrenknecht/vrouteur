@@ -1,0 +1,61 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Validation Input</title>
+</head>
+<body>
+    <label for="username">Nom d'utilisateur :</label>
+    <input type="text" id="username" placeholder="Entrez votre nom">
+
+    <script>
+        const usernameInput = document.getElementById('username');
+        let valeur = ""; // Valeur initiale
+
+        // Fonction pour attendre que l'utilisateur saisisse une valeur
+        function waitForInput() {
+            return new Promise((resolve) => {
+                usernameInput.addEventListener('keydown', (e) => {
+                    if (e.key === 'Enter') { // Si "Entrée" est pressée
+                        if (validateInput()) {
+                            resolve(usernameInput.value.trim()); // Résout avec la valeur
+                        }
+                    }
+                });
+            });
+        }
+
+        // Fonction pour valider l'entrée utilisateur
+        function validateInput() {
+            const value = usernameInput.value.trim();
+            if (value === "") {
+                alert("Veuillez entrer un nom d'utilisateur avant de continuer.");
+                usernameInput.focus(); // Re-mets le focus sur le champ
+                return false;
+            }
+            return true;
+        }
+
+        // Fonction principale
+        async function main() {
+            // Vérifie la condition sur la valeur initiale
+            if (valeur === "") {
+                alert("Vous devez entrer un nom avant de continuer.");
+                usernameInput.focus(); // Place le focus sur l'input
+                const username = await waitForInput(); // Attend une saisie valide
+                alert(`Bienvenue, ${username} !`);
+                console.log("Le nom est validé. On peut continuer la suite du programme.");
+            } else {
+                // Si `valeur` est déjà définie, affiche un message différent
+                console.log(`Valeur initiale détectée : ${valeur}`);
+            }
+
+            // Suite du programme
+            console.log("On peut continuer...");
+        }
+
+        main();
+    </script>
+</body>
+</html>

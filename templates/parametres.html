@@ -1,0 +1,656 @@
+<html>
+
+    <head>
+    <title>Vrouteur </title>  
+    <link rel="stylesheet" type="text/css" href="{{ url_for('static', filename='css/vrouteur.css') }}">
+    <script src="https://unpkg.com/leaflet@1.4.0/dist/leaflet.js"></script>
+    <link rel="shortcut icon" href="{{ url_for('static', filename='img/favicon.ico') }}">
+    <script  type="text/javascript" src="{{ url_for('static', filename='js/vrouteur.js') }}"></script>
+
+    <!-- <script  type="text/javascript" src="{{ url_for('static', filename='js/windleaf.js') }}"></script>  -->
+
+    <script>
+   // localStorage.clear();     // si on veut nettoyer localstorage
+    </script>
+    </head>
+    <script>
+
+
+tabNameCourses =new Array();
+polairesdata   =new Array()
+//var course              = request.args.get('course') 
+
+var origine          ='{{origine}}'
+var course           ='{{course}}'
+var polairesjson     ={{polairesjson | tojson}}
+var tws              ={{tws}}
+var twa              ={{twa}}
+var voile            = {{voile}}
+var voileactuelle    = voile
+var bateau;
+var polar_id;
+var nomCourse;
+var typeVoiles              = ['Jib','Spi','Staysail','LightJib','Code0','HeavyGnk','LightGnk'];
+var typeVoilesShort         = ['JI','SP','ST','LJ','C0','HG','LG'];
+var colors                  = ['red','lime','blue'  ,'orange','darkgreen','#b00000','#d77900'];
+var polairespourjs;
+
+
+console.log ('ligne 19'+course)
+console.log ('origine de l ip '+origine )
+//console.log ('polairesjsonstr '+polairesjsonstr )
+console.log('tws : '+tws)
+console.log('twa : '+twa)
+console.log ('voile '+voile)
+
+console.log (polairesjson)
+polairesjson=JSON.parse(polairesjson)
+//bateau    = polairesjson["_updatedAt"]
+updated   = polairesjson["_updatedAt"]
+id_polaire= polairesjson["_id"]
+polar_id=id_polaire
+//console.log (polairesjson)
+console.log('updated'+polairesjson["_updatedAt"])
+
+
+var serveurdistant    = "http://vrouteur.com"   ;   //sur linux0
+var serveurlocal      = "http://127.0.0.1:5000" ;   //sur linux1
+
+if (origine=='http://127.0.0.1:5000/')
+    {var serveur           = serveurlocal}
+else{var serveur           = serveurdistant}
+serveursecours=serveurdistant
+console.log ('serveur : '+serveur)
+
+
+var typeVoiles              = ['Jib','Spi','Staysail','LightJib','Code0','HeavyGnk','LightGnk'];
+var polar_id
+
+tabCoeffboat = [
+        {"_id":0      ,"name": "unknow",               "stamina": 1},
+        {"_id":1      ,"name": "unknow",               "stamina": 1},
+        {"_id":2      ,"name": "Figaro 3",             "stamina": 1},
+        {"_id":3      ,"name": "Class 40 2021",        "stamina": 1},
+        {"_id":4      ,"name": "Imoca",                "stamina": 1.2},
+        {"_id":5      ,"name": "Mini 6.50",            "stamina": 1},
+        {"_id":6      ,"name": "Ultim (Solo)",         "stamina": 1.5},
+        {"_id":7      ,"name": "Volvo 65",             "stamina": 1.2},
+        {"_id":8      ,"name": "unknow",               "stamina": 1},
+        {"_id":9      ,"name": "Ultim (Crew)",         "stamina": 1.5},
+        {"_id":10     ,"name": "Olympus",              "stamina": 1.5},
+        {"_id":11     ,"name": "Ocean 50 (Multi 50)",  "stamina": 1},
+        {"_id":12     ,"name": "unknow",               "stamina": 1},
+        {"_id":13     ,"name": "Caravelle",            "stamina": 2},
+        {"_id":14     ,"name": "Super Maxi 100",       "stamina": 1.5},
+        {"_id":15     ,"name": "unknow",               "stamina": 1},
+        {"_id":16     ,"name": "Tara",                 "stamina": 2},
+        {"_id":17     ,"name": "unknow",               "stamina": 1},
+        {"_id":18     ,"name": "OffShore Racer",       "stamina": 1},
+        {"_id":19     ,"name": "Mod70",                "stamina": 1.2},
+        {"_id":20     ,"name": "Cruiser Racer",        "stamina": 1.2},
+        {"_id":21     ,"name": "Ultim BP XI",          "stamina": 1.5},
+      ]
+
+bateau=tabCoeffboat[id_polaire]['name']
+console.log ('Test Nom de bateau '+tabCoeffboat[2]['name'])
+
+		
+function ftabnamecourses(listetoutescourses) 
+   // Utilitaire donnant le tableau reduit des courses a partir de la listecomplete de VR 
+        { listetoutescourses=JSON.parse (listetoutescourses)
+            nombreCourses=listetoutescourses['res'].length
+                tabNameCourses.length=nombreCourses
+                for ( var i=0 ; i<nombreCourses ; i++ )
+                { let  coursei=listetoutescourses['res'][i]
+                numero    = coursei['raceId']+'.'+coursei['legNum']
+                startdate = coursei['startDate']
+                status    = coursei['status']
+                polar_id  = coursei['boat']['polar_id']
+                depart    = [coursei['start']['lat'],coursei['start']['lon'],coursei['start']['name'],coursei['start']['heading'],coursei['start']['radius'],]
+                end       = [coursei['end']['lat'],coursei['end']['lon'],coursei['end']['name'],coursei['end']['heading'],coursei['end']['radius'],]
+                tabNameCourses[i]=[ numero,coursei['legName']+' (' + numero+')', startdate,status,depart,end,polar_id];  
+                }
+        return tabNameCourses
+        }
+ 
+
+
+async function ListeToutesCoursesActives() {
+    // Va chercher la liste de toutes les courses sur le serveur
+    const url = serveur + "/rechercheracesinfos";
+    try {
+        let response = await fetch(url);
+        if (!response.ok) {
+            throw new Error('La liste des courses n a pas ete trouvee: ' + response.statusText);
+        }
+        let data = await response.json();
+        let listetoutescourses = data.result;
+        tabNameCourses=   ftabnamecourses(listetoutescourses) 
+
+
+    let courseencours = tabNameCourses.find(tabNameCourses => tabNameCourses[0] === course)
+    nomCourse=courseencours[1]
+    console.log ('ligne 217 '+course)  
+    console.log ('ligne 218 nomCourse '+nomCourse)  
+    document.getElementById('nomCourse').innerHTML=nomCourse   
+    polar_id=    courseencours[6]  
+    console.log (polar_id)    
+    return listetoutescourses;
+   
+
+}
+catch{ console.log ('erreur dans la recuperation des donnnees')}
+}
+
+
+
+
+
+async function cherchevoilessimple(tws,polar_id){
+       
+       const url=serveur+"/recherchevoilessimple?tws="+tws+"&polar_id="+polar_id
+       //console.log ('url'+url)
+       let response = await fetch(url);
+   try{ 
+       if (!response.ok) { throw new Error('Problème avec cherchevoiles ' + response.statusText);    }
+        resvoiles = await response.json();
+       // console.log('resvoiles'+resvoiles)
+        // on lance ici directement l affichage pour pouvoir utiliser la fonction dans les mises a jour 
+    
+       tabvmg              = resvoiles.tabvmg
+       tabrecouvrements    = resvoiles.tabrecouvrements   
+       // on affiche les valeurs 
+
+       console.log ('tabvmg'+tabvmg)
+       console.log ('tabrecouvrements'+tabrecouvrements)
+    //    document.getElementById('vmgmin2').innerHTML=tabvmg[2].toFixed(1)
+    //    document.getElementById('vmgmax2').innerHTML=tabvmg[4].toFixed(1)
+    //    document.getElementById('vmax2').innerHTML  =tabvmg[6].toFixed(1)
+          affichagerecou(tabrecouvrements)
+          affichagevmg(tabvmg)
+    //    // on en profite pour mettre ajour le lien sur les polaires avec tws et twa 
+    //    return resvoiles
+       }
+    catch (error) {
+           console.error("Erreur lors de la récupération de cherchevoiles :", error);
+           throw error; // Propager l'erreur pour que l'appelant puisse la gérer
+       }
+   }
+
+
+
+
+
+
+
+
+
+
+async function calculepolairespourjs(polar_id,tws,twa) {
+    // Va faire le calcul avec le fichier npy sur le seveur 
+    
+    // id=document.getElementById('idPolaire').value
+    twa=document.getElementById('twa').value
+    tws=document.getElementById('tws').value
+    tws10=document.getElementById('tws10').value
+    twa11=document.getElementById('twa11').value
+    stam10=document.getElementById('stam10').value
+    man10=document.getElementById('man10').value
+
+    tws20=document.getElementById('tws20').value
+    temps20=document.getElementById('temps20').value
+    ali20=document.getElementById('ali20').value
+
+    tws21=document.getElementById('tws21').value
+    twa21=document.getElementById('twa21').value
+    man20=document.getElementById('man20').value
+
+    tws30=document.getElementById('tws30').value
+    temps30=document.getElementById('temps30').value
+    ali30=document.getElementById('ali30').value
+
+    tws31=document.getElementById('tws31').value
+    twa31=document.getElementById('twa31').value
+    man30=document.getElementById('man30').value
+
+    v1   =document.getElementById('v1').value
+    v2   =document.getElementById('v2').value
+    pena1   =document.getElementById('pena1').value
+    pena2   =document.getElementById('pena2').value
+
+    // console.log ('tws10 '+tws10)
+    // console.log ('stam10 '+stam10)
+    // console.log ('man1 '+man1)
+    // console.log('ligne 193 '+polar_id+' '+twa+' '+tws)
+
+    const url = serveur + `/calculepolairespourjs?polar_id=${polar_id}&tws=${tws}&twa=${twa}&tws10=${tws10}&twa11=${twa11}&stam10=${stam10}&man10=${man10}&tws20=${tws20}&temps20=${temps20}&ali20=${ali20}&tws21=${tws21}&twa21=${twa21}&man20=${man20}&tws30=${tws30}&temps30=${temps30}&ali30=${ali30}&tws31=${tws31}&twa31=${twa31}&man30=${man30}&v1=${v1}&v2=${v2}&pena1=${pena1}&pena2=${pena2}`    ;
+    
+    
+    
+    
+    console.log(url)
+   
+    let voileactuelle=voile-1
+     console.log(voileactuelle)
+        let response = await fetch(url);
+        if (!response.ok) {
+            throw new Error('La liste des courses n a pas ete trouvee: ' + response.statusText);
+        }
+        let data = await response.json();
+        let message=data.message;
+        let vmgpourjs=data.vmgpourjs
+        let polairespourjs=data.polairespourjs
+        let stam11  = data.stam11 
+        let peno11  = data.peno11 
+        let dist11  = data.dist11
+        let recup20 = data.recup20
+        let stam20  = data.stam20 
+        let stam21  = data.stam21 
+        let peno21  = data.peno21 
+        let dist21  = data.dist21
+        let cumul21 = data.cumul21
+        let recup30 = data.recup30
+        let stam30  = data.stam30 
+        let stam31  = data.stam31 
+        let peno31  = data.peno31 
+        let dist31  = data.dist31
+        let cumul31 = data.cumul31
+        let amort   = data.amort
+        if (amort>100000) {amort=0}
+
+        document.getElementById("stam11").value=stam11.toFixed(2)
+        document.getElementById("peno11").value=peno11.toFixed(0)
+        document.getElementById("dist11").value=dist11.toFixed(3)
+        document.getElementById("recup20").value=recup20.toFixed(2)
+        document.getElementById("stam20").value=stam20.toFixed(2)
+        document.getElementById("stam21").value=stam21.toFixed(2)
+        document.getElementById("peno21").value=peno21.toFixed(0)
+        document.getElementById("dist21").value=dist21.toFixed(3)
+        document.getElementById("cumul21").value=cumul21.toFixed(2)
+        document.getElementById("recup30").value=recup30.toFixed(2)
+        document.getElementById("stam30").value=stam30.toFixed(2)
+        document.getElementById("stam31").value=stam31.toFixed(2)
+        document.getElementById("peno31").value=peno31.toFixed(0)
+        document.getElementById("dist31").value=dist31.toFixed(2)
+        document.getElementById("cumul31").value=cumul31.toFixed(2)
+        document.getElementById("amort").value=amort.toFixed(0)
+
+
+
+
+
+
+
+
+
+
+
+
+
+        
+
+        // resultat=JSON.parse(resultat)
+        console.log (message)
+        console.log(polairespourjs)
+        console.log(vmgpourjs)
+        console.log ('ligne 205 voile actuelle '+voileactuelle)
+        console.log ('stam11 '+stam11)
+
+        affichetablevoiles(polairespourjs,voileactuelle)
+
+    
+    }
+
+ 
+      
+
+
+    function affichagerecou(tabrecouvrements){
+    // console.log (' fonction affichagerecou')
+    // console.log (tabrecouvrements)
+    tableau=tabrecouvrements
+
+    tws=document.getElementById('tws').value
+    console.log('tws '+tws)
+    //twsst=tws.toFixed(2)
+    document.getElementById('tws2').innerHTML=tws
+
+    texte=`<table>
+        <tr><td>----</td><td>----</td><td>${typeVoiles[tableau[0][0]]}</td><td>${tableau[0][2].toFixed(1)}</td><td>${tableau[0][4].toFixed(1)}</td></tr>`
+        for (var i=1;i<tableau.length-1 ;i++)        
+        {
+        texte+=`<tr><td>${tableau[i][3].toFixed(1)}</td><td>${tableau[i][1].toFixed(1)}</td><td>${typeVoiles[tableau[i][0]]}</td><td>${tableau[i][2].toFixed(1)}</td><td>${tableau[i][4].toFixed(1)}</td></tr>`  }
+        texte+=`<tr><td>${tableau[i][3].toFixed(1)}</td><td>${tableau[i][1].toFixed(1)}</td><td>${typeVoiles[tableau[i][0]]}</td><td>----</td><td>----</td></tr>` 
+      texte+=`</table>`
+        document.getElementById('tabrecou').innerHTML=texte
+}
+
+    
+function affichagevmg(tabvmg){
+     let texte=`<table><tr><td>Près</td><td> ${tabvmg[2].toFixed(1)}</td><td>V. Arr.</td><td> ${tabvmg[4].toFixed(1)}</td><td>V. max</td><td> ${tabvmg[6].toFixed(1)}</td>
+        
+        
+        </tr>
+        </table>`
+
+document.getElementById('tabvmg').innerHTML=texte
+
+}
+    
+
+
+function affichetablevoiles(polairespourjs,voileactuelle)
+{   console.log('ligne 298 polairespourjs '+polairespourjs)
+    //polairespourjs2=JSON.parse(polairespourjs)
+    console.log(polairespourjs)
+    console.log(polairespourjs[0])
+    meilleurevoile=parseInt(polairespourjs[8])
+    document.getElementById('vitessemax').innerHTML = polairespourjs[7].toFixed(3)
+    document.getElementById('voilemax').innerHTML   = typeVoiles [meilleurevoile]
+    
+    document.getElementById('voileactuelle').innerHTML   = typeVoiles [voileactuelle]
+
+
+
+    let boost;
+    vitvoileactuelle=polairespourjs[voileactuelle]
+    j=polairespourjs[8]     // meilleure voile 
+    k=voileactuelle
+    let classe='black'
+
+    texte=`<table> <tr><td></td></tr>`
+        for (var i=0 ; i<typeVoiles.length ; i++ ){
+            polairespourjs[7]
+            boost=(polairespourjs[meilleurevoile]/(polairespourjs[voileactuelle]+0.0001))
+let vit2;
+
+if (boost<=1){vit2=''}
+else if (boost<1.014  && i===k ) {vit2= polairespourjs[7].toFixed(3)}
+else {vit2=''}
+
+console.log ('boost '+boost+' vit2 '+vit2)
+
+let classe = "black"; // Classe par défaut
+
+if (i === k && i === j) {
+    classe = "bleugras"; // Voile actuelle et meilleure voile
+} else if (i === k) {
+    classe = "blue"; // Voile actuelle seulement
+} else if (i === j && i !== k) {
+    classe = "greengras"; // Meilleure voile seulement
+}
+
+if (boost<=1){vit2=''}
+else if (boost<1.014  && i===k ) {vit2= `(${polairespourjs[7].toFixed(3)})`,classe='purple'}
+else if (boost>1.014  && i===k){ vit2=''; classe='red'}
+
+
+
+
+
+      texte+= `<tr><td class=${classe}>${typeVoiles[i]}</td>            <td class=${classe} > ${polairespourjs[i].toFixed(3)}   </td><td class=${classe} >${vit2}</td> </tr>`
+              
+
+    } 
+    
+    texte+=`   </table>   `   
+ document.getElementById('toutesvoiles').innerHTML=texte   
+}  
+    </script>
+
+
+
+
+
+
+
+
+
+
+
+
+    <!-- <body onload="zezo()"> -->
+    <body  >       
+      
+        <!-- <h2>Page de personnalisation des paramètres de routage<br><br> (en cours de construction)</h2> -->
+        <h2>TWD - TWA - CAP </h2>
+       
+        Twd <input type="number" min="0" max="360" step=".1" value="90" style="width: 60px" id="calctwd" >
+        Twa <select id="signetwa"><option value=1>+</option>  <option value=-1>-</option>   </select>
+        <input type="number" min="0" max="180" step=".1" value="45" style="width: 60px" id="calctwa">
+        Cap <input type="number" min="0" max="360" step=".1" value="135" style="width: 60px" id="calccap">
+       
+       
+        <h2>Polaires </h2>
+        <div id="calculpolaires" name="calculpolaires" >
+        
+        Course : <span id="nomCourse" > </span> 
+        <div class ='boite2'>   
+        <table>
+        <tr><td>Bateau:    </td><td id="nomBateau"  ></td></tr> 
+        <tr><td>id Polaire </td><td id="idPolaire"  ></td></tr> 
+        <tr><td>Updated    </td><td id="upDated"    ></td></tr> 
+        </table>   
+        </div>
+
+
+
+        <div>
+        TWA<input type="number" min="0" max="180" step=".1" value="90" id="twa">
+        TWS<input type="number" min="0" max="180" step=".1" value="10" id="tws">
+        </div>
+
+
+        <div class="boite2">
+            <table>
+        
+            <tr><td>VitesseMax</td>            <td  id="vitessemax" >         </td> </tr>
+            <tr><td>Meilleure Voile </td><td  id="voilemax" class="green" ></td> <td>Voile actuelle </td><td class='blue' id="voileactuelle"></td></tr>
+            </table>
+            <div id="toutesvoiles"></div>
+        </div>
+      
+
+       <div class="boite2">
+        <!-- <div >Recouvrements et vmg pour tws <input type="number" min="0" max="70" step=".1" value="10" id="twsrecou"> </div> -->
+        <div>VMG pour Tws <span id="tws2"></span></div>
+        <div id="tabvmg">  </div>
+        <div >Recouvrements</div>
+
+        <div id="tabrecou">  </div>
+       </div>
+       <h2>Amortissement Changement de voile (coeff 0.3)</h2> 
+       V1 <input type="number" value="15" style="width:60px" id="v1">
+       V2(>V1) <input type="number" value="16" style="width:60px" id="v2">
+       Penalite Chgt 1<input type="number" value="240" style="width:60px" id="pena1">s      
+       Penalite Chgt 2<input type="number" value="400" style="width:60px" id="pena2">s
+       Duree  Amortissement <input type="text"  value="100" style="width:60px" id="amort">s
+
+       <h2>Manoeuvres : Stamina et Penalités </h2>
+
+       <div>
+       <div style="font-weight:bold">Manoeuvre 1</div>
+       Tws<input type="number" min="0" max="70" step=".1" value="10" style="width:60px" id="tws10">
+       Twa<input type="number" min="0" max="180" step=".1" value="50" style="width:60px" id="twa11">
+       Stamina<input type="number" min="0" max="110" step=".1" style="width:60px" value="100" id="stam10">
+
+       <select id="man10"><option>Voile</option><option>Gybe</option><option>Tack</option><option>Combo</option></select>
+       => Stamina  <input type="text"  value="100" style="width:60px" id="stam11">
+       Penalite <input type="text"  value="100" style="width:60px" id="peno11">
+       Distance perdue<input type="text"  value="100" style="width:60px" id="dist11">
+    
+    </div>
+    <br>
+    <div style="font-weight:bold">Manoeuvre 2</div>
+    <div>
+        Recuperation avant Manoeuvre2 -- TWS moyen<input type="number" min="0" max="70" step=".1" value="10" style="width:60px" id="tws20">   
+        Temps en mn<input type="number" min="0" max="70" step="1" value="60" style="width:60px" id="temps20">   
+        Alimentation    <select id ="ali20"><option >Rien</option><option>Cafe</option><option>Barre</option><option>Repas</option></select> 
+        Recup <input type="text" value="100" id="recup20" style="width:60px">
+    </div>
+    
+    <div>
+    Tws<input type="number" min="0" max="70" step=".1" value="10" style="width:60px" id="tws21">
+    Twa<input type="number" min="0" max="180" step=".1" value="50" style="width:60px" id="twa21">
+    
+    Stamina <input type="number" min="0" max="110" step=".1" style="width:60px" value="100" id="stam20">
+    <select id="man20"><option>Voile</option><option>Gybe</option><option>Tack</option><option>Combo</option></select>
+    => Stamina <input type="text"  value="100" style="width:60px" id="stam21">
+    Penalite <input type="text"  value="100" style="width:60px" id="peno21">
+    Distance perdue<input type="text"  value="100" style="width:60px" id="dist21">
+    Cumul <input type="text"  value="100" style="width:60px" id="cumul21">
+    </div>
+
+
+
+    <br>
+    <div style="font-weight:bold">Manoeuvre 3</div>
+    <div>
+        Recuperation avant Manoeuvre3 -- TWS moyen<input type="number" min="0" max="70" step=".1" value="10" style="width:60px" id="tws30">   
+        Temps en mn<input type="number" min="0" max="70" step="1" value="60" style="width:60px" id="temps30">   
+        Alimentation    <select id="ali30"><option>Rien</option><option>Cafe</option><option>Barre</option><option>Repas</option></select> 
+        Recup <input type="text" value="100" id="recup30" style="width:60px">
+    </div>
+    <div>
+    Tws<input type="number" min="0" max="70" step=".1" value="10" style="width:60px" id="tws31">
+    Twa<input type="number" min="0" max="180" step=".1" value="50" style="width:60px" id="twa31">
+    Stamina <input type="number" min="0" max="110" step=".1" style="width:60px" value="100" id="stam30">
+    <select id="man30"><option>Voile</option><option>Gybe</option><option>Tack</option><option>Combo</option></select>
+    => Stamina <input type="text"  value="100" style="width:60px" id="stam31">
+    Penalite <input type="text"  value="100" style="width:60px" id="peno31">
+    Distance perdue<input type="text"  value="100" style="width:60px" id="dist31">
+    Cumul <input type="text"  value="100" style="width:60px" id="cumul31">
+    </div>
+        <!-- <div><br>     
+        Selecteur de date<br>
+        <label for="party">Entrez une date :</label>
+        <input
+        id="party"
+        type="datetime-local"
+        name="party-date"
+        value="2017-06-01T08:30" />
+
+        </div>   -->
+    </body>
+
+
+
+
+<script>
+ListeToutesCoursesActives()     
+  
+document.getElementById('nomBateau').innerHTML = bateau  
+document.getElementById('idPolaire').innerHTML = id_polaire
+document.getElementById('upDated').innerHTML   = updated.substring(0, 10);
+document.getElementById("tws").value           = tws.toFixed(1)
+document.getElementById("twa").value           = twa.toFixed(1)
+document.getElementById("tws10").value           = tws.toFixed(1)
+document.getElementById("tws20").value           = tws.toFixed(1)
+document.getElementById("tws21").value           = tws.toFixed(1)
+document.getElementById("tws30").value           = tws.toFixed(1)
+document.getElementById("tws31").value           = tws.toFixed(1)
+
+document.getElementById("twa11").value           = twa.toFixed(1)
+document.getElementById("twa21").value           = twa.toFixed(1)
+document.getElementById("twa31").value           = twa.toFixed(1)
+
+calculepolairespourjs(id_polaire,tws,twa)
+cherchevoilessimple(tws,id_polaire)
+
+
+
+
+document.getElementById("twa").addEventListener("change",  function () {
+tws=parseFloat(document.getElementById("tws").value)
+twa=parseFloat(document.getElementById("twa").value)
+
+    calculepolairespourjs(polar_id,tws,twa)
+});
+
+
+document.getElementById("tws").addEventListener("change",  function () {
+tws=parseFloat(document.getElementById("tws").value)
+twa=parseFloat(document.getElementById("twa").value)
+calculepolairespourjs(polar_id,tws,twa)
+cherchevoilessimple(tws,polar_id)
+});
+
+
+
+
+
+
+
+var calculpolaires=document.getElementById('calculpolaires') 
+calculpolaires.addEventListener("change", function (evt)
+{   id=document.getElementById('idPolaire').value
+    twa=document.getElementById('twa').value
+    tws=document.getElementById('tws').value
+    console.log('ligne 587 '+polar_id+' '+twa+' '+tws)
+    calculepolairespourjs(polar_id,tws,twa)
+
+// on fait une requete ajax pour recuperer le tableau de polaires 
+});
+
+ 
+
+
+
+document.getElementById("calctwd").addEventListener("change",  function () {
+ twd=parseFloat(document.getElementById("calctwd").value)
+ signetwa=document.getElementById("signetwa").value
+ twa=parseFloat(document.getElementById("calctwa").value)*signetwa
+ cap= (twd+twa+360)%360
+ console.log ('signe twa '+signetwa)
+ console.log ('twa '+twa)
+ console.log ('twd '+twd)
+ console.log ('resultat '+((twd+twa)%360))
+ document.getElementById("calccap").value=cap.toFixed(1)
+});
+
+document.getElementById("calctwa").addEventListener("change",  function () {
+ twd=parseFloat(document.getElementById("calctwd").value)
+ signetwa=document.getElementById("signetwa").value
+ twa=parseFloat(document.getElementById("calctwa").value)*signetwa
+ cap= (twd+twa+360)%360
+ console.log ('signe twa '+signetwa)
+ console.log ('twa '+twa)
+ console.log ('twd '+twd)
+ console.log ('resultat '+((twd+twa)%360))
+ document.getElementById("calccap").value=cap.toFixed(1)
+});
+
+
+document.getElementById("signetwa").addEventListener("change",  function () {
+ twd=parseFloat(document.getElementById("calctwd").value)
+ signetwa=document.getElementById("signetwa").value
+ twa=parseFloat(document.getElementById("calctwa").value)*signetwa
+ cap= (twd+twa+360)%360
+ console.log ('signe twa '+signetwa)
+ console.log ('twa '+twa)
+ console.log ('twd '+twd)
+ console.log ('resultat '+((twd+twa)%360))
+ document.getElementById("calccap").value=cap.toFixed(1)
+});
+
+document.getElementById("calccap").addEventListener("change",  function () {
+ twd=parseFloat(document.getElementById("calctwd").value)
+
+// twa=parseFloat(document.getElementById("calctwa").value)*signetwa
+ cap=parseFloat(document.getElementById("calccap").value)
+ twa=ftwao(cap,twd)
+ signe=twa/Math.abs(twa)
+ console.log ('signe twa '+signetwa)
+ console.log ('twa '+twa)
+ console.log ('twd '+twd)
+ console.log ('resultat '+((twd+twa)%360))
+ document.getElementById("calctwa").value=Math.abs(twa).toFixed(1)
+ document.getElementById("signetwa").value=signe
+});
+
+
+
+
+
+</script>
+</html>

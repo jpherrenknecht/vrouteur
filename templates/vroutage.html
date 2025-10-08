@@ -1,0 +1,1469 @@
+<html>
+    <head>
+    <title>Vroutage</title>
+   
+        <meta name="Author" content="JP Herrenknecht">
+        <meta charset="utf-8"/>   
+        <meta  name="viewport" content="width=device-width, initial-scale=1.0, shrink-to-fit=no"    />
+        <script src="https://unpkg.com/leaflet@1.4.0/dist/leaflet.js"></script>
+        <script src="https://api.windy.com/assets/map-forecast/libBoot.js"></script>
+        <script src="https://code.jquery.com/jquery-3.3.1.min.js"></script>
+        <script src="https://unpkg.com/leaflet-arc/bin/leaflet-arc.min.js"></script>
+        <script type="text/javascript" src="{{ url_for('static', filename='js/windleaf.js') }}"></script>
+        <script type="text/javascript" src="{{ url_for('static', filename='js/simulation.js') }}"></script>
+        <link   rel="stylesheet" type="text/css" href="{{ url_for('static', filename='css/windbase.css') }}">
+        <link   rel="shortcut icon" href="{{ url_for('static', filename='img/favicon.ico') }}">
+
+   
+    <script type="text/javascript">
+
+    
+    // ici ce sont les donnees transmises par render template dans application
+
+        y0         = {{ y0 }} 
+        x0         = {{ x0 }} 
+        userid     = '{{ userid }}' 
+        username   = '{{ username }}' 
+        teamname   = '{{ teamname }}' 
+        type       = '{{ type }}' 
+        clat       = {{ clat }} 
+        clon       = {{ clon }} 
+        ts         = {{ ts }} 
+        o          = {{ o }} 
+        auto       = '{{ auto }}' 
+        twa        = {{ twa }} 
+        tws        = {{ tws }} 
+        twd        = {{ twd }} 
+        race       = '{{ race }}' 
+        leg        = {{ leg }} 
+        rank       = {{ rank }} 
+        voile      = '{{ voile }}' 
+        source     = '{{ source }}' 
+
+    //valeurs issues du routage dans application 
+        tabmarques     = {{ tabmarques| tojson }};   
+        noir           = {{noir }}
+        blanc          = {{blanc}}
+        rouge          = {{rouge}}
+        rouge2         = {{rouge2}}
+        chemin         = {{chemin}}
+        y1             = {{y1}}
+        x1             = {{x1}}        
+        chec           = {{chec}}                   // c est chemin complet
+        duree          = {{ duree }}
+        listecourses   = {{listecourses | tojson}}
+        caracteristiques={{ caracteristiques | tojson }}
+        polairesjson   = {{ polairesjson | tojson }}
+        polairesjs     = {{ polairesjs}}
+        twsjp          = {{ twsjp }} 
+        twdjp          = {{ twdjp }} 
+        U10            = {{u10}}
+        V10            = {{v10}}
+        nomgrib        = '{{nomgrib}}'
+        tabmarche      = {{tabmarche}}
+        tig            = {{ tig }}  
+        availTsStr     = '{{availTsStr}}'
+        nomcourse      = '{{ nomcourse }}'
+        leg            = {{ leg }}
+        bateau         = '{{ bateau }}'
+        dep            = {{ dep }}           // dep et ari ont ete extrait de local storage  
+        ari            = {{ ari }}
+        cartevr        = {{cartevr}}
+        exclusions     = {{exclusions}}       
+       
+        // variables avec 2 noms differents
+        var t0     = ts 
+        var twsvr  = tws
+        var twdvr  = twd
+        var twavr  = twa
+        var ydep   = y0
+        var xdep   = x0
+        var depart = dep
+        var course = race+"."+leg
+        var datearrivee = new Date((t0+duree)*1000) 
+        var duree_j = Math.floor(duree / (3600 * 24))
+        var duree_h = Math.floor((duree-(duree_j*3600*24))/3600)
+        var duree_mn = Math.floor((duree - (duree_j * 3600 * 24)-(duree_h*3600))/60) 
+        var popup = L.popup();  
+       
+
+
+        var indice=0
+        var joursdec=0  
+        var heuresdec=0        
+        var minutesdec=0                                           // A regler ulterieurement est importe dans la version initiale
+        var decalage_sec=joursdec*24*3600+heuresdec*3600+minutesdec*60
+        var decalageh=Math.round(decalage_sec/3600);
+        var typevoiles = ["Jib", "Spi", "Staysail", "LJib", "C0", "HG", "LG", "Na"]
+        if (twavr<0)
+            {var signetwa='+'}
+        else{var signetwa='-'}
+        //console.log ('signe twavr : '+signetwa ) 
+
+
+
+        console.log ('Valeurs recupérées de source :' +source)
+        console.log ('valeurs y0: '+y0.toFixed(4)+' x0: '+x0.toFixed(4)+ ' y1:'+y1.toFixed(4) +' x1: '+x1.toFixed(4)+' dep: '+dep +' ari: ' +ari )
+        console.log ('twsvr: '+tws.toFixed(2)+' twsjp: '+twsjp.toFixed(2)+' twdvr: '+twd.toFixed(2)+' twdjp: '+twdjp.toFixed(2))    
+        console.log ('Teamname : '+teamname)
+        console.log ('typevoiles: '+typevoiles)
+        console.log ('Voile: '+voile)
+        voile=parseInt(voile)
+        console.log('voile '+voile%10)
+        if (voile%10<8)
+        {   vutil=typevoiles[voile%10]}
+        else {voile='Na'}
+        console.log ('voile utilisee '+vutil)
+        
+        console.log ()  
+
+       
+        console.log ('Duree trajet: '+duree+ 's  Arrivee:  '+intlhmn.format(datearrivee)+' soit '+duree_j+'j '+duree_h+'h '+duree_mn+'mn')
+        console.log ()
+        console.log('Marques : '+tabmarques)   
+     
+
+         // calcul des lat et lng pour chargement meteo en js            
+        latini = Math.floor(y0)+10
+        latfin = latini-20   
+        lngini = Math.floor(x0-20)%360
+        lngfin = (lngini+40)%360    
+
+        console.log ('latini '+latini+' longini '+lngini)
+        
+        console.log ('t0  '+t0)
+
+        res= vit_angle_vent(y0,x0,t0)
+        console.log ('test :  '+res [0]+   ' angle '+res[1])
+
+       
+       
+        narrivee=1                                                // pour preserver arrivee en attendant de trouver le pb
+        tablat0=new Array                                         // tableau pour stocker les latitudes et longitudes du formulaire 
+        tablng0=new Array
+        tablat0=dec_to_mn_lat_n(ydep)                             // position courante retransmise par application 
+        tablng0=dec_to_mn_lng_n(xdep)   
+        
+        // on recupere +1 pour est -1 pour ouest
+        var lori0num   =  tablat0[3] 
+        var lori0txt   =  lori0num  == 1 ? 'N' : 'S';             // valeur literale d'oientation latitude
+        var nlori0txt  =  lori0txt == 'N' ? 'S': 'N';             // valeur literale inverse de lori0
+        var nlori0num  =  lori0num*-1  ;                          // valeur numerique inverse de nlori0
+        var gori0num   =  tablng0[3]                              // valeur literale d'oientation latitude
+        var gori0txt   =  gori0num  == 1 ? 'E' : 'W';             // variante numerique de lori0
+        var ngori0txt  =  gori0txt == 'E' ? 'W': 'E';             // valeur literale inverse de lori0
+        var ngori0num  =  gori0num*-1  ;                          // valeur numerique inverse de nlori0
+
+        
+
+        arrivee=1
+        urlbeta='course'
+
+        inari=tabmarques.length-1
+        latari=tabmarques [inari][1]
+        lonari=tabmarques [inari][2]
+        
+        // definition de select depart et select arrivee 
+        var tab1=new Array(tabmarques.length+2)
+        for (var i=0;i<tab1.length;i++){tab1[i]=' ';}  tab1[dep+2]='selected'; //pour que dep soit selected
+
+        selectdepart="<select id='iddepart' name='dep' class='selectdepart'>"
+                        +"<option "+tab1[0]+" value=-2>Coordonnées</option>"
+                        +"<option "+tab1[1]+" value=-1>Position VR</option>"
+        for (var i=0;i<tabmarques.length;i++)
+        {selectdepart+="<option "+tab1[i+2]+" value="+i+">"+tabmarques [i][0]+"</option>"}
+        selectdepart+="</select>"
+
+
+
+        var tab2 = new Array(tabmarques.length)
+        for (var i=0;i<tab2.length;i++){tab2[i]=' ';}  tab2[ari]='selected';  
+
+        selectarrivee="<select id='idarrivee' name='ari' class='selectarrivee'>"
+        for (var i=0;i<tabmarques.length;i++)
+        {selectarrivee+="<option "+tab2[i]+" value="+i+">"+tabmarques [i][0]+"</option>"}
+        selectarrivee+="</select>"
+
+         
+          
+
+
+
+
+    source='patience'  
+       
+    var texteboite1= "<div class='entete'>"
+                            +"<p class='legende'>"
+                            +"<span class='col1'>"+intlhmn.format(date0)+"   </span>"
+                            +"<span class='col2'>"+nomcourse+" ("+race+")   </span>"
+                            // +"<span class='col3' >Leg :</span>"
+                            // +"<span class='col4'>"+leg+ "    </span>"
+                            +"<span class='col5'>"+bateau+ "    </span>"
+                        
+                            +"</p>"   
+                        +"</div>"
+
+                        +"<div class='joueur' ><span class='col1'    id='joueur' >"+username+ "</span>"
+                        
+                         
+                             
+                            if (source=='patience' | source=='vroutage.html')               // on peut connaitre son equipe, son classement sa voile
+                                {   
+                                    texteboite1   +="<span class='col2'>"+teamname+ "</span>"
+                                    +"<span class='col3'>Clt: "+rank+ "</span>  <span class='col1red'> Voile : "+vutil+ "</span></br>"  } 
+                        texteboite1   +="</div>" 
+
+
+
+                        texteboite1     +="<div class='gribs'>"                      
+                        if (source=='patience' | source=='vroutage')
+                                {
+                                 texteboite1   +="<p class='legende'>"
+                                        +"<span class='col1'>Données VR</span>"
+                                        +"<span class='col2'>&nbsp;</span>"
+                                        +"<span class='col3'>TWS</span>"
+                                        +"<span class='col4'>"+twsvr.toFixed(2)+"</span>"
+                                        +"<span class='col5'>TWD</span>"
+                                        +"<span class='col6'>"+twdvr.toFixed(1)+"</span>"
+                                        +"<span class='col7'>TWA</span>"
+                                        +"<span class='col8'>"+twavr.toFixed(0)+"</span>"
+                                    +"</p>"  
+                                 }                             
+
+
+
+                        texteboite1   +=" <p   class='legendered'>"
+                                        +"<span class='col1'>"+nomgrib+ " "+availTsStr+"</span>"
+                                        +"<span class='col2'>    </span>"
+                                        +"<span class='col3'>TWS</span>"
+                                        +"<span class='col4'>"+twsjp.toFixed(2)+"</span>"
+                                        +"<span class='col5'>TWD</span>"
+                                        +"<span class='col6'>"+twdjp.toFixed(1)+"</span>"
+                                     
+
+                        +" </div>"
+                        +"<br/>"
+                        +"<div   name='routage' id='vroutage'  >"
+                        +"<div id='position'>"
+                            +"Coordonnées Position<br>"
+                            +"<input class='classinput' width=7 id ='lat0' type='number' min='0' max='360' step='1' name='lat0' value='"+tablat0[0]+"' >°"
+                            +"<input type='number' min='0' max='60' step='1' id='lat1'  name='lat1' value='"+tablat0[1]+"' class='classinput2'>'"
+                            +"<input type='number' min='0' max='60' step='1' id='lat2' name='lat2' value='"+tablat0[2]+"' size='3'class='classinput2'>"
+                        
+                            +"<select  id= 'lat3' name='lat3' class='classinput3'>"
+                            +"	 <option value="+lori0num+ " selected>"+lori0txt+"</option>"
+                            +"	 <option value="+nlori0num+">"+nlori0txt+"</option>"
+                            +"</select>"
+                            +"--"
+                            +"<input class='classinput' type='number' min='0' max='360' step='1' id ='lng0' name='lng0' value='"+tablng0[0]+"' size='20'>°"
+                            +"<input type='number' min='0' max='60' step='1' id ='lng1' name='lng1' value='"+tablng0[1]+"' class='classinput2'>'"
+                            +"<input type='number' min='0' max='60' step='1' id ='lng2' name='lng2' value='"+tablng0[2]+"' size='3'class='classinput2'>"
+                            
+                            +"<select id ='lng3' name ='lng3' class='classinput3'>"
+
+                                +"	 <option value="+gori0num+ " selected>"+gori0txt+"</option>"
+                                +"	 <option value="+ngori0num+">"+ngori0txt+"</option>"
+                            +"</select>"
+                         
+
+                            +" <div id='decalage'> Depart  "
+                            +" J + <input class='classinput' type='number' min='0' max='6' step='1' id ='joursdec' name='joursdec' value='"+joursdec+"' size='5'>    H + "
+                            +"<input class='classinput' type='number' min='0' max='23' step='1' id ='heuresdec' name='heuresdec' value='"+heuresdec+"' size='5'> MN  + "
+                            +"<input class='classinput' type='number' min='0' max='59' step='1' id ='minutesdec' name='minutesdec' value='"+minutesdec+"' size='5'> "
+                            +"     soit le <span id='datedepart'> "+ intlhmn.format(datesimul) +"</span>"
+                            +" </div>" 
+                      
+
+
+
+                        +"<div class='routage'>"
+                            +"<p>"
+                            +"<span class='col1'> Depart </span> "
+                            +"<span class='col2'>"+selectdepart+"</span>"
+
+                            +"<span class='col3'> Arrivee </span> "
+                            +"<span class='col4'>"+selectarrivee+"</span>"
+                           
+                            +"<div align='center'>"
+                                +"<input type='button'  class='blackwhite11' value='Relancer'         id='relance' > Relancer le Routage </button>"    
+                                +"<input type='button'  class='blackwhite11' value= 'Chgt de course'   id='changt'    > </button> "  
+                                +"<input type='button'  class='blackwhite11' value= 'Cartes'           id='cartes'    > </button> "  
+                                +"<input type='button'  class='blackwhite11' value= 'Gefs'             id='gefs'    > </button> "  
+                                //    +"<div id='gefs' >GEFS</div>"
+                                //  +"<input type='submit' id='calcul' class='blackwhite10'  value='Relancer le routage'  >"
+                            +"<input type='hidden' name='urlbeta' value="+urlbeta+ ">"
+
+                            +"<input type='hidden' name='lat' id= 'lat' value="+y0+ ">"
+                            +"<input type='hidden' name='lon' id ='lon' value="+x0+ ">"
+                            
+                            +"<input type='hidden' name='userid' value="+userid+ ">"
+                            +"<input type='hidden' name='username' value="+encodeURI(username)+ ">"
+                            +"<input type='hidden' name='teamname' value="+encodeURI(teamname)+ ">"
+                            +"<input type='hidden' name='type' value="+type+ ">"
+                            +"<input type='hidden' name='clat' value="+y0+ ">"
+                            +"<input type='hidden' name='clon' value="+x0+ ">"
+                            +"<input type='hidden' name='ts'   value="+ts+ ">"
+                            +"<input type='hidden' name='o'    value="+o+ ">"
+                            +"<input type='hidden' name='auto' value="+auto+ ">"
+                            +"<input type='hidden' name='y1' id='y1'  value="+y1+ ">"
+                            +"<input type='hidden' name='x1' id='x1'  value="+x1+ ">"
+                            +"<input type='hidden' name='twa'  value="+twa+ ">"
+                            +"<input type='hidden' name='tws'  value="+tws+ ">"
+                            +"<input type='hidden' name='twd'  value="+twd+ ">"
+                            +"<input type='hidden' name='race' value="+race+ ">"
+                            +"<input type='hidden' name='rank' value="+rank+ ">"
+                            +"<input type='hidden' name='voile'value="+voile+ ">"
+                         //   +"<input type='hidden' name='ari'  value="+ari+ ">"   pas besoin transmis par le select 
+                           
+
+                            +"<input type='hidden' name='source'  value= 'vroutage.html' >"                       
+                            +"<br/>"
+                            +" <progress value='0' min='0' max='100' id ='progress'></progress>"
+                            +" </div>"    
+                             +"</form>"
+                        +"</div>"
+
+
+    
+
+
+
+
+    var texteboite2= " " 
+            +"<div class='cap'>"
+                        +"<em>HDG : </em><span class=spred id='hdg'>--</span>"
+                        +"<em>  TWA : </em><span class=spgreen id='twa'>--</span>"
+                        +"<em>  Speed  :  </em><span class=sppurple id='speed'>--</span>"
+                +"</div>"
+            +"<div class='position'>"
+                +"<br/>"
+                +"<em> Lat : </em><span class='sp11' id='latitude'  >"+pos_dec_mn_lat(y0)+'('+ y0.toFixed(3) + ")</span>" 
+                +"<em> Lng : </em><span class='sp12' id ='longitude'>"+pos_dec_mn_lat(x0)+'('+ x0.toFixed(3)+ ")</span>"
+            +"</div> "
+            +"<br/> "
+            +"<div class='vent'><em> "
+                +"<span id= 'ecarth' class='sp11'></span></em>"  
+                    +"<em>   TWS   </em><span class='sp11purple' id='tws'>"+twsjp.toFixed(2)+"</span>"
+                    +"<em>   TWD   </em><span class='sp12green' id='twd'>"+twdjp.toFixed(0)+"</span>"
+                     +"<br/> "
+             +"</div>"
+
+             var texteboite3= " "         
+    + "<div class='simulation' >Affichage : "
+        +"Cap  <input type='checkbox'   id='lignecap'  checked> "
+        +"TWA  <input type='checkbox'   id='lignetwa'  checked> "
+        +"Vent <input type='checkbox'   id='lignevent' > "
+        + "<span style='float:right; padding:5px;'>"
+        +"<a href=javascript:popupbasique('http://inc.bureauvallee.free.fr/polaires/?race_id="+course+"&tws="+twsvr+"&twa="+Math.abs(twavr)+"&utm_source=VRDashboard')>Polaires </a></span> "
+    +"</div>"
+    +"<div class='simulation'>  TWD    <input  type='number' min='0' max= '360'    step='1' id='twdsim1'    class='classinputblack11'  value='"+twdvr.toFixed(0)+"'  onChange ='twdchange(this.value)';   size='6'> " 
+        +"  CAP    <input  type='number' min='0' max= '360'   step='1' id='hdgsim1'    class='classinputblack11'  value='"+((twdvr+twavr)%360).toFixed(0)+"'  onChange ='capchange(this.value)';   size='6'> "      
+        +"  TWA    "
+        +"<select  id='signetwacap'   class= 'black'  name='signe'    onChange ='signechange()'  >"
+        if (signetwa=='+') {texteboite3+= "<option  value="+"'+'"+"  selected>+</option><option> - </option></select>";classcolor='classinputgreen11'}
+        if (signetwa=='-') {texteboite3+= "<option  value= "+"'-'"+"  selected>-</option><option> + </option></select>";classcolor='classinputred11'}
+    texteboite3+="<input  type='number' min='30' max= '160'   step='1' id='twasim1'    class='"+classcolor+"'  value='"+(Math.abs(twavr.toFixed(0)))+"'   onChange ='twachange(this.value)';   size='6'> "
+                +"</div>" 
+   
+    
+    
+
+
+    var texteboite4=" "
+            + "<div class='tabmarche'>"
+            +" <span class='tabmarche2'> ETA GFS &nbsp;&nbsp;: "+intlhmn.format(datearrivee)+"  ( "+duree_j+"j "+duree_h+"h "+duree_mn+"mn) </span>"
+            +" <br><span class='tabmarche2' id='etagefs' > </span>"   
+           // + "<span style='float:right; '>"
+           // +"<div id='divzezo' >Routage Zezo</div> "      
+            +" </div>"
+
+         +"<div >"
+            +"<table class='tabletitre'>"
+            +"<thead><tr>"
+            +"<td class='marchecol0'>N</td><td class='marchecol1'>Heure</td><td class='marchecol1' >TWS</td><td class='marchecol1'>TWD</td><td class='marchecol1'>Cap</td><td class='marchecol1'>Twa</td><td class='marchecol1'>Vitesse</td><td class='marchecol1'>Opti</td></tr></thead>"
+            +"</table>"
+        +" </div>"
+         +"<div >"   
+
+            +"<table class='tableaumarche'>"
+                +" <tbody>"
+                for (var i=0;i<(tabmarche.length);i++)
+                {
+                //var couleur= (tabmarche[i][7]>0? 'red' :'green')   
+                texteboite4 +="<tr><td>"+tabmarche[i][0]+"</td>"
+                +"<td>"+intlhmn2.format(tabmarche[i][3]*1000)+"</td>"
+                +"<td>"+tabmarche[i][4].toFixed(1)+"</td>"
+                +"<td>"+tabmarche[i][5].toFixed(0)+"</td>"
+                +"<td class='purple'>"+tabmarche[i][6].toFixed(0)+"</td>"
+                +"<td class='"+(tabmarche[i][7]>0? 'green' :'red')+"'' >"+tabmarche[i][7].toFixed(0)+"</td>"
+                +"<td>"+tabmarche[i][8].toFixed(2)+"</td>"
+                if (tabmarche[i][9]!=0)     {texteboite4+="<td>"+Math.abs(tabmarche[i][9]).toFixed(1)+"</td></tr>"}
+                else                        {texteboite4+="<td> - </td></tr>"}
+                }
+                +"</tbody></table>" 
+         +" </div>"
+        
+
+  
+    var texteboite5 = "<div align='center'><br><div id='box'  ><h2>  Vroutage !</h2></div><br>boite5 </div>"
+    var texteboite6 = "<div align='center'><br><div id='box'  ><h2>  Vroutage !</h2></div><br>boite6 </div>"
+    var texteboite7 = "<div align='center'><br><div id='box'  ><h2>  Vroutage !</h2></div><br>boite7 </div>"
+    var texteboite8 = "<div align='center'><br><div id='box'  ><h2>  Vroutage !</h2></div><br>boite8 </div>"
+    var texteboite9 = "<div align='center'><br><div id='box'  ><h2>  Vroutage !</h2></div><br>boite9 </div>"
+   
+    var tooltip2    = new Array();
+
+    // donnees sur les voiles
+    var TWS            = polairesjson['polar']['tws'] 
+
+    console.log (' TWS : '+ TWS )
+    TWA            = polairesjson['polar']['twa']   
+    console.log (' TWA : '+ TWA )
+    
+    // a regler c est 2 fois la meme variable
+    var l1             = polairesjson['polar']['tws'] 
+    var l2             = polairesjson['polar']['twa']
+    var voiles         = new Array 
+    var nomvoile       = new Array 
+    for (var z=0;z<7;z++)   // charge les polaires de chaque voile
+        {voiles[z]=(polairesjson['polar']['sail'][z]['speed'])
+        nomvoile[z]=(polairesjson['polar']['sail'][z]['name'])}
+    var speedRatio     = polairesjson['polar']['foil']['speedRatio']
+    var twaMin         = polairesjson['polar']['foil']['twaMin']
+    var twaMax         = polairesjson['polar']['foil']['twaMax']
+    var twaMerge       = polairesjson['polar']['foil']['twaMerge']
+    var twsMin         = polairesjson['polar']['foil']['twsMin']
+    var twsMax         = polairesjson['polar']['foil']['twsMax']
+    var twsMerge       = polairesjson['polar']['foil']['twsMerge']
+    var hull           = polairesjson['polar']['hull']['speedRatio']
+    var lws            = polairesjson['polar']['winch']['lws']
+    var hws            = polairesjson['polar']['winch']['hws']
+    var lwtimer        = polairesjson['polar']['winch']['sailChange']['pro']['lw']['timer']
+    var hwtimer        = polairesjson['polar']['winch']['sailChange']['pro']['hw']['timer']
+    var lwratio        = polairesjson['polar']['winch']['sailChange']['pro']['lw']['ratio']
+    var hwratio        = polairesjson['polar']['winch']['sailChange']['pro']['hw']['ratio']
+    var tackprolwtimer = polairesjson['polar']['winch']['tack']['pro']['lw']['timer']
+    var tackprolwratio = polairesjson['polar']['winch']['tack']['pro']['lw']['ratio']
+    var tackprohwtimer = polairesjson['polar']['winch']['tack']['pro']['hw']['timer']
+    var tackprohwratio = polairesjson['polar']['winch']['tack']['pro']['hw']['ratio']
+    var gybeprolwtimer = polairesjson['polar']['winch']['gybe']['pro']['lw']['timer']
+    var gybeprolwratio = polairesjson['polar']['winch']['gybe']['pro']['lw']['ratio']
+    var gybeprohwtimer = polairesjson['polar']['winch']['gybe']['pro']['hw']['timer']
+    var gybeprohwratio = polairesjson['polar']['winch']['gybe']['pro']['hw']['ratio']
+
+
+    console.log ('nomcourse : '+caracteristiques)
+    var nomcourse      = caracteristiques['nom']
+    var bateau         = caracteristiques['nom']
+     
+
+    
+
+//initialisation des polylines et circle 
+    var poly = new L.Polyline ([[0,0],[1,1]]).setStyle({color:'red',weight:1,});
+    var poly2= new L.Polyline ([[0,0],[1,1]]).setStyle({color:'red',weight:1,});
+    var polylinesimul1=new L.Polyline ([[0,0],[1,1]]).setStyle({color:'red',weight:1,});  //ligne simulation1
+    var polylinesimul2=new L.Polyline ([[0,0],[1,1]]).setStyle({color:'red',weight:1,});  //ligne simulation2
+
+    var circle1=new Array();
+    var circle2=new Array();
+    var circle3=new Array();
+    var circle10=new Array();
+    var circle11=new Array();
+    var circlesimul1=new Array();    //cercles de la simul1
+    var circlesimul2=new Array();    //cercles de la simul2
+
+    for ( var i=0 ; i<74 ; i++ )                        //initialisation des cercles
+        {       circle1[i]      = new L.circle([0][0], { color: 'yellow',radius: 200,});
+                circle2[i]      = new L.circle([0][0], { color: 'yellow',radius: 200,});            
+                circle3[i]      = new L.circle([0][0], { color: 'yellow',radius: 200,});
+                circle10[i]     = new L.circle([0][0], { color: 'yellow',radius: 200,});
+                circle11[i]     = new L.circle([0][0], { color: 'yellow',radius: 200,});
+                circlesimul1[i] = new L.circle([0][0], { color: 'yellow',radius: 200,});
+                circlesimul2[i] = new L.circle([0][0], { color: 'yellow',radius: 200,});
+        }
+    var decalage_sec= 0                                  // provisoire
+    var date0       = new Date(t0*1000)  
+    var datearrivee = new Date((t0+duree)*1000) 
+    var datesimul   = new Date((t0+decalage_sec)*1000)
+    document.title = nomcourse+ ' '+ intlhmn2.format(datesimul);
+
+    // calcul des lat et lng pour chargement meteo en js            
+    latini = Math.floor(y0)+10
+    latfin = latini-20   
+    lngini = Math.floor(x0-20)%360
+    lngfin = (lngini+40)%360    
+
+
+
+    function twdchange(twd)
+            {    
+                var cap=document.getElementById('hdgsim1').value
+                var twao=ftwao(cap,twd)
+                    if (twao<0)
+                        {document.getElementById('twasim1').classList.add("classinputgreen11");
+                        document.getElementById('signetwacap').value='+'   ; }
+                    else
+                        {document.getElementById('twasim1').classList.remove("classinputgreen11");
+                        document.getElementById('signetwacap').value='-'   ; 
+                    }  
+                document.getElementById('twasim1').value=Math.abs(twao)
+            }
+
+
+
+            function capchange(cap)
+            {  
+            var twd  = document.getElementById('twdsim1').value  
+            var twao = ftwao(cap,twd)
+
+            if (twao<0)
+                    {document.getElementById('twasim1').classList.add("classinputgreen11");
+                    document.getElementById('signetwacap').value='+'   ; }
+                else
+                    {document.getElementById('twasim1').classList.remove("classinputgreen11");
+                    document.getElementById('signetwacap').value='-'   ; 
+                }  
+                document.getElementById('twasim1').value=Math.abs(twao)
+            }
+
+
+
+
+            function signechange()
+            {   var twa=document.getElementById('twasim1').value
+                var signe=document.getElementById('signetwacap').value
+                var twd=document.getElementById('twdsim1').value
+              
+                if (signe == '-' )
+                    {  document.getElementById('twasim1').classList.remove("classinputgreen11");
+                     document.getElementById('twasim1').classList.add("classinputred11")
+                     document.getElementById('hdgsim1').value=(+twd+twa)%360
+                }
+                else
+                    {
+                    
+                     document.getElementById('twasim1').classList.add("classinputgreen11");
+                    document.getElementById('hdgsim1').value=(360+twd-twa)%360
+
+                    }
+            }
+
+            function twachange(twa)
+            { 
+            var twa= document.getElementById('twasim1').value  
+            var twd  = document.getElementById('twdsim1').value   
+            var signe=document.getElementById('signetwacap').value
+           
+                if (signe == '-' )
+                        {
+                         document.getElementById('hdgsim1').value=Math.abs((+parseInt(twd)+parseInt(twa))%360);
+                        }
+                else
+                        {  
+                        document.getElementById('hdgsim1').value=Math.abs((360+twd-twa)%360);            
+                        }
+            }
+
+
+function maj_tableau_trajets(trajet)   // derniere version avec splice
+		// cette fonction met a jour le tableau des trajets localstorage apres l'avoir eventuellement créé s'il n'existait pas 
+		{    // on charge le tableau complet 
+            var tabcourses=JSON.parse(localStorage.getItem('trajetsvrouteur'))
+           // console.log('tabcourses '+tabcourses)
+			console.log ('trajet a enregistrer '+trajet)
+
+            if (localStorage.getItem("trajetsvrouteur") === null)
+                {initTableauTrajets(listecourses)  }
+       
+                else{
+                console.log('on est dans le else')
+                for ( var i=0 ;i< tabcourses.length ;i++)
+                  
+                    {
+                        if ( tabcourses[i][0]==trajet[0] && tabcourses[i][1]==trajet[1] )   // si la course a deja ete initiee
+                        {   console.log('La course existe deja en indice '+i)
+                            // on la retire 
+                            tabcourses.splice(i,1)
+                            // on la rajoute a la fin
+                            tabcourses.push(trajet)
+                           // tabcourses[i]=trajet
+                            localStorage.setItem('trajetsvrouteur',JSON.stringify(tabcourses))
+                            console.log ('la modification sur course existante a ete enregistree')
+                        var chgt='ok'
+                       //break
+                        } 
+                    }
+                if (chgt!='ok')      // si on a pas trouve la course dans le tableau  on considere que le depart est y0 x0 et l arrivee la marque ari=1
+                    {   tabcourses.shift()    //on rajoute la course en faisant sauter l'element le plis ancien
+                        tabcourses.push(trajet)
+                        localStorage.setItem('trajetsvrouteur',JSON.stringify(tabcourses))
+                    }   
+                }
+            }
+
+
+
+
+
+
+
+
+
+
+            function progressbar2(){  
+
+                trajet=[username,race,parseFloat(lat.value),parseFloat(lon.value),ts,y1,x1,parseInt(dep),parseInt(ari),'vroutage.html'] 
+                console.log ('l 634 dans progressbar2   trajet'+trajet)
+                maj_tableau_trajets(trajet)    // on met a jour local storage
+                
+                console.log(' ')
+                console.log ('Dans progressbar')
+                console.log ('y0,x0'+y0+' ' +x0)
+                console.log ('y1,x1'+y1+' ' +x1)
+              
+                ycoord=parseInt(lat3)*(parseInt(lat0)+(parseInt(lat1)/60)+(parseInt(lat2)/3600))
+                xcoord=parseInt(lng3)*(parseInt(lng0)+(parseInt(lng1)/60)+(parseInt(lng2)/3600))
+             
+                for (var i=0;i<(listecourses.length);i++)
+                        {  if((listecourses [i][0]+"."+listecourses [i][2] )==trajet[1] )
+                            {var indice=i; break}
+                            else { var indice=0}
+                        }
+    
+                // on va recuperer le numero de la course dans la liste de courses
+                // // maintenant on recupere une polaire moyenne sur le bateau
+                moyenne=listecourses[indice][4]
+                console.log('Moyenne '+moyenne) 
+                //distance depart arrivee
+                res =dist_cap_ortho(y0,x0,y1,x1)
+                console.log ('distance '+res[0])
+                temps_trajet=res[0]/moyenne 
+                console.log('temps trajet approximatif '+temps_trajet+ 'h')
+                t_calcul=((temps_trajet-12)+72)*0.08 /2.2 //72 isochrones pour les 12 premieres heures + 1 par h  le /3 est pour le nouvel algorithme
+
+                console.log ('temps de calcul'+t_calcul)
+
+                var nb=0;duree=t_calcul;var max=100;
+                intervalid=setInterval (function(){nb++;  if (nb>max){ clearInterval( intervalid );  }; document.getElementById('progress').value=nb;},10*duree);
+   
+            }
+
+
+
+
+
+
+
+   // Partie propre a Windy
+   //****************************************************************************************************************************
+
+
+
+    var windiv=document.getElementById("windy")
+    const options =  { key: 'ydO74Xuxv2WWOEShDpel1kaiae8zCnLO', verbose: true,lat: y0,lon: x0, zoom:6  };             //Positionné sur y0 x0
+	
+   
+    
+    windyInit(options, windyAPI => {
+    const {map, picker, utils, broadcast,store } = windyAPI;
+    var tcarte=store.get('timestamp')
+    var decalageh=0                                          // essai de decalage du temps dans windy
+    store.set('timestamp',tcarte+decalageh*3600000) 
+
+   
+    for (var i=0;i<tabmarques.length;i++)                                                                           // marques de parcours            
+            {  var latm=tabmarques [i][1]
+               var lngm=tabmarques [i][2]
+               L.marker([latm,lngm ],    {icon: blackIcon}).bindTooltip(tabmarques [i][0]).addTo(map); 
+            } 
+    L.marker([y1,x1 ],    {icon: greyIcon}).bindTooltip('Position actuelle VR').addTo(map); 
+    L.marker([latari,lonari ],    {icon: redIcon}).bindTooltip('Arrivee').addTo(map);         
+    var circleari = L.circle([latari,lonari],{color: 'red',fillColor: '#f03',weight:0.5,opacity:1,fillOpacity: 0,radius: 5000*1.83,}).addTo(map);
+    L.marker([y0,x0 ],    {icon: greenIcon}).bindTooltip('Position actuelle VR').addTo(map); 
+    
+   
+   
+    //chemin du routage et isochrones
+    L.polyline(chemin).setStyle({ color: 'blue', weight:1, opacity:1, }).addTo(map); 
+    L.polyline(noir).setStyle({ color: 'black', weight:1, opacity:0.3, }).addTo(map);           // Isochrones noirs
+    L.polyline(blanc).setStyle({ color: 'white', weight:1, opacity:0.5, }).addTo(map);          // Isochrones blancs
+    L.polyline(rouge).setStyle({ color: 'red', weight:1, opacity:0.5, }).addTo(map);          // Isochrones rouge
+    L.polyline(rouge2).setStyle({ color: 'red', weight:1, opacity:0.5, }).addTo(map);          // Isochrones rouge
+
+    L.polyline(cartevr).setStyle({ color: 'black', weight:2, opacity:0.5, }).addTo(map);         // Carte Vr
+    L.polyline(exclusions).setStyle({ color: 'blue', weight:2, opacity:0.5, }).addTo(map);       // Lignes exclusion
+   
+    // tooltips sur la ligne de routage
+    for ( var i=0 ; i<chemin.length ; i++ )
+            {              
+              tooltip2[i]='<b>'+(i+1)+')  HDG <span class="red">' +chec[i][6].toFixed(1) +'°</span>     -  TWA <span class="green"> ' +chec[i][7].toFixed(1) +'°</span><br><b>'+intl.format((chec[i][3]*1000))
+                +'  ( +'+hmn((chec[i][3]-t0)) +' h)<br> Lat  : '+pos_dec_mn_lat(chec[i][1]) +' ('+chec[i][1].toFixed(4)+'°)<br>Lng : '+pos_dec_mn_lng(chec[i][2]) +' ('+chec[i][2].toFixed(4)+'°)<br> TWS : <span class="purple">' +chec[i][4].toFixed(2)
+                +' N.</span> TWD : <span class="purple">'+chec[i][5].toFixed(0)+'°</span> <br> Vitesse :  ' +chec[i][9].toFixed(2) +' Noeuds'  
+          
+            if (i%6 != 0)
+                {var circle = L.circle(chemin[i],{ color: 'black',fillColor: '#f03',opacity:0.9,fillOpacity: 0.3,radius: 200,}).bindTooltip(tooltip2[i]) .addTo(map); }   
+            else{ var circle = L.circle(chemin[i],{ color: 'white',fillColor: '#f03',opacity:0.9,fillOpacity: 0.3,radius: 200,}).bindTooltip(tooltip2[i]) .addTo(map); }    
+            }
+  
+   
+  L.Polyline.Arc([y0,x0], [y1,x1], {color: 'white', weight:1, vertices:50}).addTo(map);   // orthodromie vers arrivee
+
+
+ // pour position en fonction du temps permet de faire fonctionner le point qui se deplace
+      
+       var sec=((store.get('timestamp')-t0-decalage_sec)/1000);
+       var numero=numero_point(sec);
+       console.log(' ecart en sec : '+sec+' point : '+ numero_point(sec))
+       var circlew = L.circle([1,1],{color: 'red',fillColor: '#f03',opacity:0.9,fillOpacity: 0.3,radius: 200,}).addTo(map);
+
+
+
+
+
+  // Rectangle pour la zone de vents chargés en deux parties
+    if (lngini>180) {lngini2=-360+lngini} else {lngini2=lngini}
+    if (lngfin>180) {lngfin2=-360+lngfin}else {lngfin2=lngfin}
+    if (lngfin2>lngini2)   // passage de la longitude 0
+    {latlngpoly=[[latini, lngini2],[latini, lngfin2],[latfin, lngfin2],[latfin, lngini2],[latini, lngini2]]
+    // console.log('latlngpoly '+ latlngpoly)   
+    L.polyline(latlngpoly).setStyle({ color: 'green', weight:2, opacity:0.3, }).addTo(map);}
+    else
+    {
+    latlngpoly1=[[latini, -0.01],[latini, lngini2-360],[latfin, lngini2-360],[latfin,-0.01]]
+    L.polyline(latlngpoly1).setStyle({ color: 'black', weight:2, opacity:0.3, }).addTo(map);
+    latlngpoly2=[[latini, +0.01],[latini, lngfin2],[latfin, lngfin2],[latfin,+0.01]]
+    L.polyline(latlngpoly2).setStyle({ color: 'blue', weight:2, opacity:0.3, }).addTo(map);
+    }
+
+
+    console.log ('en ligne 715 username : '+username )
+
+  // Creation des boites
+    // on va rajouter des div  a windy
+    let elt = document.getElementById("windy");
+
+    const newElt1 = document.createElement("div");   
+    elt.appendChild(newElt1);
+    newElt1.classList.add("boite1");
+    newElt1.innerHTML=texteboite1          
+
+    const newElt2 = document.createElement("div");
+    elt.appendChild(newElt2);
+    newElt2.classList.add("boite2"); 
+    newElt2.innerHTML=texteboite2
+
+
+    const newElt3 = document.createElement("div");
+    elt.appendChild(newElt3);
+    newElt3.classList.add("boite3"); 
+    newElt3.innerHTML=texteboite3       
+
+    const newElt4 = document.createElement("div");
+    elt.appendChild(newElt4);
+    newElt4.classList.add("boite4"); 
+    newElt4.innerHTML=texteboite4; 
+
+    const newElt5 = document.createElement("div");
+    elt.appendChild(newElt5);
+    newElt5.classList.add("boite5"); 
+    newElt5.innerHTML= "<div id='achoix' name='achoix' > test2  </div>" 
+
+
+    const newElt6 = document.createElement("div");
+    elt.appendChild(newElt6);
+    newElt6.classList.add("boite6"); 
+    newElt6.innerHTML= "<div id='achoix2' name='achoix2' > test3  </div>" 
+
+    var textebox= "<div id='box'  > </div>"
+
+    const newElt7 = document.createElement("div");   
+    elt.appendChild(newElt7);
+    newElt7.classList.add("box");
+    newElt7.innerHTML=textebox   
+
+  
+
+ //***********************************************************************************************************************************************
+ //***********************************************************************************************************************************************
+ //***********************************************************************************************************************************************
+
+    //partie simulation dans boites jaune et rouge 
+
+    var decalage=document.getElementById('decalage')                                  // traitement d'un changement de l'heure de depart dans vrouteur 
+        decalage.addEventListener("change", function (evt)
+        {   console.log ('Changement de decalage') 
+        var joursdec=document.getElementById('joursdec').value
+        var heuresdec=document.getElementById('heuresdec').value
+        var minutesdec=document.getElementById('minutesdec').value
+        var decalage=(joursdec*24*60*60+heuresdec*60*60+minutesdec*60)*1000
+        var todaynew=new Date(date0.getTime()+decalage) 
+        document.getElementById('datedepart').innerHTML=  intlhmn.format(todaynew)
+        })
+
+    var usernameformu = document.getElementById('joueur')
+    console.log ('username en ligne 780 ' +username)
+    usernameformu.value=username
+
+
+
+      var position=document.getElementById('position')  
+        position.addEventListener("change", function (evt)
+        {
+         var idep= document.getElementById('iddepart')
+         var idari= document.getElementById('idarrivee')
+         var lat= document.getElementById('lat')
+         var lon= document.getElementById('lon')
+         var y1s= document.getElementById('y1')
+         var x1s= document.getElementById('x1')
+
+
+         dep=parseInt(idep.value)
+         ari=parseInt(idari.value)                     
+         
+         console.log ('valeur de dep '+dep)
+         console.log ('valeur de ari '+ari)
+
+         
+        console.log('tabmarques'+tabmarques)
+
+        if (dep>0)
+         { y0=tabmarques [dep][1]
+           x0=tabmarques [dep][2]
+         }  
+        
+        if (dep==-2)
+        {   
+            console.log ('Le depart est egal a -2')
+            var lat0=document.getElementById('lat0').value 
+            var lat1=document.getElementById('lat1').value   
+            var lat2=document.getElementById('lat2').value 
+            var lat3=document.getElementById('lat3').value 
+            var lng0=document.getElementById('lng0').value 
+            var lng1=document.getElementById('lng1').value   
+            var lng2=document.getElementById('lng2').value 
+            var lng3=document.getElementById('lng3').value 
+            y0=lat3*(parseInt(lat0)+parseInt(lat1)/60+parseInt(lat2)/3600)
+            x0=lng3*(parseInt(lng0)+parseInt(lng1)/60+parseInt(lng2)/3600)
+            trajet= [username,race,y0,x0,t0,y1,x1,-2,1,'vroutage.html']
+            maj_tableau_trajets(trajet) 
+
+
+        }
+
+        y1=tabmarques [parseInt(ari)][1]                     
+        x1=tabmarques [parseInt(ari)][2]
+         // on reaffecte les valeurs 
+
+        //  console.log ('ligne 892 y0,x0  : '+y0+' ' +x0 )
+        //  console.log ('ligne 893 y1,x1  : '+y1+' ' +x1 )
+
+         lat.value=y0 
+         lon.value=x0  
+         y1s.value=y1
+         x1s.value=x1
+
+        })
+
+
+
+
+        twatab=tabmarche[0][7]
+        captab=tabmarche[0][6]
+
+        twatab>0?amure='+':amure='-' 
+        donnees= new Array([0,'twa',amure,Math.abs(Math.round(twatab,0)),60])     //initialisation du premier 
+       
+        texte=affichedonnees(donnees) 
+        document.getElementById('achoix').innerHTML=texte
+
+
+        cap=(+360-twa+twdvr)%360   //twa est la twa en valeur absolue 
+        twa>0?amure='+':amure='-' 
+        donnees2= new Array([0,'cap',amure,Math.abs(Math.round(captab,0)),60])     //initialisation du premier 
+        texte2=affichedonnees2(donnees2) 
+        document.getElementById('achoix2').innerHTML=texte2
+
+
+
+
+
+     // reaffichage de la boite 5  et tracage simulation si changement       
+        
+        achoix.addEventListener("change", function (evt)
+        {   console.log ('Donnees1 : '+donnees) 
+            //majdonnees()
+            texte=affichedonnees(donnees) 
+         //   console.log ('texte : '+texte)
+            document.getElementById('achoix').innerHTML=texte
+            tracesimul1()
+        })
+       
+        
+
+
+
+
+
+        achoix2.addEventListener("change", function ()
+        {   console.log ('Donnees2 : '+donnees2) 
+            //majdonnees()
+            texte2=affichedonnees2(donnees2) 
+            console.log ('texte2 : '+texte2)
+            document.getElementById('achoix2').innerHTML=texte2
+            tracesimul2()
+        })
+    
+
+
+    function tracesimul1()
+			{    //on calcule le temps global de la simulation 
+	
+				console.log(' ')
+				console.log ('Nouvelle simulation')
+				console.log(' ')
+	
+				dureesimul=0;
+				for (var j=0;j<donnees.length;j++){dureesimul+=parseInt(donnees[j][4])}
+				coordsimulation1= [[y0,x0]]                   //initialisation des point pour les coordonnees de la simulation
+				coord_chgt_voile_1=[[]]                             // initialisation du tableau de points pour changements de voile    
+				yt=y0;xt=x0;tt=Math.floor(t0)
+                var tooltip3=new Array(); 
+                tooltip3[0]=' ';  var k=0; 
+				// meteo et vitesse au depart    pour avoir la voile initiale
+				meteo=vit_angle_vent (y0,x0,t0);  var tws_t0=meteo[0] ;  var  twd_t0=meteo[1]; // meteo en y0 x0 
+				if (donnees[0][1]=='twa'){twa_t0=parseInt(donnees[0][3])}else {twa_t0=Math.abs(ftwao(donnees[0][3],twd_t0))}
+				res_t0=vitessepolaire (twa_t0,meteo[0]);   vit_polaire_t0=res_t0[0]; nvoile0 =res_t0[1]   
+				
+				var pt=0                    // initialisation de la penalite pour changement de voile a 0
+				var signe= donnees[0][2]=='+' ? +1 : -1;
+				if (donnees[0][1]=='twa'){twabase=signe*donnees[0][3];} else{twabase=ftwao(donnees[0][3],twd_t0)}
+				console.log ('twabase '+twabase) 
+				// initialisation du suivi twa pour tack et gybe
+	
+				for (var j=0;j<donnees.length;j++)
+				
+						{  var dt1 = donnees[j][4] /10     // nombre d'iterations
+                        
+							
+							if (donnees[j][1]=='cap')
+								{   point_t=[y0,x0]
+									var capa= donnees[j][3]         // cap donne par l interface                  
+									for (var i=0;i<dt1;i++)
+										{   tt=tt+600         // nouvel instant t pour le calcul de la meteo
+											meteo=vit_angle_vent (yt,xt,tt);  tws_t=meteo[0] ;  twd_t=meteo[1]; // meteo en yt xt   
+											n_twa=ftwao(capa,twd_t)
+											
+											twa_t=Math.abs(n_twa)    // le cap est constant
+											res_t=vitessepolaire (twa_t,meteo[0]);vit_polaire_t=res_t[0]; nvoile1 =res_t[1]
+										   // console.log ( 'j :'+j+' tt '+tt+ ' capa '+capa+ ' twd :'+meteo[1].toFixed(2)+' tws : '+meteo[0].toFixed(2)+' twa : '+twa_t+ ' voile '+nvoile1)
+										 
+										 
+										 
+										   if (nvoile1 != nvoile0) {	coord_chgt_voile_1.push(point_t); tooltip3.push('De '+nomvoile[nvoile0]+ '<br>à '+nomvoile[nvoile1]); pt=penalite (meteo[0]);  nvoile0=nvoile1; console.log ('changement de voile' );k+=1 }
+											else {pt=0}
+										   // console.log ('indice  '+i+'twa : '+twa_t+ 'tws : '+tws_t+' nvoile0 : '+nvoile0+ ' nvoile1 : '+nvoile1)
+										   
+	
+											ntwa=-n_twa
+											if (ntwa/twabase<0)
+												{coord_chgt_voile_1.push(point_t);
+													if ( Math.abs(ntwa) <90)  {  pt2= tackpenalite(meteo[0]);  } else { pt2= gybepenalite(meteo[0])  }     
+												}  
+											else {pt2=0}
+											twabase=ntwa
+	
+											point_t=deplacement(yt,xt,600-pt-pt2,vit_polaire_t,capa)
+											coordsimulation1.push(point_t)           
+											yt=point_t[0]; xt=point_t[1];pt=0;
+										}   
+								}
+	
+							if (donnees[j][1]=='twa')
+								{  twa_t=parseInt(donnees[j][3])    // le cap est constant twa_t valeur absolue de la twa
+									donnees[j][2]=='+'?twaa=-twa_t:twaa=+twa_t 
+									for (var i=0;i<dt1;i++)
+										{   
+											tt=tt+600         // nouvel instant t pour le calcul de la meteo
+											meteo=vit_angle_vent (yt,xt,tt);  tws_t=meteo[0] ;  twd_t=meteo[1]; // meteo en yt xt   
+											//cap en fonction du vent et de la twa    
+											capa=(+360+twaa+meteo[1])%360   //twaa est la twa en valeur absolue 
+											res_t=vitessepolaire (twa_t,meteo[0]);vit_polaire_t=res_t[0]; nvoile1 =res_t[1]
+											if (nvoile1 != nvoile0) {	coord_chgt_voile_1.push(point_t); tooltip3.push('<h4> De '+nomvoile[nvoile0]+ '<br>à '+nomvoile[nvoile1]+'</h4>'); pt=penalite (meteo[0]);  nvoile0=nvoile1; console.log ('changement de voile' ); }
+											else {pt=0}
+										   // console.log ('indice '+i+' twa : '+twa_t+ 'tws : '+tws_t.toFixed(1)+' nvoile0 : '+nvoile0+ ' nvoile1 : '+nvoile1+' pt :'+pt.toFixed(0)+'s' )
+											// calcul du deplacement sans changement de voile
+										   
+											
+	
+											ntwa=-twaa
+										if (ntwa/twabase<0)
+											 {coord_chgt_voile_1.push(point_t)
+												if ( Math.abs(ntwa) <90)  {  pt2= tackpenalite(meteo[0]);  }  else { pt2= gybepenalite(meteo[0]); }     
+										}  else { pt2=0}
+										twabase=ntwa
+										point_t=deplacement(yt,xt,600-pt-pt2,vit_polaire_t,capa) 
+										coordsimulation1.push(point_t)
+										yt=point_t[0]; xt=point_t[1];pt=0;
+	
+										} 
+									
+								}   
+						}
+			   
+				map.removeLayer(polylinesimul1);
+				for ( var j=0 ; j<circlesimul1.length ; j++ )  {map.removeLayer( circlesimul1[j] );}  // on efface les anciens
+				for ( var i=1 ; i<coordsimulation1.length ; i++ )
+							{ if (i%6 != 0)  { circlesimul1[i] = L.circle(coordsimulation1[i], {color: 'yellow' ,fillColor: '#f03',opacity:0.9,fillOpacity: 1,radius: 150,}).addTo(map);} 
+							  else         { circlesimul1[i] = L.circle(coordsimulation1[i], {color: 'orange' ,fillColor: '#f03',opacity:0.9,fillOpacity: 1,radius: 150,}).addTo(map);}
+							}  
+				polylinesimul1 = L.polyline(coordsimulation1).setStyle({ color: 'black', weight:1, opacity:1, }).addTo(map);
+                 
+				if ( coord_chgt_voile_1.length >1)
+								{  //console.log ( 'polyvoile dans windleaf ' +polyvoile [1])
+									for ( var z=1 ; z<coord_chgt_voile_1.length ; z++ ) 
+									{
+                                        
+                                        circlesimul1[z] = L.circle(coord_chgt_voile_1[z], {color: 'black' ,fillColor: 'yellow',opacity:1,fillOpacity: 1,radius: 500,}).bindTooltip(tooltip3[z]).addTo(map);}
+						}    
+								
+			}
+	
+	
+			function tracesimul2()
+			{    //on calcule le temps global de la simulation 
+	
+				console.log(' ')
+				console.log ('Nouvelle simulation')
+				console.log(' ')
+	
+				dureesimul2=0;
+				for (var j=0;j<donnees2.length;j++){dureesimul2+=parseInt(donnees2[j][4])}
+				coordsimulation2= [[y0,x0]]                   //initialisation des point pour les coordonnees de la simulation
+				coord_chgt_voile_2=[[]]                             // initialisation du tableau de points pour changements de voile    
+				yt=y0;xt=x0;tt=Math.floor(t0)
+                var tooltip4=new Array(); 
+                tooltip4[0]=' ';  var k=0; 
+	
+				// meteo et vitesse au depart    pour avoir la voile initiale
+				meteo=vit_angle_vent (y0,x0,t0);  var tws_t0=meteo[0] ;  var  twd_t0=meteo[1]; // meteo en y0 x0 
+				if (donnees2[0][1]=='twa'){twa_t0=parseInt(donnees2[0][3])}else {twa_t0=Math.abs(ftwao(donnees2[0][3],twd_t0))}
+				res_t0=vitessepolaire (twa_t0,meteo[0]);   vit_polaire_t0=res_t0[0]; nvoile0 =res_t0[1]   
+				
+				var pt=0                    // initialisation de la penalite pour changement de voile a 0
+				var signe= donnees2[0][2]=='+' ? +1 : -1;
+				if (donnees2[0][1]=='twa'){twabase=signe*donnees2[0][3];} else{twabase=ftwao(donnees2[0][3],twd_t0)}
+				console.log ('twabase '+twabase) 
+				// initialisation du suivi twa pour tack et gybe
+	
+				for (var j=0;j<donnees2.length;j++)
+				
+						{  var dt1 = donnees2[j][4] /10     // nombre d'iterations
+							
+							if (donnees2[j][1]=='cap')
+								{ point_t=[y0,x0]
+									var capa= donnees2[j][3]         // cap donne par l interface                  
+									for (var i=0;i<dt1;i++)
+										{   tt=tt+600         // nouvel instant t pour le calcul de la meteo
+											meteo=vit_angle_vent (yt,xt,tt);  tws_t=meteo[0] ;  twd_t=meteo[1]; // meteo en yt xt   
+											n_twa=ftwao(capa,twd_t)
+											
+											twa_t=Math.abs(n_twa)    // le cap est constant
+											res_t=vitessepolaire (twa_t,meteo[0]);vit_polaire_t=res_t[0]; nvoile1 =res_t[1]
+										   // console.log ( 'j :'+j+' tt '+tt+ ' capa '+capa+ ' twd :'+meteo[1].toFixed(2)+' tws : '+meteo[0].toFixed(2)+' twa : '+twa_t+ ' voile '+nvoile1)
+											if (nvoile1 != nvoile0) {	coord_chgt_voile_2.push(point_t);  tooltip4.push('De '+nomvoile[nvoile0]+ '<br>à '+nomvoile[nvoile1]); pt=penalite (meteo[0]);  nvoile0=nvoile1; console.log ('changement de voile' ); }
+											else {pt=0}
+										   // console.log ('indice  '+i+'twa : '+twa_t+ 'tws : '+tws_t+' nvoile0 : '+nvoile0+ ' nvoile1 : '+nvoile1)
+										   
+	
+											ntwa=-n_twa
+											if (ntwa/twabase<0)
+												{coord_chgt_voile_2.push(point_t);
+													if ( Math.abs(ntwa) <90)  {  pt2= tackpenalite(meteo[0]);  } else { pt2= gybepenalite(meteo[0])  }     
+												}  
+											else {pt2=0}
+											twabase=ntwa
+										  
+											point_t=deplacement(yt,xt,600-pt-pt2,vit_polaire_t,capa)
+											coordsimulation2.push(point_t)           
+											yt=point_t[0]; xt=point_t[1];pt=0;
+										}   
+								}
+	
+							if (donnees2[j][1]=='twa')
+								{  twa_t=parseInt(donnees2[j][3])    // le cap est constant twa_t valeur absolue de la twa
+									donnees2[j][2]=='+'?twaa=-twa_t:twaa=+twa_t 
+									for (var i=0;i<dt1;i++)
+										{   
+											tt=tt+600         // nouvel instant t pour le calcul de la meteo
+											meteo=vit_angle_vent (yt,xt,tt);  tws_t=meteo[0] ;  twd_t=meteo[1]; // meteo en yt xt   
+											//cap en fonction du vent et de la twa    
+											capa=(+360+twaa+meteo[1])%360   //twaa est la twa en valeur absolue 
+											res_t=vitessepolaire (twa_t,meteo[0]);vit_polaire_t=res_t[0]; nvoile1 =res_t[1]
+											if (nvoile1 != nvoile0) {	coord_chgt_voile_2.push(point_t);  tooltip4.push('De '+nomvoile[nvoile0]+ '<br>à '+nomvoile[nvoile1]); pt=penalite (meteo[0]);  nvoile0=nvoile1; console.log ('changement de voile ' ); }
+											else {pt=0}
+										   // console.log ('indice '+i+' twa : '+twa_t+ 'tws : '+tws_t.toFixed(1)+' nvoile0 : '+nvoile0+ ' nvoile1 : '+nvoile1+' pt :'+pt.toFixed(0)+'s' )
+											// calcul du deplacement sans changement de voile
+										   
+											
+	
+											ntwa=-twaa
+										if (ntwa/twabase<0)
+											 {coord_chgt_voile_2.push(point_t)
+												if ( Math.abs(ntwa) <90)  {  pt2= tackpenalite(meteo[0]);  }  else { pt2= gybepenalite(meteo[0]); }     
+										}  else { pt2=0}
+										twabase=ntwa
+										point_t=deplacement(yt,xt,600-pt-pt2,vit_polaire_t,capa) 
+										coordsimulation2.push(point_t)
+										yt=point_t[0]; xt=point_t[1];pt=0;
+	
+										} 
+									console.log('Polyvoile2 : '+ coord_chgt_voile_2)
+								}   
+						}
+			   
+				map.removeLayer(polylinesimul2);
+				for ( var j=0 ; j<circlesimul2.length ; j++ )  {map.removeLayer( circlesimul2[j] );}  // on efface les anciens
+				for ( var i=1 ; i<coordsimulation2.length ; i++ )
+							{ if (i%6 != 0)  { circlesimul2[i] = L.circle(coordsimulation2[i], {color: 'red' ,fillColor: '#f03',opacity:0.9,fillOpacity: 1,radius: 150,}).addTo(map);} 
+							  else         { circlesimul2[i] = L.circle(coordsimulation2[i], {color: 'lightblue' ,fillColor: '#f03',opacity:0.9,fillOpacity: 1,radius: 150,}).addTo(map);}
+							}  
+				polylinesimul2 = L.polyline(coordsimulation2).setStyle({ color: 'black', weight:1, opacity:1, }).addTo(map);
+	
+				if ( coord_chgt_voile_2.length >1)
+								{  //console.log ( 'polyvoile dans windleaf ' +polyvoile [1])
+									for ( var z=1 ; z<coord_chgt_voile_2.length ; z++ ) 
+									{circlesimul2[z] = L.circle(coord_chgt_voile_2[z], {color: 'black' ,fillColor: 'red',opacity:1,fillOpacity: 1,radius: 500,}).bindTooltip(tooltip4[z]).addTo(map);}
+						}    
+								
+			}
+	
+
+
+    //***********************************************************************************************************************************************
+    //***********************************************************************************************************************************************
+
+
+
+    // recuperation de affiche vent et cap 
+
+    affichecap=1
+    lignecap.addEventListener("click", function (evt)   
+    {   if (document.getElementById('lignecap').checked==true ) {affichecap=1}  else  {affichecap=0}      } );
+    affichetwa=1
+    lignetwa.addEventListener("click", function (evt)   
+    {   if (document.getElementById('lignetwa').checked==true ) {affichetwa=1} else {affichetwa=0}     } );   
+    affichevent=0
+    lignevent.addEventListener("click", function (evt)   
+    {   if (document.getElementById('lignevent').checked==true ) {affichevent=1} else {affichevent=0}     } );   
+
+
+
+    var changt=document.getElementById('relance') 
+    relance.addEventListener("click", function (evt)
+    { console.log('Click sur relance')
+    //username race 
+    var lat0=document.getElementById('lat0').value 
+    var lat1=document.getElementById('lat1').value   
+    var lat2=document.getElementById('lat2').value 
+    var lat3=document.getElementById('lat3').value 
+    var lng0=document.getElementById('lng0').value 
+    var lng1=document.getElementById('lng1').value   
+    var lng2=document.getElementById('lng2').value 
+    var lng3=document.getElementById('lng3').value 
+    
+    var idep = document.getElementById('iddepart')
+    dep=parseInt(idep.value)
+    var dari= document.getElementById('idarrivee')
+    dt=new Date()
+    var tstart    = dt.getTime()
+    source='vroutage.html'
+    // # userid    = (request.args['userid']) 
+    //     # teamname  = (request.args['teamname']) 
+    //     # type      = (request.args['type']) 
+
+
+    // # userid    = (request.args['userid']) 
+    //     # teamname  = (request.args['teamname']) 
+    //     # type      = (request.args['type']) 
+    //     # clat      = float(request.args['clat']) 
+    //     # clon      = float(request.args['clon']) 
+       
+    //     # o         = float(request.args['o']) 
+    //     # auto      = (request.args['auto']) 
+    //     # twa       = float(request.args['twa']) 
+    //     # tws       = float(request.args['tws']) 
+    //     # twd       = float(request.args['twd'])
+    //     # rank      = float(request.args['rank'])
+    //     # voile     = float(request.args['voile'])
+
+    ycoord=lat3*(parseInt(lat0)+parseInt(lat1)/60+parseInt(lat2)/3600)
+    xcoord=lng3*(parseInt(lng0)+parseInt(lng1)/60+parseInt(lng2)/3600)
+    
+    console.log ('ycoord '+ycoord)
+    window.location="vroutage?username="+username+"&course="+course+"&ycoord="+ycoord+"&xcoord="+xcoord+"&ts="+tstart+"&y1="+y1+"&x1="+x1+"&dep="
+          +dep+"&ari="+ari+ "&username="+username +"&userid="+userid+"&teamname="+teamname+"&twa="+twa+"&tws="+tws+"&twd="+twd+"&rank="+rank+"&voile="+voile+"&type="+type+"&source=vroutage.html"
+    //window.location="/vroutage?username="+username+"&source=vroutage.html&lat="+ycoord+ " &lon="+xcoord// on redirige vers index
+    })
+
+
+
+    
+    var changt=document.getElementById('changt') 
+    changt.addEventListener("click", function (evt)
+    { console.log('Click sur changement')
+    window.location="/index?source='vroutage.html"  // on redirige vers index
+    })
+
+
+
+
+
+    var cartes=document.getElementById('cartes') 
+    cartes.addEventListener("click", function (evt)
+    { console.log('Click pour demande cartes par ajax')
+                $.ajax  ({
+                url         :'cartesvr',           //url a contacter pour la reponse
+                type        :'get',
+                contentType :'application/json',
+                data      :{valeur: 'valeur envoyee par vrouteur.html'},
+                success     :function (response)
+                            {
+                           cartevr=response.retour1
+                           L.polyline(cartevr).setStyle({ color: 'blue', weight:1, opacity:1, }).addTo(map);
+                            }   
+                        })  
+
+
+    })
+
+
+    var gefs=document.getElementById('gefs') 
+    gefs.addEventListener("click", function (evt)
+    { console.log('Click pour demande gefs par ajax')
+
+    console.log ('ts '+ts)
+    console.log ('ari '+ari)
+    console.log ('course '+race)
+    $.ajax  ({
+                url         :'routagegefs',           //url a contacter pour la reponse
+                type        :'get',
+                contentType :'application/json',
+                data      :{valeur: 'Demande de routage GEFS'  , y0:y0 , x0:x0   , y1:y1 , x1:x1 ,ts :ts ,ari:ari, course:race},
+                success     :function (response)
+                            {
+                            chemingefs = response.retour1
+                            dureegefs  = response.retour2
+                            console.log('Duree gefs '+dureegefs)
+                            L.polyline(chemingefs).setStyle({ color: 'red', weight:1, opacity:1, }).addTo(map);
+
+
+                            for ( var i=0 ; i<chemingefs.length ; i++ )
+            {              
+              
+            if (i%6 != 0)
+                {var circle = L.circle(chemingefs[i],{ color: 'red',fillColor: '#f03',opacity:0.9,fillOpacity: 0.3,radius: 200,}) .addTo(map); }   
+            else{ var circle = L.circle(chemingefs[i],{ color: 'white',fillColor: '#f03',opacity:0.9,fillOpacity: 0.3,radius: 200,}) .addTo(map); }    
+            }
+   
+
+            var  datearriveegefs = new Date((ts+dureegefs)*1000) 
+            console.log ('datearriveegefs'+datearriveegefs)
+            var  duree_jgefs    = Math.floor(dureegefs / (3600 * 24))
+            var  duree_hgefs    = Math.floor((dureegefs-(duree_jgefs*3600*24))/3600)
+            var  duree_mngefs   = Math.floor((dureegefs - (duree_jgefs * 3600 * 24)-(duree_hgefs*3600))/60) 
+
+            console.log ('date arrivee gefs '+intlhmn.format(datearriveegefs))
+            
+            console.log ('ligne 1272')
+            console.log  ('duree en j '+duree_jgefs )
+            console.log  ('duree en h' +duree_hgefs )
+            console.log  ('duree en mn'+duree_mngefs )
+
+            document.getElementById('etagefs').innerHTML=' ETA GEFS : '+intlhmn.format(datearriveegefs)+'  ( '+duree_jgefs+'j '+duree_hgefs+'h '+duree_mngefs +'mn)'
+            
+
+                            }
+
+            }) 
+
+    })
+
+
+
+
+   // Elements traites au mouvement de la souris 
+   var valinit = 0
+                var valcal  = 0
+
+                map.on('mousemove', function(e)
+                { 
+                                var x =  parseInt(e.containerPoint.x+15);
+                                var y =  parseInt(e.containerPoint.y-595);
+                                boite20=document.getElementById("box")
+                                boite20.style.position='relative';
+                                boite20.style.left = (x)+'px';
+                                boite20.style.top = (y)+'px';
+                                boite20.style.zIndex = 15;
+                            
+
+                
+                var decalageheureduvent=sec; 
+                meteodepart=vit_angle_vent (y0,x0,t0)  
+
+                direction=dist_cap_ortho2(y0,x0,e.latlng.lat,e.latlng.lng)              //direction distance vers le curseur
+                direction2=dist_cap_ortho2(y0,x0,e.latlng.lat,e.latlng.lng)             //direction distance vers le curseur
+            
+                twac=ftwao(direction[1],twdjp)
+                speed=polinterpol2d(polairesjs,twac,twsjp) // tws jp est la valeur obtenue par python 
+                timemeteo=+t0+(decalageheureduvent)
+                document.getElementById('latitude').innerHTML=pos_dec_mn_lat(e.latlng.lat)+' ('+e.latlng.lat.toFixed(3)+')'
+                document.getElementById('longitude').innerHTML=  pos_dec_mn_lng(e.latlng.lng)+' ('+e.latlng.lng.toFixed(3)+')'
+                document.getElementById('hdg').innerHTML = direction[1].toFixed(0)  
+                document.getElementById('twa').innerHTML = -twac.toFixed(0) 
+                document.getElementById('speed').innerHTML = speed.toFixed(2) 
+              
+
+                meteocurseur=vit_angle_vent (e.latlng.lat,e.latlng.lng ,timemeteo)
+                twscurseur=meteocurseur[0].toFixed(1)
+                twdcurseur=meteocurseur[1].toFixed(0)
+            
+                document.getElementById('tws').innerHTML = twscurseur
+                document.getElementById('twd').innerHTML = twdcurseur
+                if (affichevent==1  )    
+                {boite20.innerHTML   = '<b>HDG  : <span class="purple">'+direction[1].toFixed(0)+'°</span><br> TWA : <span class="darkgreen"> '+(-twac.toFixed(0))+'° </span><br><br> TWD :'+twdcurseur+'°<br> TWS :'+twscurseur+' N</b>' ;}
+
+                else {boite20.innerHTML   =' '}
+                //L.polyline(polytwa).setStyle({ color: 'red', weight:2, opacity:0.3, }).addTo(map);
+           
+                
+                
+                cap0= Math.floor(direction[1])
+                valcal=Math.round(direction[1])      // cap vers le  curseur
+              
+               
+
+                if (valinit!=valcal)     // calcul des lignes rouge cap  et verte twa s il y a changement de cap
+            { 
+                valinit=valcal                   
+                   
+                    polytwa         =polyline_twa(y0,x0,twac,t0)[0]
+                    polyvoiletwa    =polyline_twa(y0,x0,twac,t0)[1]
+                    polycap         =polyline_cap(y0,x0,valcal,t0)[0]
+                    polyvoilecap    =polyline_cap(y0,x0,valcal,t0)[1]    
+
+                    for ( var j=1 ; j<74 ; j++ )  {map.removeLayer(circle1[j]);map.removeLayer(circle2[j]);map.removeLayer(circle10[j]);map.removeLayer(circle11[j]);}  // on efface les anciens points 
+
+              
+
+             
+                  
+                if (affichetwa==1  )                                                                      // si on demande l'afichage
+                    {
+                           
+                            for ( var i=1 ; i<polytwa.length ; i++ )  
+                                
+                            // on trace les cercles correspondant a poly twa 
+                                {  
+                                    if (i%6 != 0)     { circle1[i] = L.circle( polytwa[i], {color: 'green' ,fillColor: '#f03',opacity:0.9,fillOpacity: 0.3,radius: 150,}).addTo(map);} 
+                                    else              { circle1[i] = L.circle(polytwa[i], {color: 'lime'  ,fillColor: '#f03',opacity:0.9,fillOpacity: 0.3,radius: 150,}).addTo(map);}   
+                                }   
+
+                            if ( polyvoiletwa.length >1)
+                                {   for ( var z=1 ; z<polyvoiletwa.length ; z++ ) 
+                                    {circle10[z] = L.circle(polyvoiletwa[z], {color: 'black' ,fillColor: 'green',opacity:0.9,fillOpacity: 0.3,radius: 500,}).addTo(map);}
+                                }
+                    }
+            
+                if (affichecap==1  ) 
+                    {
+                            for ( var i=1 ; i<polycap.length ; i++ )
+                                { if (i%6 != 0)  { circle2[i] = L.circle(polycap[i], {color: 'purple' ,fillColor: '#f03',opacity:0.9,fillOpacity: 0.3,radius: 150,}).addTo(map);} 
+                                else           { circle2[i] = L.circle(polycap[i], {color: 'grey' ,fillColor: '#f03',opacity:0.9,fillOpacity: 0.3,radius: 150,}).addTo(map);}
+                                }   
+                            if ( polyvoilecap.length >1)
+                                    {  //console.log ( 'polyvoile dans windleaf ' +polyvoile [1])
+                                        for ( var z=1 ; z<polyvoilecap.length ; z++ ) 
+                                        {circle11[z] = L.circle(polyvoilecap[z], {color: 'black' ,fillColor: 'purple',opacity:1,fillOpacity: 1,radius: 500,}).addTo(map);}
+                                    
+                                    }
+                    }               
+
+                }     // fin de if (valinit!=valcal)      
+                    });
+
+
+
+    map.on('contextmenu', function(e)
+        {  console.log ('875 Arrivee : '+narrivee)
+        //     console.log ('dans context menu y1= '+ y1+ ' x1='+x1 + 'arrivee= '+narrivee)
+        //     L.Polyline.Arc([y0,x0], [y1,x1], {color: 'blue', weight:1, vertices:50}).addTo(map);
+            popup
+                .setLatLng(e.latlng)
+
+                .setContent
+                ( "  <b>   Latitude &nbsp; &nbsp;: " +pos_dec_mn(e.latlng.lat)+" (" +arrondi(e.latlng.lat,4) + ") "
+                +" <br> Longitude : " +pos_dec_mn(e.latlng.lng)+" ("+arrondi(e.latlng.lng,4)+")"
+                +"<br><a href=javascript:void(0); onclick= 'itineraire("+e.latlng.lat+","+e.latlng.lng+","+ts+","+y1+","+x1+ ",-2,"+ari  +"    ) ';> Definir comme Depart</a>"
+                
+                +"<br><a href=javascript:void(0); onclick= 'itineraire("+y0+","+x0+","+ts+","+e.latlng.lat+","+e.latlng.lng + ","+dep+",-2 ) ';> Definir comme Arrivee</a>"
+                
+                // +"<br><a href=javascript:void(0); onclick= itineraire2("+t0+","+y0+","+x0+ ",   lat+","+e.latlng.lng+","+urlbeta+","+userid+") ;>Definir comme Arrivee</a><br>"
+                )
+                .openOn(map);
+
+                
+        }); 
+
+
+n=0    // pour eviter un recalcul a chaque deplacement
+
+
+document.addEventListener("readystatechange",function(evt)
+      {
+        console.log ('document complet'+document.readyState) 
+
+        if (document.readyState=="interactive")
+        {
+                console.log ('document complet')      }
+      
+    })
+
+
+broadcast.on('redrawFinished', () => 
+        {   
+            console.log ('redrawFinished iteration '+n)
+            
+            sec=((store.get('timestamp')-Date.now())/1000);
+            console.log(' ecart en sec '+sec+'point'+ numero_point(sec))
+            numero_point_jp=numero_point(sec-decalage_sec)
+            map.removeLayer(circlew)
+            circlew = L.circle(chemin[ numero_point_jp  ], {
+                            color: 'red',
+                            fillColor: '#f03',
+                            opacity:0.9,
+                            fillOpacity: 0.3,
+                            radius: 1500,
+                        }).addTo(map);
+            hvent=  store.get('timestamp')
+            datevent=intlhmn.format(hvent)
+            document.getElementById('ecarth').innerHTML=datevent
+
+            
+        });
+        
+        broadcast.on('mapChanged', () =>{console.log ('map changed') });
+        });
+
+    </script>
+    </head>
+
+
+    <body>
+        <div id="windy"></div>   
+    </body>
+
+
+
+
+</html>
