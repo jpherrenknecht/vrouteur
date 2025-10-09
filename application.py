@@ -79,7 +79,7 @@ logging.getLogger('psycopg2').setLevel(logging.DEBUG)                         # 
 
 
 
-# test pour commit
+# test pour commit dans tests modifs
 
 
 
