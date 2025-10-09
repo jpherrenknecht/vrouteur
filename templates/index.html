@@ -702,22 +702,29 @@
 
             var texteboite4 =
                 `<div class='liens' >
-            
-       <button id="btnDivers">  Calculettes   </button>
-       <button id="btnPolaires">Polaires</button>
-       <button onclick='EditeurExclusions()'> Exclusions </button>
+              
+        <button id="btnDivers">  Calculettes   </button>
+       
+        <button onclick='EditeurExclusions()'> Exclusions </button>
        <button onclick='EditeurBarrieres()'> Barrieres </button>
-     
+      <button id="btnPolaires">Polaires</button>
        <button onclick='EditeurRoutes()'> Routes </button>
 
        <input type="file" id="gpx-input" accept=".gpx" style="margin: 10px;" />
-        <label for="gpx-input" class="chargergpx">📂 Charger GPX</label>
+        <label for="gpx-input" class="chargergpx">📂 Charger GPX1</label>
 
-        <input type="file" id="csv-input" accept=".csv" style="margin: 10px;" />
-        <label for="csv-input" class="chargercsv">📂 Charger CSV</label>
+        <input type="file" id="gpx-input2" accept=".gpx" style="margin: 10px;" />
+        <label for="gpx-input2" class="chargergpx">📂 Charger GPX2</label>
+
        </div>`;
+       
 
-            var texteboite44 =
+        
+       
+       
+       
+       
+       var texteboite44 =
                 `<div class='progsvr' >
          <span class= 'col150' > Programmations VR </span>       
         <button  id='rafraichir' class='blackwhite11' value='0' > Rafraichir </button>
@@ -967,18 +974,12 @@
             {
                 console.log(' on est dans afficheboatinfos ')
                 boatinfos = boatinfosdata.result
-
                 console.log('boatinfos à ' + intlhmn.format(Date.now()) + ' \n' + boatinfos)
-              
 
                 indicemajgrib = boatinfosdata.indicemajgrib
                 tig = boatinfosdata.tig
                 boatinfos = JSON.parse(boatinfos)
                 boatinfosbs = boatinfos['bs']
-                lastCalcDate = boatinfosbs['lastCalcDate'] 
-                console.log('lastCalcDate dans boatinfos  ' + intlhmn.format(lastCalcDate) )
-
-
                 try { boatinfosBA = boatinfos['ba'] }
 
                 catch { boatinfosBA = [] }
@@ -5522,12 +5523,12 @@
 
 
 
-            document.getElementById("wptconsole").addEventListener("click", function () {
-                console.log('waypoints pour test dans console ')
+            // document.getElementById("wptconsole").addEventListener("click", function () {
+            //     console.log('waypoints pour test dans console ')
 
-                console.log(waypoints)
+            //     console.log(waypoints)
 
-            });
+            // });
 
 
 
@@ -5738,6 +5739,8 @@
 
 
 
+
+
             document.getElementById('gpx-input').addEventListener('change', function (e) {
                 const file = e.target.files[0];
                 if (!file) return;
@@ -5753,30 +5756,6 @@
                     // Convert to GeoJSON
                     const geojson = toGeoJSON.gpx(xml);
                     console.log("GeoJSON extrait :", geojson);
-
-                    // // Ajouter sur la carte Windy
-                    // const layer = L.geoJSON(geojson, {
-                    //     style: { color: 'red', weight: 3 }
-                    // }).addTo(windyMap);  // windyMap est la variable Windy
-
-
-
-
-
-
-                    //    const layer = L.geoJSON(geojson, {
-                    //     style: { color: 'red', weight: .5 },
-                    //     pointToLayer: function(feature, latlng) {
-                    //         return L.circleMarker(latlng, {
-                    //             radius: 2,
-                    //             fillColor: "#ff0000",
-                    //             color: "#fff",
-                    //             weight: 0.5,
-
-                    //             fillOpacity: 0
-                    //         });
-                    //     }
-                    //          }).addTo(map);
 
 
                     const layer = L.geoJSON(geojson, {
@@ -5813,14 +5792,66 @@
                             }).bindTooltip(tooltipText, { direction: 'top', permanent: false });
                         }
                     }).addTo(map);
-
-
-
-
-
-
                 };
+                reader.readAsText(file);
+            });
 
+
+
+
+
+            document.getElementById('gpx-input2').addEventListener('change', function (e) {
+                const file = e.target.files[0];
+                if (!file) return;
+
+                const reader = new FileReader();
+                reader.onload = function (event) {
+                    const gpxText = event.target.result;
+
+                    // Parse XML
+                    const parser = new DOMParser();
+                    const xml = parser.parseFromString(gpxText, "application/xml");
+
+                    // Convert to GeoJSON
+                    const geojson = toGeoJSON.gpx(xml);
+                    console.log("GeoJSON extrait :", geojson);
+
+
+                    const layer = L.geoJSON(geojson, {
+                        pointToLayer: function (feature, latlng) {
+                            // Récupération des données
+                            const coords = latlng;
+                            const properties = feature.properties || {};
+                            const isoTime = properties.time || '';
+                            const timeStr = isoTime
+                                ? new Date(isoTime).toLocaleString('fr-FR', {
+                                    timeZone: 'Europe/Paris',
+                                    hour: '2-digit',
+                                    minute: '2-digit',
+                                    day: '2-digit',
+                                    month: '2-digit'
+                                })
+                                : 'N/A';
+
+                            // Construction du contenu du tooltip
+                            const tooltipText = `
+            <b> Avalon <b><br>
+            <b>Lat:</b> ${coords.lat.toFixed(6)}<br>
+            <b>Lon:</b> ${coords.lng.toFixed(6)}<br>
+            <b>Heure:</b> ${timeStr}
+        `;
+
+                            // Cercle avec tooltip
+                            return L.circle(latlng, {
+                                radius: 15,
+                                color: 'black',
+                                fillColor: '#3399ff',
+                                fillOpacity: 0.5,
+                                weight: 0.5
+                            }).bindTooltip(tooltipText, { direction: 'top', permanent: false });
+                        }
+                    }).addTo(map);
+                };
                 reader.readAsText(file);
             });
 
@@ -5829,6 +5860,8 @@
 
 
 
+
+            
 
 
 

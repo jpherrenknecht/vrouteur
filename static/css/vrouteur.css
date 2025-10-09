@@ -541,11 +541,9 @@ a:link {
 
  
 
- #gpx-input {
-        display: none;
-    }
+ #gpx-input {display: none;  }
 
-    .btn-gpx {
+.btn-gpx {
         display: inline-block;
         padding: 6px 12px;
         font-size: 10px;
@@ -556,14 +554,9 @@ a:link {
         border-radius: 4px;
         cursor: pointer;
         transition: background-color 0.2s ease;
-    }
+         }
 
-    .btn-gpx:hover {
-        background-color: #e0e0e0;
-        
-    }
-
-
+.btn-gpx:hover {  background-color: #e0e0e0;  }
 
 .chargergpx{
    border-radius: 4px;
@@ -571,7 +564,55 @@ a:link {
   padding:  5px;
   background-color: #eceaea;
   border: 1px solid black;
-  font-size: 10px;}
+  font-size: 10px;
+    }
+
+
+
+
+
+
+
+
+ #gpx-input2 {display: none;  }
+
+.btn-gpx {
+        display: inline-block;
+        padding: 6px 12px;
+        font-size: 10px;
+        font-family: inherit;
+        color: #333;
+        background-color: #f0f0f0;
+        border: 1px solid #ccc;
+        border-radius: 4px;
+        cursor: pointer;
+        transition: background-color 0.2s ease;
+         }
+
+.btn-gpx2:hover {  background-color: #e0e0e0;  }
+
+.chargergpx2{
+   border-radius: 4px;
+  margin:5px;
+  padding:  5px;
+  background-color: #eceaea;
+  border: 1px solid black;
+  font-size: 10px;
+    }
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
