@@ -964,12 +964,18 @@
             {
                 console.log(' on est dans afficheboatinfos ')
                 boatinfos = boatinfosdata.result
+
                 console.log('boatinfos à ' + intlhmn.format(Date.now()) + ' \n' + boatinfos)
+              
 
                 indicemajgrib = boatinfosdata.indicemajgrib
                 tig = boatinfosdata.tig
                 boatinfos = JSON.parse(boatinfos)
                 boatinfosbs = boatinfos['bs']
+                lastCalcDate = boatinfosbs['lastCalcDate'] 
+                console.log('lastCalcDate dans boatinfos  ' + intlhmn.format(lastCalcDate) )
+
+
                 try { boatinfosBA = boatinfos['ba'] }
 
                 catch { boatinfosBA = [] }

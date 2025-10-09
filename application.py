@@ -161,7 +161,7 @@ def handle_test(data):
 
     # Fonction pour envoyer une mise à jour personnalisée
 def send_update_to_client(client_id, message):
-    print('ligne 154 ',clients)
+    print('ligne 154 clients connectes : ',clients)
     print( 'message envoye au client  ',message)
     if client_id in clients:
         socketio.emit('update', {'message': message}, room=client_id, namespace='/')
@@ -3299,7 +3299,7 @@ class RoutageSession:                                                  # version
 
         if indiceroutage==0:
             iso          = self.isodepart 
-            seuils = [[296, 300],[90,600], [144, 1800], [240, 3600]]
+            seuils = [[288, 300],[72,600], [144, 1800], [240, 3600]]
             tabdt = construire_dt(seuils, taille=1000)
             print('shape isoglobal ',isoglobal.shape) 
             print('shape iso ',iso.shape) 
