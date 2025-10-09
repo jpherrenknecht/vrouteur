@@ -79,7 +79,7 @@ logging.getLogger('psycopg2').setLevel(logging.DEBUG)                         # 
 
 
 
-
+# test pour commit
 
 
 
@@ -226,9 +226,7 @@ def majgrib():
             return 
     else:
         print('Le fichier {}  n existe pas encore'.format(filename))
-        return
-
-
+        retur
 
 GR,tig= chargement_grib()      # Chargement initial
 GR_cpu = torch.from_numpy(GR)
