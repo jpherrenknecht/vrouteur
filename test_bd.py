@@ -2,29 +2,36 @@ import psycopg2
 from   psycopg2 import pool
 import datetime
 from datetime import datetime
-try:
-
-    pg_pool = pool.SimpleConnectionPool(
-                                            1, 10,  # minconn, maxconn
-                                            dbname="vrouteur",
-                                            user="jp",
-                                            password="Licois1000",
-                                            host="localhost",  # ou l'adresse IP/nom de domaine
-                                            port="5432"        # par défaut PostgreSQL
-                                        )
+import json
 
 
-    # sera a mettre apres creation des bases dans les fonctions de recherche
-    conn = pg_pool.getconn()
-    cursor = conn.cursor()
-      # cursor = conn.cursor()
-    cursor.execute("SELECT version();")
-    record = cursor.fetchone()
-    print("Connexion réussie ! Version PostgreSQL :", record)
+
+pg_pool = pool.SimpleConnectionPool(
+                                        1, 10,  # minconn, maxconn
+                                        dbname="vrouteur",
+                                        user="jp",
+                                        password="Licois1000",
+                                        host="localhost",  # ou l'adresse IP/nom de domaine
+                                        port="5432"        # par défaut PostgreSQL
+                                    )
 
 
-except Exception as e:
-    print("Erreur de connexion :", e)
+# sera a mettre apres creation des bases dans les fonctions de recherche
+conn = pg_pool.getconn()
+cursor = conn.cursor()
+
+
+# sera a mettre apres creation des bases dans les fonctions de recherche
+conn = pg_pool.getconn()
+cursor = conn.cursor()
+    # cursor = conn.cursor()
+cursor.execute("SELECT version();")
+record = cursor.fetchone()
+print("Connexion réussie ! Version PostgreSQL :", record)
+
+
+# except Exception as e:
+#     print("Erreur de connexion :", e)
 
 
 def rechercheTableBoatInfos(user_id, course):
@@ -113,3 +120,160 @@ course = "vendée_globe"
 result=rechercheTableBoatInfos(user_id, course)
 
 print ('result:', result)
+
+
+
+def rechercheTablePersonalInfos(user_id, course):
+
+    conn = pg_pool.getconn()
+    try:
+        cursor = conn.cursor()
+        cursor.execute("""
+            SELECT personalinfos
+            FROM personalinfos
+            WHERE user_id = %s AND course = %s
+            ORDER BY timestamp DESC
+            LIMIT 1
+        """, (user_id, course))
+        result = cursor.fetchone()
+        return result[0] if result else None
+    finally:
+        cursor.close()
+        pg_pool.putconn(conn)
+
+user_id="59c2706db395b292ed622d84"
+course='757.3'
+result=rechercheTablePersonalInfos(user_id, course)
+print (result)
+
+
+def modifpersonalinfos2():
+    
+    conn = pg_pool.getconn()
+    cursor = conn.cursor()
+    username='Takron-BSP'
+    course='757.3'
+    personalinfos= {"username": "Takron-BSP", "course": "757.3", "ari": ["Arrivee"], "wp": {"Arrivee": [99, "Arrivee", -20.92356, 55.32026, 0, "yellow"], "WP1": [1, "WP1", -24.327076540018634, -15.161132812500002, 0.5, "#ffff00"],\
+     "WP3": [3, "WP3", -39.823831054924455, 12.230186462402346, 11.318683199999999, "#ffff00"], "WP4": [4, "WP4", -38.190704293996504, 28.495788574218754, 50, "#ffff00"]}, \
+      "trajets": {}, "tolerancehvmg": 0}
+    cursor.execute("""UPDATE personalinfos SET personalinfos = %s WHERE username = %s AND course = %s""", (json.dumps(personalinfos), username, course))
+    conn.commit()
+    print ('La modification s est executee') 
+    cursor.close()
+    pg_pool.putconn(conn)  
+    return None
+
+
+# modifpersonalinfos2()
+
+
+result=rechercheTablePersonalInfos(user_id, course)
+print (result)
+
+
+
+# def modifpersonalinfos():
+#     data = request.get_json()
+#     if not data:
+#         return jsonify({"message": "Aucune donnée reçue"}), 400
+
+#     username   = data.get('username')
+#     user_id    = data.get('user_id')
+#     course     = data.get('course')
+#     typeinfo   = data.get('typeinfo')
+#     typeaction = data.get('typeaction')
+#     nom        = data.get('nom')
+#     valeur     = data.get('valeur')
+
+    
+#     print(type(valeur))          # → <class 'list'>
+
+#     # if typeinfo=='wp':
+    #     elements = valeur.split(',')
+
+    #     valeur = [
+    #         int(elements[0]),
+    #         elements[1],
+    #         float(elements[2]),
+    #         float(elements[3]),
+    #         float(elements[4]),
+    #         elements[5]
+    #     ]
+    #     print('valeur',valeur)
+    
+
+
+    # print ('on est dans modifpersonalinfos reception en POST ') 
+    # print('user_id {} course  {} typeinfo {} typeaction {} nom  {} valeur  {} '.format( user_id, course, typeinfo,typeaction,nom,valeur))
+
+    # if not all([username,user_id, course, typeinfo, typeaction, nom]):
+    #     return jsonify({"error": "Parametres Manquant"}), 400
+    
+
+
+    # row=rechercheTablePersonalInfos(user_id,course)           # recupere directement un fichier texte
+    # if not row:
+    #     return jsonify({"error": "User or course not found"}), 404
+    # infos = json.loads(row) if row else {}
+    
+    # # print ('Ligne 3353 infos recuperees dans la table pour le user_id' ,infos )
+    # # print()
+
+    # if typeinfo not in infos:
+    #     infos[typeinfo] = {}
+    
+    # if typeaction == "insert":
+    #     print('1695 on est dans insert valeur ',valeur)
+    #     if nom not in infos[typeinfo]:
+    #        infos[typeinfo][nom] =valeur if valeur else 0
+    #        print ('valeur de infos pour insertion' ,infos )
+    #     #    print()
+    
+    
+    # elif typeaction == "delete":
+    #       print ('ligne 2934  avant suppression  ',infos )
+    #       print ('typeinfo a supprimer ',typeinfo)
+    #       print ('nom de l info ',nom)
+    #       infos[typeinfo].pop(nom, None)
+    #     #   print('valeur de infos apres suppression ', infos )
+    #     #   print()
+    #     #   del infos[typeinfo][nom] 
+
+    # elif typeaction == "modify":
+
+    #     print('on est dans modify')
+    #     if not valeur:
+    #         return jsonify({"error": "Missing valeur for modification"}), 400
+       
+        
+    #     if typeinfo == "tolerancehvmg":
+    #         try:
+    #             valeur = float(valeur)  # ou int(valeur) si tu veux un entier
+    #         except ValueError:
+    #             return jsonify({"error": "valeur invalide pour tolerancehvmg"}), 400
+    #         infos["tolerancehvmg"] = valeur
+
+    #     else:
+    #         infos[typeinfo][nom] = json.loads(valeur)
+
+    #     # print ('valeur de infos apres modification' ,infos )
+    #     # print()
+
+    # else:
+    #     return jsonify({"error": "Invalid typeaction"}), 400
+    # # print ('valeur json.dumps(infos) qui va etre enregistree \n',json.dumps(infos))
+
+    # print()
+    # print('test ', json.dumps(infos), username, course)
+    # print()
+    # conn = pg_pool.getconn()
+    # cursor = conn.cursor()
+    # cursor.execute("""UPDATE personalinfos SET personalinfos = %s WHERE username = %s AND course = %s""", (json.dumps(infos), username, course))
+    # conn.commit()
+    # print ('La modification s est executee') 
+    # cursor.close()
+    # pg_pool.putconn(conn)  
+    
+
+    # return jsonify({"message":'La modification de personalinfos s est deroulee avec succes ', "success": True,  "updated_infos": infos })
+  
