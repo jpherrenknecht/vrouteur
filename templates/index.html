@@ -3713,6 +3713,8 @@
 
                     currentPolyline = L.polyline(currentPoints, { color: 'red' }).addTo(layerBarrieres);
                     currentPolyline.editing?.enable?.(); // pour activer l'édition si Leaflet.Editable ou Leaflet.Draw est intégré
+                    layerBarrieres.addTo(map)
+
                 }
             });
 
@@ -3732,10 +3734,12 @@
                 barrieresPolylines[nom] = currentPolyline;
                 currentPolyline.bindTooltip(nom, { permanent: false, direction: 'center' });
 
+                // tracer la barriere 
+
                 updateBarrieresSelect();
 
                 // Enregistre dans la base
-                await modifpersonalinfos(username, user_id, course, 'barrieres', 'insert', nom, JSON.stringify(currentPoints));
+                await modifpersonalinfos(username, user_id, course, 'barrieres', 'insert', nom, currentPoints);
 
                 // Réinitialise
                 isDrawingBa = false;
@@ -3779,10 +3783,13 @@
 
             // === Afficher les barrières au chargement ===
             function afficheBarrieres(personalInfosJS) {
+
+                console.log('On est dans affichebarrieres ')
+                console.log (' personalInfosJS ' +personalInfosJS)
                 layerBarrieres.clearLayers();
                 barrieresPolylines = {};
                 listeBarrieres = [];
-
+               
                 if (!personalInfosJS.barrieres) return;
 
                 for (let nom in personalInfosJS.barrieres) {
@@ -3798,6 +3805,10 @@
                 updateBarrieresSelect();
                 layerBarrieres.addTo(map)
             }
+
+
+
+
 
 
             // === Réinitialiser complètement les barrières (ex. changement de course) ===
@@ -4322,7 +4333,9 @@
 
                 affichewaypoints2(personalInfosJS)
                 afficheZonesExclusions(personalInfosJS)
+
                 afficheBarrieres(personalInfosJS)
+                
                 recupereRoutes(personalInfosJS)
 
                 waypoints = Object.values(personalInfosJS.wp).sort((a, b) => a[0] - b[0]);
@@ -4779,6 +4792,7 @@
                 console.log('leginfos\n***********\n' + leginfos)
 
                 afficheZonesExclusions(personalInfosJS)
+                afficheBarrieres(personalInfosJS)
                 // On va chercher les donnees les plus recentes sur le bateau 
                 boatinfosdata = await chercheboatinfos(username, course)
                 //    console.log ('boatinfosdata ' +boatinfosdata)

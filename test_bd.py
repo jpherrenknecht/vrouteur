@@ -152,10 +152,18 @@ def modifpersonalinfos2():
     conn = pg_pool.getconn()
     cursor = conn.cursor()
     username='Takron-BSP'
-    course='757.3'
-    personalinfos= {"username": "Takron-BSP", "course": "757.3", "ari": ["Arrivee"], "wp": {"Arrivee": [99, "Arrivee", -20.92356, 55.32026, 0, "yellow"], "WP1": [1, "WP1", -24.327076540018634, -15.161132812500002, 0.5, "#ffff00"],\
-     "WP3": [3, "WP3", -39.823831054924455, 12.230186462402346, 11.318683199999999, "#ffff00"], "WP4": [4, "WP4", -38.190704293996504, 28.495788574218754, 50, "#ffff00"]}, \
-      "trajets": {}, "tolerancehvmg": 0}
+
+    course='784.1'
+    personalinfos={"username": "Takron-BSP", "course": "784.1", "ari": ["Arrivee"],\
+    "wp": {"Arrivee": [99, "Arrivee", -0.7386612, -48.33982, 0, "yellow"], "WP1": [1, "WP1", 27.132479801022896, -16.495971679687504, 0.5, "#ffff00"]}, "exclusions": {},\
+    "trajets": {}, "tolerancehvmg": 0, \
+    "barrieres": {}}
+
+   
+    # course='757.3'
+    # personalinfos= {"username": "Takron-BSP", "course": "757.3", "ari": ["Arrivee"], "wp": {"Arrivee": [99, "Arrivee", -20.92356, 55.32026, 0, "yellow"], "WP1": [1, "WP1", -24.327076540018634, -15.161132812500002, 0.5, "#ffff00"],\
+    #  "WP3": [3, "WP3", -39.823831054924455, 12.230186462402346, 11.318683199999999, "#ffff00"], "WP4": [4, "WP4", -38.190704293996504, 28.495788574218754, 50, "#ffff00"]}, \
+    #   "trajets": {}, "tolerancehvmg": 0}
     cursor.execute("""UPDATE personalinfos SET personalinfos = %s WHERE username = %s AND course = %s""", (json.dumps(personalinfos), username, course))
     conn.commit()
     print ('La modification s est executee') 
@@ -164,8 +172,9 @@ def modifpersonalinfos2():
     return None
 
 
-# modifpersonalinfos2()
-
+modifpersonalinfos2()
+user_id="59c2706db395b292ed622d84"
+course='784.1'
 
 result=rechercheTablePersonalInfos(user_id, course)
 print (result)
