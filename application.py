@@ -3180,13 +3180,13 @@ class RoutageSession:                                                  # version
         
         # Chargement des données
         DonneesCourse1                                                      = rechercheDonneesCourseCache(course)   # c 'est un objet de la classe DonneesCourse
-        self.boatinfos,self.posStartVR,self.exclusionsVR2  ,self.positionvr = rechercheDonneesCourseUser( user_id,course)
+        self.boatinfos,self.posStartVR,self.exclusionsVR2  ,self.positionvr = rechercheDonneesCourseUser( user_id,course)                  # self.exclusionsVR2 est un dictionnaire avec les exclusions VR qui ne sert pas 
         self.personalinfos,self.ari,self.waypoints,self.exclusionsperso,self.barrieres,self.trajets,self.tolerancehvmg = rechercheDonneesPersoCourseUser( user_id,course)
      
         # print('self.barrieres ',self.barrieres)
 
         self.leginfos              = DonneesCourse1.leginfos
-        self.exclusionsVR          = DonneesCourse1.tabexclusions
+        self.exclusionsVR          = DonneesCourse1.tabexclusions                     # ce sont les exclusions VR
         self.tabicelimits          = DonneesCourse1.tabicelimits
         self.carabateau            = DonneesCourse1.carabateau
         self.polairesglobales10to  = DonneesCourse1.polaires_gpu
@@ -3197,13 +3197,28 @@ class RoutageSession:                                                  # version
         self.posStart              = calculePosDepart(self.posStartVR,self.polaires_np,self.carabateau,dt=60)    # Position de depart du routage au bout de 60 s
         self.isodepart             = calculeisodepart2(self.posStart)    # Transformation en iso de depart 
         
-       
+        print()
+        print ('selfexclusionsVR',self.exclusionsVR) 
+
         # pos=(self.posStartVR['y0'],self.posStartVR['x0'])
         # self.carte=fcarte(pos)      # renvoie une multipolyline      
-        self.exclusionsVR.update(self.exclusionsperso)
-               
+        self.exclusionsVR.update(self.exclusionsperso)          # on rajoute exclusionsperso à exclusions VR 
+
+        print ('selfexclusionsVR apres integration des exclusions perso ',self.exclusionsVR)        
         # conversion en tenseur 
-        self.exclusions = {  nom: torch.tensor([[lon, lat] for lat, lon in coords], device='cuda')   for nom, coords in self.exclusionsVR.items()  }
+
+        print()
+        # print ('selfexclusionsVR2 ',self.exclusionsVR2) 
+        print()
+        print ('selfexclusionsperso ',self.exclusionsperso)
+       
+        try:
+            self.exclusions = {  nom: torch.tensor([[lon, lat] for lat, lon in coords], device='cuda')   for nom, coords in self.exclusionsVR.items()  }    # transformation en tensor de self.exclusionsVR
+        except : 
+            self.exclusions = {}
+
+            
+
         self.segments = prepare_segments(self.exclusions)  # [S, 4] segments [x1, y1, x2, y2]        
         # except:
         #     self.segments=[]
@@ -3283,7 +3298,7 @@ class RoutageSession:                                                  # version
 
         if indiceroutage==0:
             iso          = self.isodepart 
-            seuils = [[288, 300],[72,600], [144, 1800], [240, 3600]]
+            seuils = [[60, 300],[108,600], [672, 1800], [240, 3600]]       # 6h a 5 mn = 60 --  18h a 10 mn =108 -- 14 jours a 30mn =24*2*14=672
             tabdt = construire_dt(seuils, taille=1000)
             print('shape isoglobal ',isoglobal.shape) 
             print('shape iso ',iso.shape) 
