@@ -75,7 +75,7 @@
         var serveurdistant = "https://vrouteur.com";   //sur linux0
         var serveurlocal = "http://127.0.0.1:5000";   //sur linux1 et linux 3 
 
-        if (origine == 'http://127.0.0.1:5000/') { var serveur = serveurlocal }
+        if (origine == 'http://127.0.0.1:5000/') { var serveur = serveurlocal;document.title = "Vrouteur local"; }
         else { var serveur = serveurdistant }
 
         console.log('Serveur                 : ' + serveur)
@@ -3575,16 +3575,16 @@
 
                 nomZone = document.getElementById('nomNewZone').value
                 zonePointsStr = JSON.stringify(zonepoints)
-                console.log('sauvegarde des points sur le serveur ')
-                console.log('zonepoints')
-                console.log('Nom de la Zone d exclusions : ' + nomZone)
-                console.log('points ' + zonepoints)
+                // console.log('sauvegarde des points sur le serveur ')
+                // console.log('zonepoints')
+                // console.log('Nom de la Zone d exclusions : ' + nomZone)
+                // conso.log('points ' + zonepoints)
 
                 // on va sauver dans personalinfos2
                 typeinfo = 'exclusions'
                 typeaction = 'insert',
                     nom = nomZone
-                valeur = zonePointsStr
+                valeur = zonePoints    // au lieu de zonePointsStr
                 console.log(` Pour ${username} sur ${course} Action ${typeaction} de ${typeinfo} nom  ${nomZone} valeur  ${valeur} `)
                 message = await modifpersonalinfos(username, user_id, course, typeinfo, typeaction, nom, valeur)
                 console.log(message)
@@ -4952,6 +4952,8 @@
                 listeZones = [];
                 zonesPolygones = {};
 
+                console.log ('personalinfosexclusions '+JSON.stringify(personalInfosJS.exclusions))
+
                 if (personalInfosJS.exclusions) {
                     Object.entries(personalInfosJS.exclusions).forEach(([nomZone, zone]) => {
                         console.log("Valeurs de la zone d'exclusion :", zone);
@@ -6148,13 +6150,15 @@
 
             window.grilleWpt = async (lat, lng) => {
                 try {
-                    var minLat = Math.abs(lat < 10 ? 6 : 5)
+                    var minLat = Math.abs(lat < 10 ? 5 : 5)
                     var minLng = 5;
                     var lat0 = Number(lat.toFixed(minLat))
                     var lng0 = Number(lng.toFixed(minLng))
                     var pasLat = Number(Math.pow(10, -1 * minLat).toFixed(minLat))
                     var pasLng = Number(Math.pow(10, -1 * minLng).toFixed(minLng))
 
+                    console.log ('pasLat '+ pasLat)
+                    console.log ('pasLng' + pasLng)
 
                     for (let i = 0; i < 10; i++) {
                         for (let j = 0; j < 10; j++) {
