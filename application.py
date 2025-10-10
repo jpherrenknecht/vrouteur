@@ -2787,7 +2787,7 @@ def ajaxmessage():
 
         # on va tenter d enregistrer dans la base postgre boatinfos 
         if typeinfos=='boatinfos':
-                print('ligne 897 boatinfos \n ',message)
+               # print('ligne 897 boatinfos \n ',message)
                 # message est un objet il est necessaire de le serialiser si on veut l enregistrer dans la base
                 try:
                     username    = message['bs']['displayName']
@@ -2797,8 +2797,8 @@ def ajaxmessage():
                     course      = str(race)+'.'+str(leg)
                     state       = message['bs']['state']
                     tini0       = message['bs']['lastCalcDate']/1000
-                    print ('\n Heure de  boatinfos recu',time.strftime(" %d %b %Y %H:%M ",time.localtime(tini0)))
-
+                    print ('\n boatinfos pour  {}  le  {} \n********************************************************\n {} \n'.format(username,time.strftime(" %d %b %Y %H:%M ",time.localtime(tini0)), message))
+                    print()    
                 except:
                     print (' toutes les infos ne sont pas disponibles')
                     state       =  message['bs']['state']
