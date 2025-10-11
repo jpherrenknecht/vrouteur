@@ -2733,7 +2733,7 @@ def ajaxmessage():
         conn = pg_pool.getconn()
         cursor = conn.cursor()
 
-        print ("on est dans '/api/ajaxmessage'")
+      
         data    = request.get_json()
         # message = data.get('message' ,'')
         message = data.get('message')
@@ -2741,8 +2741,8 @@ def ajaxmessage():
         envoi = {'Reception':typeinfos}                              # sert a preciser le type d info que l on a recu pour envoi par websocket
 
         reponse ='Données bien reçues par le serveur '  # reponse envoyee au dash pour test
-        print()
-        print ('Type du Message : {} \n***********************************'.format(typeinfos))
+        print ("********************************************************\non est dans '/api/ajaxmessage'  Message : {}".format(typeinfos) )
+       # print ('Type du Message : {} \n*********************************************************'.format(typeinfos))
         #print(' message ' , )
         #print ('Message         : {} \n***********************************'.format( message))
 
@@ -3816,6 +3816,11 @@ def calculeroutage():
     twasmooth2=smoothTo(twasmooth)
     twasmooth3=smoothTo(twasmooth2)
     routage[:,5]= twasmooth3                   # c 'est juste une substitution de facade, il faudrait recalculer le routage
+
+
+
+
+
    
    
     arrayroutage = routage.cpu().tolist()
