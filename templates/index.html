@@ -611,10 +611,11 @@
             </span>
     </div>
    
-    <span class='heuredepart'><label>Heure de Depart du Routage:</label>
-    <input type="datetime-local" id="datetime" />
+    <span class='heuredepart'><label>Heure Depart :</label>
+    <input type="datetime-local" id="datetime"   class= "datetime-compact" />
      </span>
-    <span> Hvmg + <input class="classinput2" type="number" id="tolerancehvmg" min="0" max="10" step="1" value="0">°</span>
+    <span> Hvmg + <input class="classinput2" type="number" id="tolerancehvmg" min="0" max="10" step="1" value="0">°</span><br>
+
     <div   id ='dategrib' class='dategrib' > Grib :  </div>Maj à 51,58 - 3,17 - 14<br>
     <div align='center'>
     <button  id='lancerRoutage' class='blackwhite11' value='Lancer le routage' > Lancer le Routage </button>
@@ -4543,6 +4544,10 @@
                 let tabValeurs = tabNameCourses.map(subArray => subArray[0]);
                 let tabNoms = tabNameCourses.map(subArray => subArray[1]);
 
+                personalInfosStr = await recherchepersonalinfos(username, user_id, course)
+                console.log('personalInfosStr ' + personalInfosStr)     // si il n'y en a pas la fonction en cree un avec la course
+                personalInfosJS = JSON.parse(personalInfosStr);
+
 
                 let coursesUser = await cherchecoursesuser(username) // on cherche les courses en cours du username
                 if (coursesUser == null)   //si l utilisateur est Bateau Inconnu on lui a attribué une course d'office 
@@ -4632,8 +4637,8 @@
 
                     //valable dans les 2 cas
                     updateTrajet(username, course, trajet)              // sauve le trajet et le place en premier  
-
-                    affichewaypoints(waypoints)
+                    affichewaypoints2(personalInfosJS)
+                    //affichewaypoints(waypoints)
                     affichecoordsdep(y0, x0)
                     affichecoordsari(y1, x1)
                     afficheselectarrivee(waypoints, ari)   // on remet a jour le selectari 

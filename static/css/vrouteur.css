@@ -607,7 +607,11 @@ a:link {
 
 
 
-
+.datetime-compact {
+  width: 160px;       /* ajuste selon ton besoin */
+  padding: 2px 4px;   /* réduit les marges internes */
+  font-size: 0.9em;   /* optionnel : texte légèrement plus petit */
+}
 
 
 
