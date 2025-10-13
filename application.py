@@ -54,6 +54,16 @@ torch.cuda.empty_cache()
 torch.cuda.synchronize()
 
 
+# for debug cuda 
+# print()
+# print(torch.__version__)
+# print(torch.version.cuda)
+# print(torch.version.git_version)
+# print(torch.cuda.is_available())
+
+
+
+
 app         = Flask(__name__)
 
 cors        = CORS(app)                             # necessaire pour les appels crossorigin a voir si pas en doublon avec ligne suivante
@@ -3577,6 +3587,7 @@ class RoutageSession:                                                  # version
         iso[:,1]= dernier+torch.arange(len(iso)) +1                         # on va renumeroter les points 
       
         # Copie des points de l isochrone dans isoglobal
+        print ('premier iso ' ,iso[0])
         premier= int(iso[0,1].item())
         dernier= int(iso[-1,1].item())
         # print ('numiso {} dt {} premier {} dernier {} shape {} isoglobal.shape {} '.format(numiso ,dt,premier,dernier,iso.shape,self.isoglobal.shape))
