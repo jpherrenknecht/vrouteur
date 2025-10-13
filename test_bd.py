@@ -181,6 +181,91 @@ print (result)
 
 
 
+
+
+def rechercheTableCoursesActives(username):
+    conn = pg_pool.getconn()
+    try:
+        cursor = conn.cursor()
+        cursor.execute("""
+            SELECT  user_id,coursesactives
+            FROM coursesactives
+            WHERE username = %s
+            ORDER BY timestamp DESC
+            LIMIT 1
+        """, (username,))
+        resultats = cursor.fetchone()
+        return resultats if resultats else (None, None)
+    finally:
+        cursor.close()
+        pg_pool.putconn(conn)
+
+
+
+
+username='Takron-BSP'
+
+username ='Charlie2010 BSP'
+
+result=rechercheTableCoursesActives(username)
+print (' result pour charlie',result)
+
+
+username='Francois_FRA-1841-BSP'
+user_id='5fa81586a73ee05018f06d99'
+
+
+def rechercheDernieresCoursesActives(limit=50):
+    conn = pg_pool.getconn()
+    try:
+        cursor = conn.cursor()
+        cursor.execute("""
+            SELECT username, user_id, coursesactives, timestamp
+            FROM coursesactives
+            ORDER BY timestamp DESC
+            LIMIT %s
+        """, (limit,))
+        resultats = cursor.fetchall()
+        return resultats
+    finally:
+        cursor.close()
+        pg_pool.putconn(conn)
+
+
+
+res= rechercheDernieresCoursesActives(limit=50)    
+
+
+for username, user_id, coursesactives, timestamp in res:
+    print(username, user_id, timestamp,coursesactives)
+
+
+username='Francois_FRA-1841-BSP'
+user_id='5fa81586a73ee05018f06d99'
+course='767.1'
+
+res= rechercheTableBoatInfos(user_id,course)
+print()
+print (' boatinfos pour {}  \n{} '.format( username,res))
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 # def modifpersonalinfos():
 #     data = request.get_json()
 #     if not data:
