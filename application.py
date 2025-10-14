@@ -3587,7 +3587,7 @@ class RoutageSession:                                                  # version
         iso[:,1]= dernier+torch.arange(len(iso)) +1                         # on va renumeroter les points 
       
         # Copie des points de l isochrone dans isoglobal
-        print ('premier iso ' ,iso[0])
+       # print ('premier iso ' ,iso[0])
         premier= int(iso[0,1].item())
         dernier= int(iso[-1,1].item())
         # print ('numiso {} dt {} premier {} dernier {} shape {} isoglobal.shape {} '.format(numiso ,dt,premier,dernier,iso.shape,self.isoglobal.shape))
@@ -3669,8 +3669,12 @@ def routageGlobal(course,user_id,isMe,ari,y0,x0,t0,tolerancehvmg,optionroutage):
 
       
         while distmini > rwp:
-           
+                
+            try: 
                 iso, tmini, distmini, nptmini = session.isoplusun(iso, tmini,paramRoutage)
+            except: 
+                message='la destination n a pu etre atteinte' 
+                print (message)    
 
                 # print ('iso {} tmini {} distmini {} \n iso.shape \n{}'.format(i,tmini,distmini,iso.shape)) 
             # except:
