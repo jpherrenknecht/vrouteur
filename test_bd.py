@@ -172,7 +172,7 @@ def modifpersonalinfos2():
     return None
 
 
-modifpersonalinfos2()
+# modifpersonalinfos2()
 user_id="59c2706db395b292ed622d84"
 course='784.1'
 
@@ -183,70 +183,69 @@ print (result)
 
 
 
-def rechercheTableCoursesActives(username):
-    conn = pg_pool.getconn()
-    try:
-        cursor = conn.cursor()
-        cursor.execute("""
-            SELECT  user_id,coursesactives
-            FROM coursesactives
-            WHERE username = %s
-            ORDER BY timestamp DESC
-            LIMIT 1
-        """, (username,))
-        resultats = cursor.fetchone()
-        return resultats if resultats else (None, None)
-    finally:
-        cursor.close()
-        pg_pool.putconn(conn)
+# def rechercheTableCoursesActives(username):
+#     conn = pg_pool.getconn()
+#     try:
+#         cursor = conn.cursor()
+#         cursor.execute("""
+#             SELECT  user_id,coursesactives
+#             FROM coursesactives
+#             WHERE username = %s
+#             ORDER BY timestamp DESC
+#             LIMIT 1
+#         """, (username,))
+#         resultats = cursor.fetchone()
+#         return resultats if resultats else (None, None)
+#     finally:
+#         cursor.close()
+#         pg_pool.putconn(conn)
+
+
+# # recherche des courses actives pour un user 
+
+# username='Takron-BSP'
+# username ='Charlie2010 BSP'
+
+# result=rechercheTableCoursesActives(username)
+# print (' result pour charlie',result)
+
+
+# username='Francois_FRA-1841-BSP'
+# user_id='5fa81586a73ee05018f06d99'
+
+
+# def rechercheDernieresCoursesActives(limit=50):
+#     conn = pg_pool.getconn()
+#     try:
+#         cursor = conn.cursor()
+#         cursor.execute("""
+#             SELECT username, user_id, coursesactives, timestamp
+#             FROM coursesactives
+#             ORDER BY timestamp DESC
+#             LIMIT %s
+#         """, (limit,))
+#         resultats = cursor.fetchall()
+#         return resultats
+#     finally:
+#         cursor.close()
+#         pg_pool.putconn(conn)
 
 
 
-
-username='Takron-BSP'
-
-username ='Charlie2010 BSP'
-
-result=rechercheTableCoursesActives(username)
-print (' result pour charlie',result)
+# res= rechercheDernieresCoursesActives(limit=50)    
 
 
-username='Francois_FRA-1841-BSP'
-user_id='5fa81586a73ee05018f06d99'
+# for username, user_id, coursesactives, timestamp in res:
+#     print(username, user_id, timestamp,coursesactives)
 
 
-def rechercheDernieresCoursesActives(limit=50):
-    conn = pg_pool.getconn()
-    try:
-        cursor = conn.cursor()
-        cursor.execute("""
-            SELECT username, user_id, coursesactives, timestamp
-            FROM coursesactives
-            ORDER BY timestamp DESC
-            LIMIT %s
-        """, (limit,))
-        resultats = cursor.fetchall()
-        return resultats
-    finally:
-        cursor.close()
-        pg_pool.putconn(conn)
+# username='Francois_FRA-1841-BSP'
+# user_id='5fa81586a73ee05018f06d99'
+# course='767.1'
 
-
-
-res= rechercheDernieresCoursesActives(limit=50)    
-
-
-for username, user_id, coursesactives, timestamp in res:
-    print(username, user_id, timestamp,coursesactives)
-
-
-username='Francois_FRA-1841-BSP'
-user_id='5fa81586a73ee05018f06d99'
-course='767.1'
-
-res= rechercheTableBoatInfos(user_id,course)
-print()
-print (' boatinfos pour {}  \n{} '.format( username,res))
+# res= rechercheTableBoatInfos(user_id,course)
+# print()
+# print (' boatinfos pour {}  \n{} '.format( username,res))
 
 
 
