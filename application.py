@@ -3588,6 +3588,8 @@ class RoutageSession:                                                  # version
       
         # Copie des points de l isochrone dans isoglobal
        # print ('premier iso ' ,iso[0])
+
+        torch.cuda.synchronize()           # Pour attendre que la synchronisation soit complete et essayer d eviter des erreurs 
         premier= int(iso[0,1].item())
         dernier= int(iso[-1,1].item())
         # print ('numiso {} dt {} premier {} dernier {} shape {} isoglobal.shape {} '.format(numiso ,dt,premier,dernier,iso.shape,self.isoglobal.shape))
