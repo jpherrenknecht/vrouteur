@@ -192,6 +192,7 @@
         var nomroutage = new Array();
         var routages = new Array();
         var polyglobal = new Array();     // destiné a recevoir le routage avec les couleurs de voiles 
+        var polyglobal2 = new Array();     // destiné a recevoir le routage avec les couleurs de voiles 
         var teamnames = new Array();
         let exclusionsMap = new Map();
 
@@ -2428,7 +2429,8 @@
                 // recuperation des donnees de routage
                 let data = await response.json();
                 message = data.message
-                tabroutage = data.arrayroutage
+                tabroutage = data.arrayroutage2
+                //tabroutage2 = data.arrayroutage
                 dicoIsochrones = data.isochrones
                 t1routage = data.t0routage                    // temps initial du routage
                 tabtempsroutage = tabroutage.map(row => row[1] + t1routage)
@@ -2459,11 +2461,19 @@
                 }
 
 
+
+
+
                 for (var i = 0; i <= tabroutage.length - 2; i++)                // on affiche les nouveaux points mais pas le premier pas necessaire 
                 {
                     couleur = colors[tabroutage[i][10]]
                     polyglobal[i] = L.polyline([[tabroutage[i][2], tabroutage[i][3]], [tabroutage[i + 1][2], tabroutage[i + 1][3]]], { color: couleur, weight: 1 }).addTo(routageLayer);
                 }
+
+
+
+
+
 
                 routageLayer.addTo(map)
 

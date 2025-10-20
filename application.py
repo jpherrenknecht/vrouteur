@@ -220,12 +220,14 @@ def majgrib():
 
             GR_cpu = torch.from_numpy(GR)
             GR_gpu = GR_cpu.to('cuda', non_blocking=True)   
-            GR_gpu = safe_to_cuda(torch.from_numpy(GR), clamp=500, name="GR") 
-        
+            GR[0,0,0,0]=int(tig/100)
+                   
             return 
     else:
         print('Le fichier {}  n existe pas encore'.format(filename))
         return
+
+
 
 GR,tig= chargement_grib()      # Chargement initial
 
@@ -2068,7 +2070,7 @@ def frechercheboatinfos():
 
 
     majgrib()                                        # on renvoie aussi la date de majgrib
-    tig= GR[0,0,0,0].astype(np.float64)*100       # permet d afficher la date du grib
+    #tig= GR[0,0,0,0].astype(np.float64)*100       # permet d afficher la date du grib
     indicemajgrib=int(GR[0,0,0,1])                # permet d afficher son indice
     # print ('Dans rechercheboatinfos ligne 3346 indice de mise a jour du grib  ',indicemajgrib) 
 
@@ -2373,6 +2375,125 @@ class DeplacementEngine:
         #     ari[15] = 0
 
         return ari
+
+
+
+
+class DeplacementEngine2:
+    def __init__(self, course):
+        donneesCourse1     = rechercheDonneesCourseCache(course)   # c 'est un objet de la classe DonneesCourse
+        c                  = donneesCourse1.carabateau
+        self.lwtimer       = c['lwtimer']
+        self.hwtimer       = c['hwtimer']
+        self.lw            = c['lws']
+        self.hw            = c['hws']
+        self.lwtimerGybe   = c['gybeprolwtimer']
+        self.hwtimerGybe   = c['gybeprohwtimer']
+        self.coeffboat     = c['coeffboat']
+        self.polaires_np   = donneesCourse1.polaires_np
+        self.polaires_gpu  = donneesCourse1.polaires_gpu
+        self.tabvmg        = donneesCourse1.vmg_cpu
+        self.MF            = 0.8  
+   
+
+
+    def posplus(self, Position,dt,dt_it,option,valeur,dtig0):
+
+        ''' dans cette hypothese de deplacement on ne connait que la position 
+            l intervalle de temps
+            l option 
+            le cap ou la twa suivant l option 
+            la stamina initiale 
+            le solde de penalite 
+
+        '''
+        Positionfin=np.copy(Position)
+        
+        numero      = Position[0]
+        y0          = Position[2]
+        x0          = Position[3]
+        twa         = Position[5]   # c est la twa pour le deplacement que je veux faire apparaitre dans le tableau 
+        cap         = Position[6]
+        vitesse     = Position[9]
+        voile       = int(Position[10])
+        tws0         = Position[12]
+        twd         = Position[13]
+        stamina_ini = Position[14]
+        soldepeno   = max((Position[15]),0)
+        dt_ite      = dt_it    - 0.3 * min(soldepeno, dt)        #normalement dt 
+
+        Positionfin[0]=Position[0]+1
+        Positionfin[1]=dt
+        
+        if option==0 : 
+            cap = valeur
+            twa1= ftwaos(cap,twd) 
+        if option==1 : 
+            twa1= valeur
+            cap= fcap(twa,twd) 
+
+        
+        # print (' ite {} option {} cap {:4.2f} '.format(i,option ,cap))
+    
+            
+        cap_rad = np.deg2rad(cap)
+       
+        y0_rad  = np.deg2rad(y0) 
+        y1      = y0   + vitesse * dt_ite / 3600.0 / 60.0 * math.cos(cap_rad)
+        x1      = x0   + vitesse * dt_ite / 3600.0 / 60.0 * math.sin(cap_rad) / math.cos(y0_rad)
+
+
+        Positionfin[2] = y1
+        Positionfin[3] = x1
+
+        
+        tws,twd =  prevision025dtig(GR, dtig0+dt , y1, x1)                        # Previsions au point de depart  
+        Positionfin[12]=tws
+        Positionfin[13]=twd
+        Positionfin[6]=fcap(twa1,twd) 
+        
+      # on va faire le calcul de voile et de vitesse 
+        tws10 = round(tws*10)
+        twa10 = abs(round(twa1*10))
+        vitesseVoileIni       = polairesglobales10[voile, tws10, twa10]                                           # vitesse voileini[voileini,tws10,twa10
+        meilleureVitesse      = polairesglobales10[7    ,  tws10, twa10]                                          # vitesse meilleure voile[voileini,tws10,twa10
+        meilleureVoile        = polairesglobales10[8,  tws10, twa10]                                              # meilleure voile
+        Boost                 = meilleureVitesse/(vitesseVoileIni+0.0001)                                    # Boost 
+
+
+        #  # # calcul des penalites
+        if Boost >1.014 :
+            Chgt=1
+            voilefinale=meilleureVoile
+        else:
+            Chgt=0
+            voilefinale=voile
+                                                                                                                  # on remplit la colonne chgt a la place de voiledef
+        Tgybe  = ((twa*twa1)<0)*1                                                                                 # on remplit la colonne 16 Tgybe a la place de boost  (signe de twam1*twa10
+
+        Positionfin[5]=twa1                                                        # on ne peut pas ecrasere la twa tant que la twa anterieure n a pas ete utilisee 
+       
+        
+                                                                                                                 
+        Cstamina        = 2 - 0.015 * stamina_ini                                                                       # coefficient de stamina en fonction de la staminaini
+        peno_chgt       = Chgt * spline(self.lw, self.hw, self.lwtimer, self.hwtimer, tws) * self.MF * Cstamina
+        peno_gybe       = Tgybe * spline(self.lw, self.hw, self.lwtimerGybe, self.hwtimerGybe, tws) * Cstamina
+        
+        perte_stamina   = calc_perte_stamina_np(tws, Tgybe, Chgt, self.coeffboat)
+        recup           = frecupstamina(dt_it, tws)
+        # print ('dans recup stamina dt {} tws {} '.format(dt, tws))
+        stamina         = min((stamina_ini - perte_stamina + recup),100)
+        soldepeno       = max((soldepeno-dt),0)         # la trajectoire a ete calculee en debut d ite avec la peno complete maintenant on retire dt puis on rajoute les nouvelles penos 
+        soldepeno1      = max((soldepeno+peno_chgt+peno_gybe ),0)   
+        
+        Positionfin[9]=meilleureVitesse
+        Positionfin[10]=voilefinale
+        Positionfin[14] =stamina
+        Positionfin[15] = soldepeno1
+        Positionfin[16] = dt_ite        
+        return   Positionfin    
+
+   
 
 
 
@@ -2905,7 +3026,7 @@ def ajaxmessage():
                         if (any(item.get('_id', {}).get('action') == 'wp' for item in boatActions)):
 
                             print ('Programmation par WP  detectee dans boat action')
-                            print ('************************************************')
+                            print ('t0 ',time.strftime(" %d %b %H:%M %S",time.localtime(tiso.item())))
                             waypointsvr=boatActions[0]['pos']
                             print ('waypointsvr',waypointsvr)
                             # on va enregistrer les waypoints dans la base
@@ -3119,6 +3240,168 @@ def gestionlocalstorage():
 ###############################################################################
 ########### Fonctions de routage                       ########################
 ###############################################################################
+
+def lissagepoints_dt_twa(tabpoints, tabtwa, tabdt):
+    tabres = np.copy(tabpoints)
+
+    # --- 1. Ruptures de signe du TWA ---
+    pos_twa = np.where(tabtwa[:-1] * tabtwa[1:] < 0)[0] + 1
+    # print ( 'rupture twa ',pos_twa)
+    
+    # --- 2. Ruptures de pas de temps ---
+    diffs = np.diff(tabdt)
+    pos_dt = np.where(np.diff(diffs) != 0)[0] + 1
+    # print ( 'rupture rythme ',pos_dt)
+    # --- 3. Fusion et bornes ---
+    pos_all = np.unique(np.concatenate(([0], pos_twa, pos_dt, [len(tabpoints)-1])))
+    # print ( 'rupture twa ou rythme',pos_all)
+
+    # --- 4. Lissage tronçon par tronçon ---
+    for i in range(len(pos_all) - 1):
+        i0, i1 = pos_all[i], pos_all[i+1]
+        segment = tabpoints[i0:i1+1]
+
+        if len(segment) > 6:
+            y = segment[:, 0]
+            x = segment[:, 1]
+            Y = savgol_filter(y, 5, 2, mode='nearest')
+            X = savgol_filter(x, 5, 2, mode='nearest')
+        else:
+            Y = segment[:, 0]
+            X = segment[:, 1]
+
+        # On conserve les extrémités intactes
+        tabres[i0+1:i1, 0] = Y[1:-1]
+        tabres[i0+1:i1, 1] = X[1:-1]
+
+    return tabres
+
+
+
+
+
+
+def calcul_caps(tabpoints):
+    """
+    tabpoints : ndarray de forme (N, 2)  -> [ [lat1, lon1], [lat2, lon2], ... ]
+    Retourne un tableau (N,) des caps (azimuts) en degrés [0..360), 
+    la dernière valeur étant 0.
+    """
+    lat = np.radians(tabpoints[:, 0])
+    lon = np.radians(tabpoints[:, 1])
+
+    # Différences successives
+    dlon = lon[1:] - lon[:-1]
+
+    # Formule de cap initial (azimut) sur sphère
+    x = np.sin(dlon) * np.cos(lat[1:])
+    y = np.cos(lat[:-1]) * np.sin(lat[1:]) - np.sin(lat[:-1]) * np.cos(lat[1:]) * np.cos(dlon)
+
+    caps = np.degrees(np.arctan2(x, y)) % 360
+
+    # Même dimension : on ajoute une valeur finale à 0
+    caps = np.append(caps, 0.0)
+
+    return caps
+
+
+def lissage(course,routage_np,t0,posStartVR,posStart):
+    tabpoints       = routage_np[:,[2,3]]
+    tabtwa          = routage_np[:,5]
+    tabdt           = routage_np[:,1]
+    tabpointslisses = lissagepoints_dt_twa(tabpoints, tabtwa, tabdt)
+    tabpointslisses = lissagepoints_dt_twa(tabpointslisses, tabtwa, tabdt)   # on fait 2 lissages successifs
+    caps            = calcul_caps(tabpointslisses)
+    
+    
+    #initialisation de engine pour avoir les differentes valeurs  
+    deplacement=DeplacementEngine2(course)
+    polairesglobales10=deplacement.polaires_np
+    tabvmg10           = deplacement.tabvmg
+    
+    routagelisse            = np.zeros_like(routage_np)
+    routagelisse[:,[0,1,4]] = routage_np[:,[0,1,4]]
+    routagelisse[:,[2,3]]   = tabpointslisses
+    routagelisse[:,6]       = caps
+    routagelisse[:,8]       = tabtwa
+    dtig0                   = t0-tig
+    Tws,Twd                 = prevision025dtig(GR, dtig0+routagelisse[:,1] , routagelisse[:,2],routagelisse[:,3])     # calcul de tws et twd 
+    routagelisse[:,12]      = Tws 
+    routagelisse[:,13]      = Twd
+    Twa                     = np.round(ftwao(routagelisse[:,6],routagelisse[:,13]))                # twa=ftwao(cap,twd
+    routagelisse[:,5]       = Twa
+    
+    # on va recalculer les differents autres elements 0
+    lenroutage        = len (routagelisse)
+    tws10             = np.rint(Tws*10).astype(int)
+    twa10             = np.abs(np.rint(Twa*10)).astype(int)
+                                                            # on calcule vmgmin et max a partir de tws et twd 
+    routagelisse[:,7] = tabvmg10[tws10,2]
+    routagelisse[:,8] = tabvmg10[tws10,4]
+    
+    meilleureVitesse  = polairesglobales10[7  ,  tws10, twa10]                                          # vitesse meilleure voile[voileini,tws10,twa10]
+    routagelisse[:,9] = meilleureVitesse   
+    meilleureVoile    = polairesglobales10[8,  tws10, twa10] 
+    
+    
+    
+    for i in range (0,lenroutage):
+        twsi = Tws[i]
+        if i==0:
+            voileini    = posStartVR['voile']%10
+            stamina_ini = posStart['stamina']
+            twaini      = posStart['twa'] 
+            dt_ini    = 60
+            solde_peno  =  posStart['penovr']
+        else:    
+            voileini    =int(routagelisse[i-1,10]) 
+            stamina_ini  = routagelisse[i-1,14]
+            twaini      = routagelisse[i-1,5]
+            dt_ini      = routagelisse[i-1,1]
+            
+        Tgybe  = ((routagelisse[i,5]*twaini)<0)*1      
+        vitessevoileini=polairesglobales10[voileini,  tws10[i], twa10[i]]
+        boost  =  routagelisse[i,9]/(vitessevoileini +0.0001)
+        dt_it  =  routagelisse[i,1] -dt_ini 
+        routagelisse[i,11]=boost
+        if boost >1.014:
+            routagelisse[i,10]=meilleureVoile[i]
+            Chgt=1                                   #Changement de voile 
+          
+        else:
+            routagelisse[i,10]=voileini
+            Chgt=0
+            
+        # on va calculer les penalites et les changements de stamina
+        Cstamina        = 2 - 0.015 * stamina_ini                                                                       # coefficient de stamina en fonction de la staminaini
+        peno_chgt       = Chgt * spline(deplacement.lw, deplacement.hw, deplacement.lwtimer, deplacement.hwtimer, twsi) * deplacement.MF * Cstamina
+        peno_gybe       = Tgybe * spline(deplacement.lw, deplacement.hw, deplacement.lwtimerGybe, deplacement.hwtimerGybe, twsi) * Cstamina
+        perte_stamina   = calc_perte_stamina_np(twsi, Tgybe, Chgt, deplacement.coeffboat)
+        recup           = frecupstamina(dt_it, twsi)
+        stamina         = min((stamina_ini - perte_stamina + recup),100)
+        solde_peno       = max((solde_peno-dt_it),0)         # la trajectoire a ete calculee en debut d ite avec la peno complete maintenant on retire dt puis on rajoute les nouvelles penos 
+        solde_peno1      = max((solde_peno+peno_chgt+peno_gybe ),0) 
+        
+        routagelisse[i,14]= stamina
+        routagelisse[i,15]=solde_peno1
+    
+    return routagelisse
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
@@ -3368,7 +3651,11 @@ class RoutageSession:                                                  # version
         numisom1=int(iso[0,0].item())                                                 # numero de l'iso precedent 
         numiso=numisom1+1    
         t0          = self.t0
+
         dtig0       = t0-tig
+        # print('t0 ',time.strftime(" %d %b %H:%M %S",time.localtime(t0)))
+        # print('tig ',time.strftime(" %d %b %H:%M %S",time.localtime(tig)))
+        # print ('dtig0 en h ',dtig0/3600)
         
         ecartprecedent=iso[0,12].item()         # c est l ecart de temps de a la fin de l iso precedent par rapport a t0 , c est le temps ou sont les points de depart de calcul de l iso 
        
@@ -3583,6 +3870,9 @@ class RoutageSession:                                                  # version
        
         dtigiso= dtig0+ecart
           
+        #print ('ecart grib en h ',ecart/3600)
+
+
         iso[:,9],iso[:,10]= prevision025todtig(GR_gpu,dtigiso, iso[:,3],iso[:,4])    # correction erreur le vent est calcule pour le prochain point avec les nuvelles coordonnees
       
         iso[:,11]=torch.rad2deg(iso[:,13])            # on remet le cap initial en 11 a partir du cap en radian que l on a toujours   
@@ -3605,6 +3895,12 @@ class RoutageSession:                                                  # version
         self.isoglobal[premier:dernier+1, :] = iso[:, 0:15]
         
         return iso, tmini,distmini,nptmini
+    
+
+
+
+
+
 
 
 
@@ -3679,13 +3975,13 @@ def routageGlobal(course,user_id,isMe,ari,y0,x0,t0,tolerancehvmg,optionroutage):
       
         while distmini > rwp:
                 
-            try: 
-                iso, tmini, distmini, nptmini = session.isoplusun(iso, tmini,paramRoutage)
-                print ('distmini ',distmini)
+            # try: 
+            iso, tmini, distmini, nptmini = session.isoplusun(iso, tmini,paramRoutage)
+                #print ('distmini ',distmini)
                 
-            except: 
-                message='la destination n a pu etre atteinte' 
-                print (message)    
+            # except: 
+            #     message='la destination n a pu etre atteinte' 
+            #     print (message)    
 
                 # print ('iso {} tmini {} distmini {} \n iso.shape \n{}'.format(i,tmini,distmini,iso.shape)) 
             # except:
@@ -3834,28 +4130,20 @@ def calculeroutage():
   
     chemin    = reconstruire_chemin_rapide(isoglobal, nptmini)
     routage   = cheminToRoutage(chemin,tabvmg10to)
-
-    # routage est en torch 
-    tabtwa=routage[:,5]
-    # print ('tabtwa\n',tabtwa)
-    twasmooth=smoothTo(tabtwa)
-    twasmooth2=smoothTo(twasmooth)
-    twasmooth3=smoothTo(twasmooth2)
-    routage[:,5]= twasmooth3                   # c 'est juste une substitution de facade, il faudrait recalculer le routage
-
-
-
-
-
-   
-   
     arrayroutage = routage.cpu().tolist()
+
+    routage_np      = np.array(arrayroutage,dtype=np.float64)
+    routagelisse= lissage(course,routage_np,t0,posStartVR,posStart)  
+    arrayroutage2=[arr.tolist() for arr in routagelisse]
+
+
+
 
     print ('posStartVR',posStartVR)
     print()
     print ('posStart',posStart)
     
-    dico={'message':'Routage OK','waypoints':waypoints,'arrayroutage':arrayroutage,'isochrones':dico_isochrones,'t0routage':t0}
+    dico={'message':'Routage OK','waypoints':waypoints,'arrayroutage':arrayroutage,'arrayroutage2':arrayroutage2,'isochrones':dico_isochrones,'t0routage':t0}
     return dico
 
 
