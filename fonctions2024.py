@@ -1983,7 +1983,7 @@ def chargement_grib():
 
 
 def majgrib():
-    global GR025
+    global GR025,tig
     basedirGribs025     = '/home/jp/gribslocaux/gribs025/'
     filename,derniertig=gribFileName(basedirGribs025)
     #  si pas sur dernier grib ou si moins de  360 h chargées

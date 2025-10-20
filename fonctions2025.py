@@ -299,6 +299,7 @@ def distance_haversine_torch(lat0, lon0, lat1, lon1):
 
 def dist(lat1, lon1, lat2, lon2):
     '''definit la distance entre 2 points en km en corrigeant l effet de la latitude '''
+    R = 6371.000   # en km
     x = (lon2 - lon1) * torch.cos((lat1 + lat2) / 2)
     y = lat2 - lat1  
     return R * torch.sqrt(x**2 + y**2)
