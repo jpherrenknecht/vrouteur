@@ -369,4 +369,32 @@ print (result)
     
 
     # return jsonify({"message":'La modification de personalinfos s est deroulee avec succes ', "success": True,  "updated_infos": infos })
+
+# Extraction des polaires 
+    
+def rechercheTablePolaires(polar_id):
+    '''recherche retournant 2 resultats timestamp en premier '''
+
+    conn = pg_pool.getconn()
+    try:
+        cursor = conn.cursor()
+        cursor.execute("""
+            SELECT updated,_id,polaires
+            FROM polaires
+            WHERE _id = %s
+            ORDER BY updated DESC
+            LIMIT 1
+        """, (polar_id,))
+        result = cursor.fetchone()
+       
+        return (result[0],result[1] ,result[2]) if result else (None, None,None)
+    finally:
+        cursor.close()
+        pg_pool.putconn(conn)
+
+polar_id=3
+res= rechercheTablePolaires(polar_id)
+
+print()
+print (res)
   
