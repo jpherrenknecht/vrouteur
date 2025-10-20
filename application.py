@@ -214,21 +214,28 @@ def majgrib():
             print('Rechargement du grib necessaire\n******************************')
             GR,tig = chargement_grib()
             print('Indice chargé',GR[0,0,0,1]*3,'h\n')
+            
+            tig=int(GR[0,0,0,0]*100)
+            GR[0,0,0,0]=0
 
             GR_cpu = torch.from_numpy(GR)
-            GR_gpu = GR_cpu.to('cuda', non_blocking=True)    
-
+            GR_gpu = GR_cpu.to('cuda', non_blocking=True)   
+            GR_gpu = safe_to_cuda(torch.from_numpy(GR), clamp=500, name="GR") 
         
             return 
     else:
         print('Le fichier {}  n existe pas encore'.format(filename))
-        retur
+        return
 
 GR,tig= chargement_grib()      # Chargement initial
-GR_cpu = torch.from_numpy(GR)
-GR_gpu = GR_cpu.to('cuda', non_blocking=True)    
 
 tig=int(GR[0,0,0,0]*100)
+GR[0,0,0,0]=0
+GR_cpu = torch.from_numpy(GR)
+GR_gpu = GR_cpu.to('cuda', non_blocking=True)    
+#GR_gpu = safe_to_cuda(torch.from_numpy(GR), clamp=500, name="GR")
+
+GR[0,0,0,0]=int(tig/100)
 
 print ('tig : ',time.strftime(" %d %b %H:%M ",time.localtime(tig)))
 print 
@@ -3674,6 +3681,8 @@ def routageGlobal(course,user_id,isMe,ari,y0,x0,t0,tolerancehvmg,optionroutage):
                 
             try: 
                 iso, tmini, distmini, nptmini = session.isoplusun(iso, tmini,paramRoutage)
+                print ('distmini ',distmini)
+                
             except: 
                 message='la destination n a pu etre atteinte' 
                 print (message)    
