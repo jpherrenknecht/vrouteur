@@ -3036,7 +3036,7 @@
                             weight: 0.5,
                             fillColor: couleur,      // Couleur de remplissage
                             fillOpacity: 0.5,         // Opacité de remplissage
-                            radius: rayon * 1000 / 1.852,    // Rayon converti en mètres pour l affichage 
+                            radius: rayon * 1000 / 1.852,    // Rayon en Mn converti en mètres pour l affichage 
                             draggable: true,          // Rendre le cercle draggable
                             indice: numero
                         });
@@ -4393,8 +4393,10 @@
 
 
                 try {
-                    console.log(' tabexclusions ' + boatinfosJSON['leg']['restrictedZones'])
 
+
+                    console.log(' tabexclusions ' + boatinfosJSON['leg']['restrictedZones'])
+                    console.log ('Zones Exclusions ' + JSON.stringify ( boatinfosJSON['leg']['restrictedZones']))
                     nbzones = boatinfosJSON['leg']['restrictedZones'].length
                     zonesExclusions.length = (nbzones)
                     for (var i = 0; i < nbzones; i++) {
