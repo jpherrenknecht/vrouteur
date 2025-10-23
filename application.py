@@ -60,7 +60,10 @@ torch.cuda.synchronize()
 # print(torch.version.cuda)
 # print(torch.version.git_version)
 # print(torch.cuda.is_available())
+from scheduler_cleaner import start_scheduler
 
+# Lancer le scheduler une seule fois au démarrage
+start_scheduler()
 
 
 
@@ -1300,7 +1303,7 @@ def rechercheDonneesCourseCache(course):
 
 def rechercheDonneesCourseUser( user_id,course): 
     '''Recherche les donnees generales boatinfos pour le user_id sur la course '''   
-    print ('user_id,course',user_id,course)
+    print ('RechercheDonneeesCourseUser pour user_id {} ,course {} '.format(user_id,course))
     result    = rechercheTableBoatInfos(user_id,course)  #recherche dans la table locale  
     
     boatinfos = json.loads(result) 
@@ -1325,7 +1328,8 @@ def rechercheDonneesCourseUser( user_id,course):
     #statsstamina       = boatinfosbs['stats']                    # pas dans le vg
     gateGroupCounters   = boatinfosbs['gateGroupCounters']
     legStartDate        = boatinfosbs['legStartDate']
-    # print ('state',state)
+    
+    print ('state',state)
     
     if state=='waiting':
         # si le state est waiting on a seulement un heading et legstartdate     
@@ -2738,6 +2742,39 @@ def recherchevoiles():
 
 
 
+@app.route('/recherchevoilessimple', methods=["GET", "POST"])
+def recherchevoilessimple():
+    # recupere la meteo sur le point les vmg et les recouvrements  
+   
+    tws      = float(request.args.get('tws'))
+    polar_id = int(request.args.get('polar_id'))
+    # print('y0vr {}, x0vr {} ,t0vr {} ,twsvr {} polar_id {}'.format(y0vr,x0vr,t0vr,tws,polar_id))
+
+   
+    filenamelocal2='vmg10_'+str(polar_id)+'.npy'
+    filename2=basedirnpy+filenamelocal2
+    tabvmg10=get_fichier(filename2)
+    # with open(filename2,'rb')as f:
+    #      tabvmg10 = np.load(f)
+
+    #on calcule les vmg pour tws
+    tws10        = int(round(tws*10))
+    tabvmg       = tabvmg10[tws10]
+    tabvmg       = tabvmg.tolist()
+
+    tabrecouvrements = plagevoiles2(polar_id,tws)
+    tabrecouvrements = [arr.tolist() for arr in tabrecouvrements]
+
+    # tableau numpy transforme en array
+    #print('tabrecou',tabrecouvrements)
+
+    response=make_response(jsonify({"tabvmg":tabvmg,"tabrecouvrements":tabrecouvrements }))
+    response.headers.add('Access-Control-Allow-Origin', '*')
+    return response
+
+
+
+
 
 
 ###############################################################################
@@ -4069,7 +4106,28 @@ def cheminToRoutage(chemin,tabvmg10to):
     return routage
     
 
+def smooth(tab, tol=1, window=1):
+    """
+    Lissage discret : si un point diffère légèrement (≤ tol)
+    de ses voisins identiques, il est remplacé par leur valeur.
 
+    tab : tableau numpy (ou liste)
+    tol : écart maximal considéré comme aberration isolée (défaut 1)
+    window : nombre de voisins de chaque côté (défaut 1)
+    """
+    tab = np.asarray(tab, dtype=float).copy()
+    n = len(tab)
+    if n < 3 or window < 1:
+        return tab
+
+    for i in range(window, n - window):
+        gauche = tab[i - window]
+        droite = tab[i + window]
+        if abs(tab[i] - gauche) <= tol and abs(tab[i] - droite) <= tol and abs(gauche - droite) <= tol:
+            # voisins quasi identiques → remplacement
+            tab[i] = gauche # ou simplement gauche, car proches
+    return tab
+    
 
 
 def smoothTo(t):
@@ -4133,7 +4191,18 @@ def calculeroutage():
     arrayroutage = routage.cpu().tolist()
 
     routage_np      = np.array(arrayroutage,dtype=np.float64)
-    routagelisse= lissage(course,routage_np,t0,posStartVR,posStart)  
+    routagelisse = lissage(course,routage_np,t0,posStartVR,posStart)  
+    tabtwa       = routagelisse[:,5]
+    twasmooth=smooth(tabtwa)                      #    c est du smooth torch 
+    twasmooth2=smooth(twasmooth)
+  
+    routagelisse[:,5]= twasmooth2                   # c 'est juste une substitution de facade, il faudrait recalculer le routage
+
+
+
+
+
+  
     arrayroutage2=[arr.tolist() for arr in routagelisse]
 
 
@@ -4429,11 +4498,14 @@ def calculepolaires():
  # on calcule la penalite de la 3eme manoeuvre
     stam31,peno31=calculpenalitesnump(Tws1031, Chgt3, twam13, twa3, stam30, carabateau)
     speed3= polairesglobales10[7,Tws1031,Twa1031]
+
     peno31=float(peno31)
-    dist31=(speed3*peno31/3600)*.3
+   
+    dist31=float((speed3*peno31/3600)*.3)
     cumul31=cumul21+dist31
     print ('stam31   {}'.format(stam31))
     print ('penalite3 {}'.format(peno31))
+
     print ('speed3    {}'.format(speed3))
     print('distance perdue ',dist31)
     print('cumul distance perdue ',cumul31)
@@ -4462,20 +4534,24 @@ def calculepolaires():
     
     vmgpourjs= tabvmg10[tws10,:]
     polairespourjs=polairesglobales10[:,tws10,twa10]  
-    print('vmgpourjs',vmgpourjs)
-    print('polairespourjs',polairespourjs)
-    tabrecouvrements=' '
+    
+    tabrecouvrements=[]
     vmgpourjs     =  [arr.tolist() for arr in vmgpourjs]
     polairespourjs=  [arr.tolist() for arr in polairespourjs]
+    print('vmgpourjs',vmgpourjs)
+    print('polairespourjs',polairespourjs)
 
-    response=make_response(jsonify({"message":"Tout va bien","polairespourjs":polairespourjs,"vmgpourjs":vmgpourjs,
+   
+    response=make_response(jsonify({"message":"Tout va bien","polairespourjs":polairespourjs,"vmgpourjs":vmgpourjs  ,
                                      "tabrecouvrements":tabrecouvrements,
                                      "stam11":stam11,"peno11":peno11,"dist11":dist11,
                                      "recup20":recup20,"stam20":stam20,
                                      "stam21":stam21,"peno21":peno21,"dist21":dist21,"cumul21":cumul21,
                                      "recup30":recup30,"stam30":stam30,
-                                     "stam31":stam31,"peno31":peno31,"dist31":dist31,"cumul31":cumul31,
-                                     "amort":amort   }))  
+                                     "stam31":stam31,"peno31":peno31,
+                                     "dist31":dist31,
+                                    "cumul31":cumul31,
+                                     "amort":amort   }))
                                                          
                                     
     response.headers.add('Access-Control-Allow-Origin', '*')
