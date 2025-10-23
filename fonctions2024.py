@@ -522,12 +522,12 @@ def stringPolairestoNpy(stringpolaires):
     # meme si ce n'est que partiellement necessaire pour des raisons de compatibilite on va calculer les tabvmg"
 
     Twa=np.arange(180)
-    cos=np.cos(Twa/180*math.pi).astype(np.float32)
+    cosi=np.cos(Twa/180*math.pi).astype(np.float32)
     tabvmg=np.zeros((701,7),dtype=np.float32)            # on va constituer un tableau (tws,vmgmax,twavmgmax,vmgmin,twavmgmin,vmax,twavmax)
     for tws10 in range (701) :                           # on fait varier le vent de 0a 70 Noeuds
         Tws=(np.ones(len(Twa))*tws10).astype (int)       # on constitue une serie de vents identiques pour calculer pour chaque twa
         Vitesses = polairesglobales[7,Tws,Twa]
-        Vmg=Vitesses*cos
+        Vmg=Vitesses*cosi
         tabvmg[tws10,0]=tws10
         tabvmg[tws10,1]=np.max(Vmg)
         tabvmg[tws10,2]=np.argmax(Vmg)
@@ -545,12 +545,12 @@ def stringPolairestoNpy(stringpolaires):
 # on va maintenant constituer le tableau des vmg10 pour chaque bateau          
     Twa10=np.arange(1800)
    
-    cos=np.cos(Twa10/10/180*math.pi).astype(np.float32)
+    cosi=np.cos(Twa10/10/180*math.pi).astype(np.float32)
     tabvmg10=np.zeros((701,7),dtype=np.float32)            # on va constituer un tableau (tws,vmgmax,twavmgmax,vmgmin,twavmgmin,vmax,twavmax)
     for tws10 in range (701) :                           # on fait varier le vent de 0a 70 Noeuds
         Tws=(np.ones(len(Twa10))*tws10).astype (int)       # on constitue une serie de vents identiques pour calculer pour chaque twa
         Vitesses = polairesglobales10[7,Tws,Twa10]
-        Vmg=Vitesses*cos
+        Vmg=Vitesses*cosi
         tabvmg10[tws10,0]=tws10/10
         tabvmg10[tws10,1]=np.max(Vmg)
         tabvmg10[tws10,2]=np.argmax(Vmg)/10

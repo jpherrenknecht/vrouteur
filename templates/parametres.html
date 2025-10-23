@@ -230,7 +230,7 @@ async function calculepolairespourjs(polar_id,tws,twa) {
     
     console.log(url)
    
-    let voileactuelle=voile-1
+    let voileactuelle=voile
      console.log(voileactuelle)
         let response = await fetch(url);
         if (!response.ok) {
@@ -276,18 +276,7 @@ async function calculepolairespourjs(polar_id,tws,twa) {
         document.getElementById("amort").value=amort.toFixed(0)
 
 
-
-
-
-
-
-
-
-
-
-
-
-        
+      
 
         // resultat=JSON.parse(resultat)
         console.log (message)
@@ -460,8 +449,8 @@ else if (boost>1.014  && i===k){ vit2=''; classe='red'}
         <div id="tabrecou">  </div>
        </div>
        <h2>Amortissement Changement de voile (coeff 0.3)</h2> 
-       V1 <input type="number" value="15" style="width:60px" id="v1">
-       V2(>V1) <input type="number" value="16" style="width:60px" id="v2">
+       V1 <input type="number"    min="0" max="30"       step="0.1"    value="15" style="width:60px" id="v1">
+       V2(>V1) <input type="number" min="0" max="30"   step="0.1"      value="16" style="width:60px" id="v2">
        Penalite Chgt 1<input type="number" value="240" style="width:60px" id="pena1">s      
        Penalite Chgt 2<input type="number" value="400" style="width:60px" id="pena2">s
        Duree  Amortissement <input type="text"  value="100" style="width:60px" id="amort">s
