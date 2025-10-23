@@ -194,7 +194,26 @@ function arrondi(a,n)
 	 
 
 
+function dmsToDecimal(coord) {
+    const regex = /(\d+)°(\d+\.\d+)\s*([NSEW])/g;
+    let match;
+    let lat = null, lon = null;
 
+    while ((match = regex.exec(coord)) !== null) {
+        const deg = parseFloat(match[1]);
+        const min = parseFloat(match[2]);
+        const dir = match[3];
+        const dec = deg + min / 60;
+        if (dir === 'S' || dir === 'W') {
+            if (lat === null) lat = -dec;
+            else lon = -dec;
+        } else {
+            if (lat === null) lat = dec;
+            else lon = dec;
+        }
+    }
+    return [lat, lon];
+}
 
 			
 			// function vitessepolaire (twa,tws,foil=1,hull=1.003)
@@ -1711,36 +1730,67 @@ function vit_angle_vent_100(lat,lng,t0)
 			}
 
 
+function dmsToDecimal2(coord) {
+  if (!coord || typeof coord !== "string") return [NaN, NaN];
+
+  // Normalisations : points décimaux, espaces
+  const s = coord.replace(/,/g, ".").replace(/\s+/g, " ").trim();
+
+  // On capture deux blocs "deg [séparateur] min [optionnel séparateur] dir"
+  // Séparateur tolérant: tout ce qui n'est pas chiffre/lettre de direction
+  const re = /(\d{1,3})[^\dNSWE+-]+(\d+(?:\.\d+)?)[^\dNSWE+-]*([NSEW])/gi;
+
+  let lat = null, lon = null, m;
+  while ((m = re.exec(s)) !== null) {
+    const deg = parseFloat(m[1]);
+    const min = parseFloat(m[2]);
+    const dir = m[3].toUpperCase();
+    let dec = deg + (min / 60);
+
+    if (dir === "S" || dir === "W") dec = -dec;
+    if (dir === "N" || dir === "S") lat = dec; else lon = dec;
+  }
+
+  if (lat === null || lon === null) {
+    console.warn("Coordonnée CSV invalide :", coord);
+    return [NaN, NaN];
+  }
+  return [lat, lon];
+}
 
 
 
 
-function dmsToDecimal(dmsString) {
-    const regex = /(\d+)°(\d+)'([\d.]+)"([NSEW])/g;
-    let matches, latDecimal, lngDecimal;
 
-    while ((matches = regex.exec(dmsString)) !== null) {
-        const degrees = parseFloat(matches[1]);
-        const minutes = parseFloat(matches[2]);
-        const seconds = parseFloat(matches[3]);
-        const direction = matches[4];
+function dmsToDecimal(coord) {
+    const regex = /(\d+)°(\d+\.\d+)\s*([NSEW])/g;
+    let match;
+    let lat = null, lon = null;
 
-        let decimal = degrees + minutes / 60 + seconds / 3600;
-
-        // Ajuster pour Sud et Ouest (valeurs négatives)
-        if (direction === 'S' || direction === 'W') {
-            decimal *= -1;
-        }
-
-        if (direction === 'N' || direction === 'S') {
-            latDecimal = decimal; // Latitude
-        } else if (direction === 'E' || direction === 'W') {
-            lngDecimal = decimal; // Longitude
+    while ((match = regex.exec(coord)) !== null) {
+        const deg = parseFloat(match[1]);
+        const min = parseFloat(match[2]);
+        const dir = match[3];
+        const dec = deg + min / 60;
+        if (dir === 'S' || dir === 'W') {
+            if (lat === null) lat = -dec;
+            else lon = -dec;
+        } else {
+            if (lat === null) lat = dec;
+            else lon = dec;
         }
     }
-
-    return { latDecimal, lngDecimal };
+    return [lat, lon];
 }
+
+
+
+
+
+
+
+
+
 
 
 

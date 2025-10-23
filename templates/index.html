@@ -12,6 +12,8 @@
     <script src="https://api.windy.com/assets/map-forecast/libBoot.js"></script>
     <script src="https://code.jquery.com/jquery-3.3.1.min.js"></script>
     <script src="https://cdn.socket.io/4.5.4/socket.io.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/papaparse@5.4.1/papaparse.min.js"></script>
+
 
     <link rel="stylesheet" type="text/css" href="{{ url_for('static', filename='css/vrouteur.css') }}">
     <link rel="shortcut icon" href="{{ url_for('static', filename='img/favicon.ico') }}">
@@ -294,6 +296,10 @@
 
         var circlew = new L.circle();
         var popup = L.popup();
+
+        var gpx1LayerGroup = new L.layerGroup();  // groupe dédié aux CSV
+        var gpx2LayerGroup = new L.layerGroup();  // groupe dédié aux CSV
+        var csvLayerGroup = new L.layerGroup();  // groupe dédié aux CSV
 
 
 
@@ -617,7 +623,7 @@
      </span>
     <span> Hvmg + <input class="classinput2" type="number" id="tolerancehvmg" min="0" max="10" step="1" value="0">°</span><br>
 
-    <div   id ='dategrib' class='dategrib' > Grib :  </div>Maj à 51,58 - 3,17 - 14<br>
+    <div   id ='dategrib' class='dategrib' > Grib :  </div><br>
     <div align='center'>
     <button  id='lancerRoutage' class='blackwhite11' value='Lancer le routage' > Lancer le Routage </button>
   
@@ -705,18 +711,26 @@
             var texteboite4 =
                 `<div class='liens' >
               
-        <button id="btnDivers">  Calculettes   </button>
-       
-        <button onclick='EditeurExclusions()'> Exclusions </button>
-       <button onclick='EditeurBarrieres()'> Barrieres </button>
-      <button id="btnPolaires">Polaires</button>
-       <button onclick='EditeurRoutes()'> Routes </button>
+       <button id="btnDivers" class="blackwhite11">Calculettes</button>       
+       <button onclick='EditeurExclusions()' class="blackwhite11">Exclusions</button>
+       <button onclick='EditeurBarrieres()' class="blackwhite11">Barrieres</button>
+       <button id="btnPolaires" class="blackwhite11">Polaires</button>
+       <button onclick='EditeurRoutes()' class="blackwhite11">Routes</button>
 
        <input type="file" id="gpx-input" accept=".gpx" style="margin: 10px;" />
-        <label for="gpx-input" class="chargergpx">📂 Charger GPX1</label>
+       <label for="gpx-input" class="chargergpx">📂 Charger GPX1</label>
 
         <input type="file" id="gpx-input2" accept=".gpx" style="margin: 10px;" />
         <label for="gpx-input2" class="chargergpx">📂 Charger GPX2</label>
+
+        <input type="file" id="csv-input3" accept=".csv" style="margin: 10px;" />
+        <label for="csv-input3" class="chargergpx">📂 CSV Dorado </label>
+       <div class='checkbox'>
+        Gpx1  <input type='checkbox' id='showgpx1' name='showgpx1' checked />   
+        Gpx2  <input type='checkbox' id='showgpx2' name='showgpx2'  checked />   
+        Csv Dorado   <input type='checkbox' id='showcsv'  name='showcsv'  checked />   
+      </div>
+        
 
        </div>`;
        
@@ -5824,7 +5838,10 @@
                                 weight: 0.5
                             }).bindTooltip(tooltipText, { direction: 'top', permanent: false });
                         }
-                    }).addTo(map);
+                    }).addTo(gpx1LayerGroup);
+
+
+
                 };
                 reader.readAsText(file);
             });
@@ -5883,8 +5900,10 @@
                                 weight: 0.5
                             }).bindTooltip(tooltipText, { direction: 'top', permanent: false });
                         }
-                    }).addTo(map);
+                    }).addTo(gpx2LayerGroup);
                 };
+
+                gpx2LayerGroup.addTo(map);
                 reader.readAsText(file);
             });
 
@@ -6231,6 +6250,87 @@
                 affichecoordsdep(latDecimal, lngDecimal)
 
             });
+
+
+
+document.getElementById('csv-input3').addEventListener('change', function (event) {
+    console.log ('chargement csv lancé')
+    const file = event.target.files[0];
+    if (!file) return;
+
+    Papa.parse(file, {
+        header: true,
+        delimiter: ";",
+        complete: function (results) {
+            csvLayerGroup.clearLayers(); // supprime les anciens points CSV
+            const coords = [];
+
+            results.data.forEach(row => {
+                if (!row.position) return;
+
+                const [lat, lon] = dmsToDecimal2(row.position);
+                if (isNaN(lat) || isNaN(lon)) return;
+
+                coords.push([lat, lon]);
+
+                const popup = `
+                    <b>${row.time || ''}</b><br>
+                    SOG: ${row.sog || ''} kn<br>
+                    COG: ${row.cog || ''}°<br>
+                    TWS: ${row.TWS || ''} kn<br>
+                    TWD: ${row.TWD || ''}°
+                `;
+
+                L.circleMarker([lat, lon], {
+                    radius: 0.5,
+                    color: 'blue',
+                    fillColor: 'cyan',
+                    fillOpacity: 0.6
+                })
+                .bindPopup(popup)
+                .addTo(csvLayerGroup);
+            });
+
+            console.log('coords '+coords)
+            csvLayerGroup.addTo(map)
+            if (coords.length > 1) {
+                L.polyline(coords, { color: 'red', weight: 1 }).addTo(csvLayerGroup);
+                map.fitBounds(coords);
+            }
+
+
+        }
+    });
+});
+
+
+
+document.getElementById('showgpx1').addEventListener('change', function(e) {
+    if (e.target.checked) {
+        map.addLayer(gpx1LayerGroup);
+    } else {
+        map.removeLayer(gpx1LayerGroup);
+    }
+});
+
+document.getElementById('showgpx2').addEventListener('change', function(e) {
+    if (e.target.checked) {
+        map.addLayer(gpx2LayerGroup);
+    } else {
+        map.removeLayer(gpx2LayerGroup);
+    }
+});
+
+document.getElementById('showcsv').addEventListener('change', function(e) {
+    console.log ('showcsv actionné')
+    if (e.target.checked) {
+        map.addLayer(csvLayerGroup);
+    } else {
+        map.removeLayer(csvLayerGroup);
+    }
+});
+
+
 
 
 

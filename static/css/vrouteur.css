@@ -122,7 +122,8 @@ a:link {
 .black11bold{ font-size:11px; font-weight:bold;color: black;border-radius:3px;background: white;padding:2px;}
 .black12{ font-size:12px; font-weight:normal;color: black;border-radius:3px;border:1px solid black;background: white;padding:2px; width:20px;}
 
-.blackwhite11{ font-size:11px; height:22px; font-weight:normal; border:1px solid black; border-radius:5px;background: white;color: black;}
+.blackwhite11{ font-size:11px; height:22px; font-weight:bold; border:1px solid black; border-radius:5px;background: white;color: black;}
+
 .select150 { width:280px; }
 
 .titrevrouteur{ font-size:12px; padding:5px;  margin: 0px; font-weight:bold; color: black;}
@@ -284,11 +285,6 @@ a:link {
             font-weight: bold;
             color:black;
           }
-
-
-
-
-
 
 
 
@@ -539,7 +535,18 @@ a:link {
 
  */
 
- 
+ input[type="file"] {  display: none;}
+.chargergpx {
+    background-color: white;
+    font-size: 10px;
+    color: black;
+    padding: 5px 5px;
+    margin: 5px;
+    border-radius: 6px;
+    cursor: pointer;
+    display: inline-block;
+    border:1px solid black;
+}
 
  #gpx-input {display: none;  }
 
@@ -558,14 +565,14 @@ a:link {
 
 .btn-gpx:hover {  background-color: #e0e0e0;  }
 
-.chargergpx{
+/* .chargergpx{
    border-radius: 4px;
   margin:5px;
   padding:  5px;
   background-color: #eceaea;
   border: 1px solid black;
   font-size: 10px;
-    }
+    } */
 
 
 
@@ -688,6 +695,23 @@ a:link {
     font-family : Arial;}
 
   
+/* 
+ .checkbox{ margin :0 auto;
+   
+    border:0px solid blue;
+    color:black;
+    font-size:11px;
+    font-family : Arial;} */
+
+.checkbox {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 20px;
+  margin: 5px auto;
+  font-size: 11px;
+  font-family: Arial, sans-serif;
+}
   
   .submitroutage{ margin :0 auto;
     width:150px;
