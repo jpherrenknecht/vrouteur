@@ -233,6 +233,7 @@
 
         var user_id;
         var nbWP;
+        var isMe;
 
         var indiceCourse;
         var nbprogress = 0;                 // valeur de l avancement dans progressbar       
@@ -628,10 +629,13 @@
     <button  id='lancerRoutage' class='blackwhite11' value='Lancer le routage' > Lancer le Routage </button>
   
    
-    <progress value='0' min='0' max='100' id ='progress'></progress>
-   <span id='eta' class='eta'></span>    <span id='dureeeta'></span><span  id='detailroute2'></span><br>
-
-    Isos  <input type='checkbox' id='showisochrones' name='showisochrones'  />   
+    <progress value='0' min='0' max='100' id ='progress'></progress><br>
+   
+   <span id='eta' class='eta'></span> 
+   <span id='dureeeta'></span>
+   <span  id='detailroute2'></span><br>
+   
+   Isos  <input type='checkbox' id='showisochrones' name='showisochrones'  />   
     Boat  <input type='checkbox' id='showboat' name='showboat' checked  />
     Route <input type='checkbox' id='showprogsvr' name='showprogsvr'  checked    />
       
@@ -2556,9 +2560,21 @@
 
                 // affichage du tableau de routage 
                 arrayroutage = tabroutage   // ("c'est arrayroutage qui est utilise dans createtexte")
+
                 texteroute = createTexteRoute()
                 // console.log ('texteroute '+texteroute)
-                document.getElementById('detailroute2').innerHTML = " <button  >Detail Route </button>"
+                document.getElementById('detailroute2').innerHTML = " <button  class='blackwhite11' >Detail Route </button>"
+
+
+
+
+                // on va egalement afficcher l ETA 
+                let dernier = arrayroutage.length - 1
+
+                document.getElementById('eta').innerHTML = `ETA : ${intlhmn.format((t0routage + arrayroutage[dernier][1]) * 1000)}`
+                document.getElementById('dureeeta').innerHTML = `soit ${formatSeconds(arrayroutage[dernier][1] )}`
+                //ETA : ${intlhmn.format((t0routage + arrayroutage[dernier][1]) * 1000)}
+
 
 
                 // on va sauver les caracteristiques du routage dans memoire trajet
@@ -5840,7 +5856,7 @@
                         }
                     }).addTo(gpx1LayerGroup);
 
-
+            gpx1LayerGroup.addTo(map);
 
                 };
                 reader.readAsText(file);

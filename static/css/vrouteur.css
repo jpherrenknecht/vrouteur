@@ -112,7 +112,7 @@ a:link {
 .black9 { font-size:9px ; font-weight:normal;color: black;}
 .black10{ font-size:10px; font-weight:normal;color: black;}
 .black11{ font-size:11px; font-weight:normal;color: black;border-radius:3px;background: white;padding:2px;}
-.black11grey{ font-size:11px; font-weight:normal;color: black;border-radius:3px;background: lightgray;padding:2px;}
+.black11grey{ font-size:11px; font-weight:normal;color: black;border-radius:3px;background: rgb(211, 211, 211);padding:2px;}
 .black11wblue{ font-size:11px; font-weight:normal;color: white;border-radius:3px;background: blue;padding:2px;}
 
 
@@ -122,8 +122,39 @@ a:link {
 .black11bold{ font-size:11px; font-weight:bold;color: black;border-radius:3px;background: white;padding:2px;}
 .black12{ font-size:12px; font-weight:normal;color: black;border-radius:3px;border:1px solid black;background: white;padding:2px; width:20px;}
 
-.blackwhite11{ font-size:11px; height:22px; font-weight:bold; border:1px solid black; border-radius:5px;background: white;color: black;}
+/* .blackwhite11{ font-size:11px; 
+  height:22px;
+   font-weight:bold;
+    border:1px solid black;
+     border-radius:5px;
+     background: white;
+     color: black;} */
+.blackwhite11 {
+  font-size: 11px;
+  line-height: 20px;
+  height: 22px;
+  padding: 0 6px;
+  border: 1px solid #000;
+  border-radius: 5px;
+  background-color: #fff;
+  color: #000;
+  font-weight: bold;
+}
 
+
+.blackwhite11:hover {
+  background: rgb(211, 211, 211);
+  box-shadow: 0 0 5px rgba(0, 0, 0, 0.3);
+  cursor: pointer;
+}
+
+/* 
+.blackwhite11:hover {
+  background: black;
+  color: white;
+  box-shadow: 0 0 6px rgba(0, 0, 0, 0.4);
+  cursor: pointer;
+} */
 .select150 { width:280px; }
 
 .titrevrouteur{ font-size:12px; padding:5px;  margin: 0px; font-weight:bold; color: black;}
@@ -548,6 +579,22 @@ a:link {
     border:1px solid black;
 }
 
+
+
+.chargergpx:hover{
+    background-color: lightgray;
+    font-size: 10px;
+    color: black;
+    padding: 5px 5px;
+    margin: 5px;
+    border-radius: 6px;
+    cursor: pointer;
+    display: inline-block;
+    border:1px solid black;
+}
+
+
+
  #gpx-input {display: none;  }
 
 .btn-gpx {
@@ -597,6 +644,10 @@ a:link {
          }
 
 .btn-gpx2:hover {  background-color: #e0e0e0;  }
+
+
+
+
 
 .chargergpx2{
    border-radius: 4px;

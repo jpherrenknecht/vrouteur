@@ -1785,7 +1785,22 @@ function dmsToDecimal(coord) {
 
 
 
+function formatSeconds(totalSeconds) {
+  totalSeconds = Math.floor(totalSeconds); // pour éviter les décimales
 
+  const days = Math.floor(totalSeconds / 86400); // 24*3600
+  const hours = Math.floor((totalSeconds % 86400) / 3600);
+  const minutes = Math.floor((totalSeconds % 3600) / 60);
+  const seconds = totalSeconds % 60;
+
+  let parts = [];
+  if (days > 0) parts.push(days + "j");
+  if (hours > 0 || days > 0) parts.push(hours + "h"); // affiche les heures si jours > 0
+  if (minutes > 0 || hours > 0 || days > 0) parts.push(minutes + "mn");
+  //parts.push(seconds + "s");
+
+  return parts.join(" ");
+}
 
 
 
