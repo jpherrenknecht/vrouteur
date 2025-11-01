@@ -869,7 +869,7 @@ def rechercheTableProgsvr(user_id, course):
             LIMIT 1
         """, (user_id, course))
         result = cursor.fetchone()
-        print("Résultat brut de la requête :", result)
+        print("Résultat brut de la requête SQL :", result)
         return (result[0], result[1]) if result else (None, None)
     finally:
         cursor.close()
@@ -1178,8 +1178,8 @@ def charger_donnees(course):
     #**************************************
     try:
         zones=leginfos['restrictedZones']
-        print ('exclusions1 l 1179 ************\n',zones)
-        print()
+        # print ('exclusions1 l 1179 ************\n',zones)
+        # print()
         tabexclusions={}
         # for zone in zones:
         #     name = zone["name"]
@@ -1200,7 +1200,7 @@ def charger_donnees(course):
         except KeyError as e:
             print(f"Clé manquante dans la zone {zone}: {e}")    
 
-        print ('tabexclusions l 1081 ************\n',tabexclusions)        
+        # print ('tabexclusions l 1203 ************\n',tabexclusions)        
   
     except:   
          print ('on est dans le except de leginfos  our les exclusions\n**********************************************************')
@@ -1224,7 +1224,8 @@ def charger_donnees(course):
     tws=12.1
     typeVoiles = ['jib', 'Spi', 'Staysail', 'LightJib', 'Code0', 'HeavyGnk', 'LightGnk']
     voile=typeVoiles[int(polairesglobales10[8,int(tws*10),int(twa*10)])]
-    print ('pour twa= {} tws= {} voile {} vitessemax = {} '.format(twa,tws,voile,polairesglobales10[7,int(tws*10),int(twa*10)]))
+    print ('pour                              twa= {} tws= {} voile {} vitessemax = {:6.3f} '.format(twa,tws,voile,polairesglobales10[7,int(tws*10),int(twa*10)]))
+    print (' resultats attendus pour Ocean 50 twa= 55 tws= 12.1 voile LightJib vitessemax = 11.956 ')
     print ('******************************************************************\n')
 
     # polairesglobales10to = torch.from_numpy(polairesglobales10).to('cuda')
@@ -1573,11 +1574,11 @@ def calculePosDepart(posStartVR,polairesglobales,carabateau,dt=60):
         t1   = t0   + dt  
         twsf,twdf= prevision025(GR, t0+dt, y1, x1)
 
-        print ('dans calcul isodepart twsf {},twdf {} t0+dt {} '.format(twsf,twdf ,time.strftime(" %d %b %H:%M %S ",time.localtime(t0+dt)) ))  
+        # print ('dans calcul isodepart twsf {},twdf {} t0+dt {} '.format(twsf,twdf ,time.strftime(" %d %b %H:%M %S ",time.localtime(t0+dt)) ))  
         dtig=   t0+dt-tig
         # dtig=torch.tensor(dtig, device='cuda') 
         twsf1,twdf1=  prevision025dtig(GR, dtig, y1, x1)
-        print ('dans calcul isodepart twsf1  {},twdf1 {} t0+dt {} '.format(twsf1,twdf1 ,time.strftime(" %d %b %H:%M %S ",time.localtime(t0+dt)) ))  
+        # print ('dans calcul isodepart twsf1  {},twdf1 {} t0+dt {} '.format(twsf1,twdf1 ,time.strftime(" %d %b %H:%M %S ",time.localtime(t0+dt)) ))  
     
        
         posStart['tws']=twsf
@@ -1859,7 +1860,7 @@ def frecherchecoursesuser():
     result     = rechercheTableCoursesActives(username)               # va chercher dans la table racesinfos
     response   = make_response(jsonify({'result':result}))
     print()
-    print (' coursesuser \n ',result )
+    print ('Coursesuser \n',result )
     print()
     response.headers.add('Access-Control-Allow-Origin', '*')  # Autorise toutes les origines
     return response
@@ -3019,83 +3020,83 @@ def ajaxmessage():
                 print ('boatactions ligne 2858 \n',boatActions)
                 print()     
                 try:           
-                        user_id     = boatActions[0]['_id']['user_id']
-                        race        = boatActions[0]['_id']['race_id']
-                        leg         = boatActions[0]['_id']['leg_num']
-                        course      = str(race)+'.'+str(leg)
-                        timestamp   = boatActions[0]['_id']['ts']/1000  # c'est l heure de depart de la course ne doit pas servir de reference pour l enregistrement 
-                        # timestamp   = time.time()           
-                        timestamp =time.time()
+                    user_id     = boatActions[0]['_id']['user_id']
+                    race        = boatActions[0]['_id']['race_id']
+                    leg         = boatActions[0]['_id']['leg_num']
+                    course      = str(race)+'.'+str(leg)
+                    timestamp   = boatActions[0]['_id']['ts']/1000  # c'est l heure de depart de la course ne doit pas servir de reference pour l enregistrement 
+                    # timestamp   = time.time()           
+                    timestamp =time.time()
 
 
-                        if (any(item.get('_id', {}).get('action') == 'heading' for item in boatActions)) :
-                            # print ('Programmation detectee dans boat action')
-                            progs = [item for item in boatActions if item.get('_id', {}).get('action') == 'heading']                                       
-                            progsx= condenseprogs( progs)
-                            # print() 
-                            # print ('progsx\n',progsx)
-                            # print()
+                    if (any(item.get('_id', {}).get('action') == 'heading' for item in boatActions)) :
+                        # print ('Programmation detectee dans boat action')
+                        progs = [item for item in boatActions if item.get('_id', {}).get('action') == 'heading']                                       
+                        progsx= condenseprogs( progs)
+                        # print() 
+                        # print ('progsx\n',progsx)
+                        # print()
 
-                            # strprogsx=json.dumps({"progs":progsx})
-                            # print ('strprogsx  : ',strprogsx)
-                            # timestamp=int(time.time())
-                            
-                            timestamp = datetime.now(timezone.utc)
+                        # strprogsx=json.dumps({"progs":progsx})
+                        # print ('strprogsx  : ',strprogsx)
                         # timestamp=int(time.time())
-                            print ('heure d enregistrement',timestamp )    
-                            progsx=json.dumps({"progs": progsx } ) 
-                            print (progsx)
                         
-                            cursor.execute(""" INSERT INTO progsvr (user_id, course, timestamp, progsvr)  VALUES (%s, %s, %s, %s)""", (user_id, course, timestamp,json.dumps(progsx)))
-                            conn.commit()
-
-                            # #On va verifier que l enregistrement est bon 
-                            timestamp,progstable  = rechercheTableProgsvr(user_id,course)
-
-                            print ('ligne 2375 progstable ', progstable)
-
-                            if progstable==progsx:
-                                print ('\nl enregistrement des programmations est correct\n********************************************')
-                            else:
-                                print ('\n l enregistrement est incorrect \n********************************************')   
-
-
-                        if (any(item.get('_id', {}).get('action') == 'wp' for item in boatActions)):
-
-                            print ('Programmation par WP  detectee dans boat action')
-                            print ('t0 ',time.strftime(" %d %b %H:%M %S",time.localtime(tiso.item())))
-                            waypointsvr=boatActions[0]['pos']
-                            print ('waypointsvr',waypointsvr)
-                            # on va enregistrer les waypoints dans la base
-                            strwaypointsvr=json.dumps({"wps":waypointsvr})
-                            timestamp = datetime.now(timezone.utc)
-                            print ()
-                            print('test des valeurs avant enregistrement  ',user_id,course,timestamp,strwaypointsvr)
-                            print ('strwaypointsvr',strwaypointsvr)
-                            print ()  
-                            cursor.execute("""INSERT INTO progsvr (user_id,course,timestamp,progsvr ) VALUES (%s,%s,%s,%s)""", (user_id,course,timestamp,json.dumps(strwaypointsvr)))
-                            conn.commit()
-
-
-                            # #On va verifier que l enregistrement est bon 
-                            timestamp,progstable  = rechercheTableProgsvr(user_id,course)
-                            print('progstable ',progstable)
-
-                            if progstable==strwaypointsvr:
-                                print ('\nl enregistrement  des waypoints est correct\n********************************************')
-
-                            else:
-                                print ('\n l enregistrement des waypoints est incorrect \n********************************************')  
-
-
-                            # print ('\n\nLes Waypoints de {}  pour la course {}  ont ete enregistrees  dans la base progsvr à {}\n '.format(user_id ,course,time.strftime(" %d %b %Hh %Mmn ", time.localtime(timestamp))))
-                            # print('******************************************************************************************')
-                            # print ('Verification des programmations enregistrees  dans la base le {}  pour {}  sur la course {} {} '.format(time.strftime(" %d %b %Hh %Mmn ", time.localtime(timestamp)),user_id,course,strwaypointsvr))
-                            # print()
-                        envoi = {'Reception':typeinfos ,'course':course}
-                        print ('tentative d envoi au client   ',user_id ,'  envoi ' ,envoi )
-                        send_update_to_client( user_id, envoi)         # envoi par websocket de l info que l on a recu une actualisation  de boatActions 
+                        timestamp = datetime.now(timezone.utc)
+                    # timestamp=int(time.time())
+                        print ('heure d enregistrement',timestamp )    
+                        progsx=json.dumps({"progs": progsx } ) 
+                        print (progsx)
                     
+                        cursor.execute(""" INSERT INTO progsvr (user_id, course, timestamp, progsvr)  VALUES (%s, %s, %s, %s)""", (user_id, course, timestamp,json.dumps(progsx)))
+                        conn.commit()
+
+                        # #On va verifier que l enregistrement est bon 
+                        timestamp,progstable  = rechercheTableProgsvr(user_id,course)
+
+                        print ('ligne 2375 progstable ', progstable)
+
+                        if progstable==progsx:
+                            print ('\nl enregistrement des programmations est correct\n********************************************')
+                        else:
+                            print ('\n l enregistrement est incorrect \n********************************************')   
+
+
+                    if (any(item.get('_id', {}).get('action') == 'wp' for item in boatActions)):
+
+                        print ('Programmation par WP  detectee dans boat action')
+                        #print ('t0 ',time.strftime(" %d %b %H:%M %S",time.localtime(tiso.item())))
+                        waypointsvr=boatActions[0]['pos']
+                        print ('waypointsvr',waypointsvr)
+                        # on va enregistrer les waypoints dans la base
+                        strwaypointsvr=json.dumps({"wps":waypointsvr})
+                        timestamp = datetime.now(timezone.utc)
+                        print ()
+                        print('test des valeurs avant enregistrement  ',user_id,course,timestamp,strwaypointsvr)
+                        print ('strwaypointsvr',strwaypointsvr)
+                        print ()  
+                        cursor.execute("""INSERT INTO progsvr (user_id,course,timestamp,progsvr ) VALUES (%s,%s,%s,%s)""", (user_id,course,timestamp,json.dumps(strwaypointsvr)))
+                        conn.commit()
+
+
+                        # #On va verifier que l enregistrement est bon 
+                        timestamp,progstable  = rechercheTableProgsvr(user_id,course)
+                        print('progstable ',progstable)
+
+                        if progstable==strwaypointsvr:
+                            print ('\nl enregistrement  des waypoints est correct\n********************************************')
+
+                        else:
+                            print ('\n l enregistrement des waypoints est incorrect \n********************************************')  
+
+
+                        # print ('\n\nLes Waypoints de {}  pour la course {}  ont ete enregistrees  dans la base progsvr à {}\n '.format(user_id ,course,time.strftime(" %d %b %Hh %Mmn ", time.localtime(timestamp))))
+                        # print('******************************************************************************************')
+                        # print ('Verification des programmations enregistrees  dans la base le {}  pour {}  sur la course {} {} '.format(time.strftime(" %d %b %Hh %Mmn ", time.localtime(timestamp)),user_id,course,strwaypointsvr))
+                        # print()
+                    envoi = {'Reception':typeinfos ,'course':course}
+                    print ('tentative d envoi au client   ',user_id ,'  envoi ' ,envoi )
+                    send_update_to_client( user_id, envoi)         # envoi par websocket de l info que l on a recu une actualisation  de boatActions 
+                        
                 except:
                     print ('On est dans le except de boatactions')
                 
@@ -3504,7 +3505,7 @@ class RoutageSession:                                                  # version
         
         # Initialisation globale
         ########################
-        self.n3=1024
+        self.n3=512
         self.isoglobal=torch.zeros((1000*self.n3,15), device='cuda', dtype=torch.float32)    # isoglobal est destiné a recevoir 850 isochrones avec leurs 512 points  
         
         print ('course',course)
@@ -3534,20 +3535,20 @@ class RoutageSession:                                                  # version
         self.posStart              = calculePosDepart(self.posStartVR,self.polaires_np,self.carabateau,dt=60)    # Position de depart du routage au bout de 60 s
         self.isodepart             = calculeisodepart2(self.posStart)    # Transformation en iso de depart 
         
-        print()
-        print ('selfexclusionsVR',self.exclusionsVR) 
+        # print()
+        # print ('selfexclusionsVR',self.exclusionsVR) 
 
         # pos=(self.posStartVR['y0'],self.posStartVR['x0'])
         # self.carte=fcarte(pos)      # renvoie une multipolyline      
         self.exclusionsVR.update(self.exclusionsperso)          # on rajoute exclusionsperso à exclusions VR 
 
-        print ('selfexclusionsVR apres integration des exclusions perso ',self.exclusionsVR)        
-        # conversion en tenseur 
+        # print ('selfexclusionsVR apres integration des exclusions perso ',self.exclusionsVR)        
+        # # conversion en tenseur 
 
-        print()
-        # print ('selfexclusionsVR2 ',self.exclusionsVR2) 
-        print()
-        print ('selfexclusionsperso ',self.exclusionsperso)
+        # print()
+        # # print ('selfexclusionsVR2 ',self.exclusionsVR2) 
+        # print()
+        # print ('selfexclusionsperso ',self.exclusionsperso)
        
         try:
             self.exclusions = {  nom: torch.tensor([[lon, lat] for lat, lon in coords], device='cuda')   for nom, coords in self.exclusionsVR.items()  }    # transformation en tensor de self.exclusionsVR
@@ -3561,14 +3562,15 @@ class RoutageSession:                                                  # version
         #     self.segments=[]
         # self.isodepart                    = calculeIsoDepart(self.posStartVR,self.polairesglobales10to,self.carabateau) # tient compte du state waiting si necessaire
         self.t0vr                             = self.posStartVR['t0']
-        print ('\ntemps initial T0 au point VR dans posStartVR', time.strftime(" %d %b %H:%M %S",time.localtime(self.t0vr)))
+     
         
         self.t0                             = self.posStart['t0']
-        print   ('temps initial T0 au point 1  dans posStart  ', time.strftime(" %d %b %H:%M %S",time.localtime(self.t0)))       
-        print()
 
 
-        print ('temps chargement des donnees pour la classe Routage Session ',time.time()-tic) 
+        # print ('\ntemps initial T0 au point VR dans posStartVR', time.strftime(" %d %b %H:%M %S",time.localtime(self.t0vr)))
+        # print   ('temps initial T0 au point 1  dans posStart  ', time.strftime(" %d %b %H:%M %S",time.localtime(self.t0)))       
+        # print()
+        # print ('temps chargement des donnees pour la classe Routage Session ',time.time()-tic) 
         
 
     
@@ -3700,7 +3702,7 @@ class RoutageSession:                                                  # version
         
 
         # print('iso.shape',iso.shape)
-        n3=1024
+        n3=512
         range_caps     = paramRoutage["range_caps"]
         range_capsR    = paramRoutage["range_capsR"]
         centreRoutageR = paramRoutage['centreRoutageR']
@@ -4260,7 +4262,7 @@ def calculeroutage():
 
 @app.route('/chargecarte3', methods=["GET", "POST"])
 def chargecarte3():
-    print('on est dans chargecarte3')
+   #print('on est dans chargecarte3')
 
     # on va recuperer la pos 
     lat      = float(request.args.get('lat'))  
@@ -4279,13 +4281,13 @@ def chargecarte3():
     except:
         print ('la carte demandee est vide \n **********************************************\n')
         cartepy=[] 
-    print ('temps de chargement de la carte ',time.time()-tic)
+    #print ('temps de chargement de la carte ',time.time()-tic)
     
     response=make_response(jsonify({'message':'Cartes envoyees par Serveur','carte':cartepy}))
 
-    print()
-    print(sys.getsizeof(cartepy))
-    print()
+    # print()
+    # print(' Taille de la carte en octets '.sys.getsizeof(cartepy))
+    # print()
     response.headers.add('Access-Control-Allow-Origin', '*')  # Autorise toutes les origines
     return response
 
