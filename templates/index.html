@@ -233,7 +233,7 @@
 
         var user_id;
         var nbWP;
-        var isMe;
+        var isMe='yes';
 
         var indiceCourse;
         var nbprogress = 0;                 // valeur de l avancement dans progressbar       
@@ -300,6 +300,7 @@
 
         var gpx1LayerGroup = new L.layerGroup();  // groupe dédié aux CSV
         var gpx2LayerGroup = new L.layerGroup();  // groupe dédié aux CSV
+        var gpx3LayerGroup = new L.layerGroup();  // groupe dédié aux CSV
         var csvLayerGroup = new L.layerGroup();  // groupe dédié aux CSV
 
 
@@ -718,21 +719,26 @@
        <button id="btnDivers" class="blackwhite11">Calculettes</button>       
        <button onclick='EditeurExclusions()' class="blackwhite11">Exclusions</button>
        <button onclick='EditeurBarrieres()' class="blackwhite11">Barrieres</button>
-       <button id="btnPolaires" class="blackwhite11">Polaires</button>
        <button onclick='EditeurRoutes()' class="blackwhite11">Routes</button>
+       <button id="btnPolaires" class="blackwhite11">Polaires</button>
 
        <input type="file" id="gpx-input" accept=".gpx" style="margin: 10px;" />
-       <label for="gpx-input" class="chargergpx">📂 Charger GPX1</label>
+       <label for="gpx-input" class="chargergpx">📂 GPX Zezo</label>
 
         <input type="file" id="gpx-input2" accept=".gpx" style="margin: 10px;" />
-        <label for="gpx-input2" class="chargergpx">📂 Charger GPX2</label>
+         <label for="gpx-input2" class="chargergpx">📂 GPX Avalon</label>
+        
+        
+        <input type="file" id="gpx-input3" accept=".gpx" style="margin: 10px;" />
+        <label for="gpx-input3" class="chargergpx">📂 GPX VRZen</label>
 
         <input type="file" id="csv-input3" accept=".csv" style="margin: 10px;" />
         <label for="csv-input3" class="chargergpx">📂 CSV Dorado </label>
        <div class='checkbox'>
-        Gpx1  <input type='checkbox' id='showgpx1' name='showgpx1' checked />   
-        Gpx2  <input type='checkbox' id='showgpx2' name='showgpx2'  checked />   
-        Csv Dorado   <input type='checkbox' id='showcsv'  name='showcsv'  checked />   
+        Zezo  <input type='checkbox' id='showgpx1' name='showgpx1' checked />   
+        Avalon<input type='checkbox' id='showgpx2' name='showgpx2'  checked />   
+        VRZen  <input type='checkbox' id='showgpx3' name='showgpx3'  checked />
+        Dorado   <input type='checkbox' id='showcsv'  name='showcsv'  checked />   
       </div>
         
 
@@ -2274,7 +2280,7 @@
                         option = 'Twa';
                         if (programmationsvr[i][1] == -1) { valeur = -programmationsvr[i][2] } else { valeur = programmationsvr[i][2] }
                     }
-                    texte += '<tr><td>'+(i+1)+') </td> <td> ' + hmn.format(programmationsvr[i][0] * 1000) + '</td><td>' + option + '</td> <td>' + valeur + '</td>    </tr>'
+                    texte += '<tr><td>'+(i)+') </td> <td> ' + hmn.format(programmationsvr[i][0] * 1000) + '</td><td>' + option + '</td> <td>' + valeur + '</td>    </tr>'
                 }
                 texte += "</table >"
                 document.getElementById('idprogrammationsvr').innerHTML = texte
@@ -2466,8 +2472,8 @@
                     twd = tabroutage[i][13].toFixed(2)
                     cap = tabroutage[i][6].toFixed(2)
                     date = intlhmn.format((t0routage + tabroutage[i][1]) * 1000)
-                    vmgmin = tabroutage[i][7]
-                    vmgmax = tabroutage[i][8]
+                    vmgmin = tabroutage[i][7].toFixed(2)
+                    vmgmax = tabroutage[i][8].toFixed(2)
                     vmg = twa < 90 ? vmgmin : vmgmax
 
                     tooltipprog[i] = '<b> Point ' + i + ' le ' + date + ' <br>(Routage du ' + intlhmn.format((heuredepart * 1000)) + ')</b>  <br> Twa ' + twa + '°  Vmg ' + vmg + '°<br>Tws ' + tws + ' Twd ' + twd + ' <br>Cap : ' + cap + '  Voile :' + nomvoile              // le temps est en position 3
@@ -5804,7 +5810,93 @@
 
 
 
-            document.getElementById('gpx-input').addEventListener('change', function (e) {
+document.getElementById('gpx-input').addEventListener('change', function (e) {
+
+  //trace des lignes vertes (zezo)  
+  const file = e.target.files[0];
+  if (!file) return;
+
+  const reader = new FileReader();
+  reader.onload = function (event) {
+    const gpxText = event.target.result;
+
+    // Parse XML
+    const parser = new DOMParser();
+    const xml = parser.parseFromString(gpxText, "application/xml");
+
+    // Convert to GeoJSON
+    const geojson = toGeoJSON.gpx(xml);
+    console.log("GeoJSON extrait :", geojson);
+
+    const coordsList = []; // on va stocker les coordonnées ici
+
+    const layer = L.geoJSON(geojson, {
+      pointToLayer: function (feature, latlng) {
+        // Enregistre les points dans un tableau
+        coordsList.push([latlng.lat, latlng.lng]);
+
+        // Tooltip info
+        const props = feature.properties || {};
+        const isoTime = props.time || '';
+        const timeStr = isoTime
+          ? new Date(isoTime).toLocaleString('fr-FR', {
+              timeZone: 'Europe/Paris',
+              hour: '2-digit',
+              minute: '2-digit',
+              day: '2-digit',
+              month: '2-digit'
+            })
+          : 'N/A';
+
+        const tooltipText = `
+          <b>Zezo</b><br>
+          <b>Lat:</b> ${latlng.lat.toFixed(6)}<br>
+          <b>Lon:</b> ${latlng.lng.toFixed(6)}<br>
+          <b>Heure:</b> ${timeStr}
+        `;
+
+        // Point sur la carte
+        return L.circle(latlng, {
+          radius: 30,
+          color: 'black',
+          fillColor: '#3399ff',
+          fillOpacity: 0.5,
+          weight: 0.5
+        }).bindTooltip(tooltipText, { direction: 'top', permanent: false })
+        .bindPopup(tooltipText, { direction: 'top', permanent: false })
+        ;
+
+
+      }
+    }).addTo(gpx1LayerGroup);
+
+    // Ajout de la polyligne reliant tous les points
+    if (coordsList.length > 1) {
+      L.polyline(coordsList, {
+        color: 'green',
+        weight: 1,
+        opacity: 0.9
+      }).addTo(gpx1LayerGroup);
+    }
+
+    // Affichage du groupe sur la carte
+    gpx1LayerGroup.addTo(map);
+
+    // Optionnel : ajuste le zoom pour voir toute la trace
+    if (gpx1LayerGroup.getLayers().length) {
+      map.fitBounds(gpx1LayerGroup.getBounds(), { padding: [20, 20] });
+    }
+  };
+
+  reader.readAsText(file);
+});
+
+
+
+
+            document.getElementById('gpx-input3').addEventListener('change', function (e) {
+
+             // Pas de lignes, VRZEN
                 const file = e.target.files[0];
                 if (!file) return;
 
@@ -5839,7 +5931,7 @@
 
                             // Construction du contenu du tooltip
                             const tooltipText = `
-            <b> Avalon <b><br>
+            <b> VRZen <b><br>
             <b>Lat:</b> ${coords.lat.toFixed(6)}<br>
             <b>Lon:</b> ${coords.lng.toFixed(6)}<br>
             <b>Heure:</b> ${timeStr}
@@ -5852,79 +5944,150 @@
                                 fillColor: '#3399ff',
                                 fillOpacity: 0.5,
                                 weight: 0.5
-                            }).bindTooltip(tooltipText, { direction: 'top', permanent: false });
+                            }).bindTooltip(tooltipText, { direction: 'top', permanent: false })
+                            .bindPopup(tooltipText, { direction: 'top', permanent: false })
+                            ;
                         }
-                    }).addTo(gpx1LayerGroup);
-
-            gpx1LayerGroup.addTo(map);
-
+                    }).addTo(gpx3LayerGroup);
                 };
+
+                gpx3LayerGroup.addTo(map);
                 reader.readAsText(file);
             });
 
 
 
+document.getElementById('gpx-input2').addEventListener('change', function (e) {
 
+  //trace des lignes bleues  (Avalon)  
+  const file = e.target.files[0];
+  if (!file) return;
 
-            document.getElementById('gpx-input2').addEventListener('change', function (e) {
-                const file = e.target.files[0];
-                if (!file) return;
+  const reader = new FileReader();
+  reader.onload = function (event) {
+    const gpxText = event.target.result;
 
-                const reader = new FileReader();
-                reader.onload = function (event) {
-                    const gpxText = event.target.result;
+    // Parse XML
+    const parser = new DOMParser();
+    const xml = parser.parseFromString(gpxText, "application/xml");
 
-                    // Parse XML
-                    const parser = new DOMParser();
-                    const xml = parser.parseFromString(gpxText, "application/xml");
+    // Convert to GeoJSON
+    const geojson = toGeoJSON.gpx(xml);
+    console.log("GeoJSON extrait :", geojson);
 
-                    // Convert to GeoJSON
-                    const geojson = toGeoJSON.gpx(xml);
-                    console.log("GeoJSON extrait :", geojson);
+    const coordsList = []; // on va stocker les coordonnées ici
 
+    const layer = L.geoJSON(geojson, {
+      pointToLayer: function (feature, latlng) {
+        // Enregistre les points dans un tableau
+        coordsList.push([latlng.lat, latlng.lng]);
 
-                    const layer = L.geoJSON(geojson, {
-                        pointToLayer: function (feature, latlng) {
-                            // Récupération des données
-                            const coords = latlng;
-                            const properties = feature.properties || {};
-                            const isoTime = properties.time || '';
-                            const timeStr = isoTime
-                                ? new Date(isoTime).toLocaleString('fr-FR', {
-                                    timeZone: 'Europe/Paris',
-                                    hour: '2-digit',
-                                    minute: '2-digit',
-                                    day: '2-digit',
-                                    month: '2-digit'
-                                })
-                                : 'N/A';
+        // Tooltip info
+        const props = feature.properties || {};
+        const isoTime = props.time || '';
+        const timeStr = isoTime
+          ? new Date(isoTime).toLocaleString('fr-FR', {
+              timeZone: 'Europe/Paris',
+              hour: '2-digit',
+              minute: '2-digit',
+              day: '2-digit',
+              month: '2-digit'
+            })
+          : 'N/A';
 
-                            // Construction du contenu du tooltip
-                            const tooltipText = `
-            <b> Avalon <b><br>
-            <b>Lat:</b> ${coords.lat.toFixed(6)}<br>
-            <b>Lon:</b> ${coords.lng.toFixed(6)}<br>
-            <b>Heure:</b> ${timeStr}
+        const tooltipText = `
+          <b>Avalon</b><br>
+          <b>Lat:</b> ${latlng.lat.toFixed(6)}<br>
+          <b>Lon:</b> ${latlng.lng.toFixed(6)}<br>
+          <b>Heure:</b> ${timeStr}
         `;
 
-                            // Cercle avec tooltip
-                            return L.circle(latlng, {
-                                radius: 15,
-                                color: 'black',
-                                fillColor: '#3399ff',
-                                fillOpacity: 0.5,
-                                weight: 0.5
-                            }).bindTooltip(tooltipText, { direction: 'top', permanent: false });
-                        }
-                    }).addTo(gpx2LayerGroup);
-                };
+        // Point sur la carte
+        return L.circle(latlng, {
+          radius: 15,
+          color: 'black',
+          fillColor: '#3399ff',
+          fillOpacity: 0.5,
+          weight: 0.5
+        }).bindTooltip(tooltipText, { direction: 'top', permanent: false })
+        .bindPopup(tooltipText, { direction: 'top', permanent: false })
+        ;
+      }
+    }).addTo(gpx2LayerGroup);
 
-                gpx2LayerGroup.addTo(map);
-                reader.readAsText(file);
+    // Ajout de la polyligne reliant tous les points
+    if (coordsList.length > 1) {
+      L.polyline(coordsList, {
+        color: 'blue',
+        weight: 1,
+        opacity: 0.9
+      }).addTo(gpx2LayerGroup);
+    }
+
+    // Affichage du groupe sur la carte
+    gpx2LayerGroup.addTo(map);
+
+    // Optionnel : ajuste le zoom pour voir toute la trace
+    if (gpx1LayerGroup.getLayers().length) {
+      map.fitBounds(gpx2LayerGroup.getBounds(), { padding: [20, 20] });
+    }
+  };
+
+  reader.readAsText(file);
+});
+
+
+
+document.getElementById('csv-input3').addEventListener('change', function (event) {
+    console.log ('chargement csv lancé')
+    const file = event.target.files[0];
+    if (!file) return;
+
+    Papa.parse(file, {
+        header: true,
+        delimiter: ";",
+        complete: function (results) {
+            csvLayerGroup.clearLayers(); // supprime les anciens points CSV
+            const coords = [];
+
+            results.data.forEach(row => {
+                if (!row.position) return;
+
+                const [lat, lon] = dmsToDecimal2(row.position);
+                if (isNaN(lat) || isNaN(lon)) return;
+
+                coords.push([lat, lon]);
+
+                const popup = `
+                    <b>Dorado           </b><br>
+                    <b>${row.time || ''}</b><br>
+                    SOG: ${row.sog || ''} kn<br>
+                    COG: ${row.cog || ''}°<br>
+                    TWS: ${row.TWS || ''} kn<br>
+                    TWD: ${row.TWD || ''}°
+                `;
+
+                L.circleMarker([lat, lon], {
+                    radius: 0.5,
+                    color: 'blue',
+                    fillColor: 'cyan',
+                    fillOpacity: 0.6
+                })
+                .bindPopup(popup)
+                .addTo(csvLayerGroup);
             });
 
+            console.log('coords '+coords)
+            csvLayerGroup.addTo(map)
+            if (coords.length > 1) {
+                L.polyline(coords, { color: 'red', weight: 1 }).addTo(csvLayerGroup);
+                map.fitBounds(coords);
+            }
 
 
+        }
+    });
+});
 
 
 
@@ -6269,58 +6432,6 @@
 
 
 
-document.getElementById('csv-input3').addEventListener('change', function (event) {
-    console.log ('chargement csv lancé')
-    const file = event.target.files[0];
-    if (!file) return;
-
-    Papa.parse(file, {
-        header: true,
-        delimiter: ";",
-        complete: function (results) {
-            csvLayerGroup.clearLayers(); // supprime les anciens points CSV
-            const coords = [];
-
-            results.data.forEach(row => {
-                if (!row.position) return;
-
-                const [lat, lon] = dmsToDecimal2(row.position);
-                if (isNaN(lat) || isNaN(lon)) return;
-
-                coords.push([lat, lon]);
-
-                const popup = `
-                    <b>${row.time || ''}</b><br>
-                    SOG: ${row.sog || ''} kn<br>
-                    COG: ${row.cog || ''}°<br>
-                    TWS: ${row.TWS || ''} kn<br>
-                    TWD: ${row.TWD || ''}°
-                `;
-
-                L.circleMarker([lat, lon], {
-                    radius: 0.5,
-                    color: 'blue',
-                    fillColor: 'cyan',
-                    fillOpacity: 0.6
-                })
-                .bindPopup(popup)
-                .addTo(csvLayerGroup);
-            });
-
-            console.log('coords '+coords)
-            csvLayerGroup.addTo(map)
-            if (coords.length > 1) {
-                L.polyline(coords, { color: 'red', weight: 1 }).addTo(csvLayerGroup);
-                map.fitBounds(coords);
-            }
-
-
-        }
-    });
-});
-
-
-
 document.getElementById('showgpx1').addEventListener('change', function(e) {
     if (e.target.checked) {
         map.addLayer(gpx1LayerGroup);
@@ -6336,6 +6447,17 @@ document.getElementById('showgpx2').addEventListener('change', function(e) {
         map.removeLayer(gpx2LayerGroup);
     }
 });
+
+
+document.getElementById('showgpx3').addEventListener('change', function(e) {
+    if (e.target.checked) {
+        map.addLayer(gpx3LayerGroup);
+    } else {
+        map.removeLayer(gpx3LayerGroup);
+    }
+});
+
+
 
 document.getElementById('showcsv').addEventListener('change', function(e) {
     console.log ('showcsv actionné')

@@ -571,8 +571,8 @@ a:link {
     background-color: white;
     font-size: 10px;
     color: black;
-    padding: 5px 5px;
-    margin: 5px;
+    padding: 5px 3px;
+    margin: 1px;
     border-radius: 6px;
     cursor: pointer;
     display: inline-block;
@@ -585,8 +585,8 @@ a:link {
     background-color: lightgray;
     font-size: 10px;
     color: black;
-    padding: 5px 5px;
-    margin: 5px;
+    padding: 5px 3px;
+    margin: 1px;
     border-radius: 6px;
     cursor: pointer;
     display: inline-block;
@@ -754,7 +754,22 @@ a:link {
     font-size:11px;
     font-family : Arial;} */
 
+
 .checkbox {
+  margin: 2px auto;
+  padding: 2px 5px;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 8px;             /* espace horizontal réduit entre les labels */
+  font-size: 11px;
+  font-family: Arial, sans-serif;
+  flex-wrap: wrap;      /* évite le débordement sur petits écrans */
+}    
+/* 
+.checkbox {
+  margin :2px;
+  padding:5px;
   display: flex;
   justify-content: center;
   align-items: center;
@@ -762,7 +777,7 @@ a:link {
   margin: 5px auto;
   font-size: 11px;
   font-family: Arial, sans-serif;
-}
+} */
   
   .submitroutage{ margin :0 auto;
     width:150px;
