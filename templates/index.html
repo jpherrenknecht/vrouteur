@@ -242,6 +242,8 @@
         let nowJS = new Date()
         let nowMSec = nowJS.getTime()
         var decalageUTC = nowJS.getTimezoneOffset()
+        //console.log ('decalageUTC'+decalageUTC)
+
         var unixTimestamp;      // valeur du temps unix  
         var ecartTemps;            // Ecart entre la mise a jour et le temps actuel pour message sur position>10mn
         var eta;
@@ -996,7 +998,7 @@
 
 
 
-            async function afficheboatinfos(boatinfosdata)  // affiche les particularites de la course
+    async function afficheboatinfos(boatinfosdata)  // affiche les particularites de la course
             {
                 console.log(' on est dans afficheboatinfos ')
                 boatinfos = boatinfosdata.result
@@ -1173,8 +1175,8 @@
                 urlPolaires = `http://blacksailingpolars.vrzen.org/?race_id=${course}&tws=${twsvr}&twa=${Math.abs(twavr)}&stam=${stamina}&hull=true&winch=true&foil=true&light=true&heavy=true&reach=true&magicFurler=true&comfortLoungePug=true&vrtexJacket=true&voile=${sail % 10}`
 
 
-                document.getElementById('dategrib').innerHTML = 'Grib du ' + intldhmn.format(tig * 1000 + decalageUTC * 60000) + ' + ' + indicemajgrib * 3 + 'h'
-                document.getElementById('voilesautovr').checked = autosail
+                // document.getElementById('dategrib').innerHTML = 'Grib du ' + intldhmn.format(tig * 1000 ) + ' + ' + indicemajgrib * 3 + 'h' //+ decalageUTC * 60000
+                // document.getElementById('voilesautovr').checked = autosail
 
                 //Positionnement du bateau    
                 // t0=lastCalcDate/1000
@@ -1216,7 +1218,7 @@
                 urlPolaires = `http://blacksailingpolars.vrzen.org/?race_id=${course}&tws=${twsvr}&twa=${Math.abs(twavr)}&stam=${stamina}&hull=true&winch=true&foil=true&light=true&heavy=true&reach=true&magicFurler=true&comfortLoungePug=true&vrtexJacket=true&voile=${sail % 10}`
 
 
-                document.getElementById('dategrib').innerHTML = 'Grib du ' + intldhmn.format(tig * 1000 + decalageUTC * 60000) + ' + ' + indicemajgrib * 3 + 'h'
+                document.getElementById('dategrib').innerHTML = 'Grib du ' + intldhmn.format(tig * 1000 ) + ' + ' + indicemajgrib * 3 + 'h' //+ decalageUTC * 60000
                 document.getElementById('voilesautovr').checked = autosail
 
                 //Positionnement du bateau    

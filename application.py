@@ -179,7 +179,7 @@ def send_update_to_client(client_id, message):
 
 
 def chargement_grib():
-    global GR
+    global GR,tig
     try:
         # on essaye de charger sur serveur 
         fileName,tig=gribFileName(basedirGribs025)
@@ -198,10 +198,11 @@ def chargement_grib():
             with open(fileName, 'rb') as f:
                     GR = np.load(f)
             print('Le grib 025 {} h+ {:3.0f}h            {}      a été chargé sur l ordi local  '.format(heure,GR[0,0,0,1]*3,fileName))
-        except:
-            None    
-        return GR,tig
+            return 
 
+        except:
+            return    
+       
 
 
 def majgrib():
@@ -1304,7 +1305,7 @@ def rechercheDonneesCourseCache(course):
 
 def rechercheDonneesCourseUser( user_id,course): 
     '''Recherche les donnees generales boatinfos pour le user_id sur la course '''   
-    print ('RechercheDonneeesCourseUser pour user_id {} ,course {} '.format(user_id,course))
+   # print ('RechercheDonneeesCourseUser pour user_id {} ,course {} '.format(user_id,course))
     result    = rechercheTableBoatInfos(user_id,course)  #recherche dans la table locale  
     
     boatinfos = json.loads(result) 
@@ -2917,7 +2918,7 @@ def ajaxmessage():
         envoi = {'Reception':typeinfos}                              # sert a preciser le type d info que l on a recu pour envoi par websocket
 
         reponse ='Données bien reçues par le serveur '  # reponse envoyee au dash pour test
-        print ("********************************************************\non est dans '/api/ajaxmessage'  Message : {}".format(typeinfos) )
+        print ("\nMessage reçu : {}".format(typeinfos) )
        # print ('Type du Message : {} \n*********************************************************'.format(typeinfos))
         #print(' message ' , )
         #print ('Message         : {} \n***********************************'.format( message))
@@ -2973,12 +2974,12 @@ def ajaxmessage():
                     course      = str(race)+'.'+str(leg)
                     state       = message['bs']['state']
                     tini0       = message['bs']['lastCalcDate']/1000
-                    print ('\n boatinfos pour  {}  le  {} \n********************************************************\n {} \n'.format(username,time.strftime(" %d %b %Y %H:%M ",time.localtime(tini0)), message))
-                    print()    
+                    # print ('\n boatinfos pour  {}  le  {} \n********************************************************\n {} \n'.format(username,time.strftime(" %d %b %Y %H:%M ",time.localtime(tini0)), message))
+                    # print()    
                 except:
                     print (' toutes les infos ne sont pas disponibles')
                     state       =  message['bs']['state']
-                    print    ('\nstate :',state) 
+                    #print    ('\nstate :',state) 
 
                 # enregistrement dans la base
                 timestamp   = time.time()            
@@ -3105,7 +3106,7 @@ def ajaxmessage():
 
 
         if typeinfos=='leginfos':
-                print ('\nLigne 2548 leginfos ',message)
+                # print ('\nLigne 2548 leginfos ',message)
                         
                 timestamp = time.time()
                 race    = message['_id']['race_id']
@@ -3116,9 +3117,9 @@ def ajaxmessage():
                 conn.commit()
                 #verification de l enregistrement 
                 leginfos  = rechercheTableLegInfos(course)
-                print()
-                print ('Verification de l enregistrement de  leginfos pour la course {} \n {} '.format(course,leginfos))
-                print()
+                # print()
+                # print ('Verification de l enregistrement de  leginfos pour la course {} \n {} '.format(course,leginfos))
+                # print()
                 # je n ai pas de user id donc je ne peux pas envoyer au client 
                 # envoi={'Reception':typeinfos,'course':course}
                 # send_update_to_client( user_id, envoi)         # envoi par websocket de l info que l on a recu une actualisation  probleme avec usere_id que l on a pas 
