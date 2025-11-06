@@ -1,0 +1,15 @@
+Carte mère : ASUS TUF Gaming B650-PLUS WIFI
+CPU : Ryzen 9 9900X (pas d’iGPU)
+RAM : 4×32 Go Corsair mixed (CMK / CMH), stable @ 5600 EXPO I
+
+Réglages BIOS :
+- AI Overclock Tuner : EXPO I
+- Memory Frequency : DDR5-5600
+- FCLK Frequency : Auto
+- Fast Boot : Disabled
+- Boot Logo Delay : 3s
+- Primary Display : PCIe / PEG
+- Resize BAR : Enabled (par défaut OK)
+- CSM : Disabled (Boot UEFI natif)
+- SATA mode : AHCI
+- nvidia_drm.modeset=1 présent dans grub
