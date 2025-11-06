@@ -957,7 +957,7 @@
                     boatinfos = data.result
                     tig = data.tig
                     indicemajgrib = data.indicemajgrib
-                    console.log('ligne 1174  tig ' + intlhmn.format(tig * 1000))
+                    console.log('ligne 1174  tig ' + intlhmn.format(tig * 1000))    // ici il y a une heure de trop 
                     console.log('Indice ' + indicemajgrib)
                     return data
                 }
@@ -994,7 +994,10 @@
             }
 
 
-
+function arrondirALHeure(timestamp) {
+  const msParHeure = 3600 * 1000;
+  return Math.round(timestamp / msParHeure) * msParHeure;
+}
 
 
 
@@ -1218,7 +1221,7 @@
                 urlPolaires = `http://blacksailingpolars.vrzen.org/?race_id=${course}&tws=${twsvr}&twa=${Math.abs(twavr)}&stam=${stamina}&hull=true&winch=true&foil=true&light=true&heavy=true&reach=true&magicFurler=true&comfortLoungePug=true&vrtexJacket=true&voile=${sail % 10}`
 
 
-                document.getElementById('dategrib').innerHTML = 'Grib du ' + intldhmn.format(tig * 1000 ) + ' + ' + indicemajgrib * 3 + 'h' //+ decalageUTC * 60000
+                document.getElementById('dategrib').innerHTML = 'Grib du ' + intldhmn.format( arrondirALHeure(tig * 1000  + decalageUTC * 60000))+ ' + ' + indicemajgrib * 3 + 'h' //+ decalageUTC * 60000
                 document.getElementById('voilesautovr').checked = autosail
 
                 //Positionnement du bateau    

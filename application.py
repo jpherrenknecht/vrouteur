@@ -179,7 +179,7 @@ def send_update_to_client(client_id, message):
 
 
 def chargement_grib():
-    global GR,tig
+    global GR,tig,heure
     try:
         # on essaye de charger sur serveur 
         fileName,tig=gribFileName(basedirGribs025)
@@ -187,6 +187,7 @@ def chargement_grib():
         with open(fileName, 'rb') as f:
                 GR = np.load(f)           
         print('Le grib 025  {} h+ {:3.0f}h            {}     a été chargé sur le site distant'.format(heure, GR[0,0,0,1]*3,fileName))
+        print 
         return GR,tig
 
     except:
@@ -207,9 +208,10 @@ def chargement_grib():
 
 def majgrib():
     print('\nRecherche majgrib')
-    global GR,GR_cpu,GR_gpu,tig
+    global GR,GR_cpu,GR_gpu,tig,heure
     filename,derniertig=gribFileName(basedirGribs025) 
     print('Dernier Indice chargé ',GR[0,0,0,1]*3,'h\n')
+    heure= datetime.fromtimestamp(derniertig, tz=timezone.utc).hour
     if os.path.exists(filename) == True:
 
     #  si pas sur dernier grib ou si moins de  360 h chargées
@@ -221,11 +223,9 @@ def majgrib():
             
             tig=int(GR[0,0,0,0]*100)
             GR[0,0,0,0]=0
-
             GR_cpu = torch.from_numpy(GR)
             GR_gpu = GR_cpu.to('cuda', non_blocking=True)   
-            GR[0,0,0,0]=int(tig/100)
-                   
+            GR[0,0,0,0]=int(tig)/100
             return 
     else:
         print('Le fichier {}  n existe pas encore'.format(filename))
@@ -241,9 +241,9 @@ GR_cpu = torch.from_numpy(GR)
 GR_gpu = GR_cpu.to('cuda', non_blocking=True)    
 #GR_gpu = safe_to_cuda(torch.from_numpy(GR), clamp=500, name="GR")
 
-GR[0,0,0,0]=int(tig/100)
+GR[0,0,0,0]=int(tig)/100
 
-print ('tig : ',time.strftime(" %d %b %H:%M ",time.localtime(tig)))
+print ('tig : ',time.strftime(" %d %b %H:%M ",time.gmtime(tig)))
 print 
 
 
@@ -2054,7 +2054,7 @@ def rechercheleginfos():
 
 @app.route('/rechercheboatinfos', methods=["GET", "POST"])
 def frechercheboatinfos():
-    global GR,tig,indicemajgrib
+    global GR,tig,indicemajgrib,heure
   
     username   = request.args.get('username')                # recupere les donnees correspondant a valeur dans le site html
     course     = request.args.get('course')                  # recupere les donnees correspondant a valeur dans le site html
@@ -2079,9 +2079,9 @@ def frechercheboatinfos():
     #tig= GR[0,0,0,0].astype(np.float64)*100       # permet d afficher la date du grib
     indicemajgrib=int(GR[0,0,0,1])                # permet d afficher son indice
     # print ('Dans rechercheboatinfos ligne 3346 indice de mise a jour du grib  ',indicemajgrib) 
-
+    # tig vient directement de majgrib et chargegrib
    
-    response   = make_response(jsonify({'result':boatinfostr,'tig':tig,'indicemajgrib':indicemajgrib}))
+    response   = make_response(jsonify({'result':boatinfostr,'tig':tig,'heure':heure,'indicemajgrib':indicemajgrib}))
     response.headers.add('Access-Control-Allow-Origin', '*')  # Autorise toutes les origines
     return response
 
