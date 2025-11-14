@@ -67,8 +67,8 @@
 
         if (sourceinfos == 'dash') {       
                 isMe = posStart.isMe               
-                if (isMe=='yes')   {console.log ('c est moi '+posStart.username)}
-                if (isMe=='no') {console.log ('ce sont les informations pour '+posStart.username)}
+                if (isMe=='yes')   {console.log ('c\'est moi '+posStart.username)}
+                if (isMe=='no')    {console.log ('ce sont les informations pour '+posStart.username)}
 
             }
 
@@ -187,12 +187,13 @@
         var circleprog2 = new Array();     //Cercles pour le cheminement des wp
         var circleprog3 = new Array();     // Petit cercle central si changement de programmation 
         var circleWPVR = new Array();     // Cercles representant les WP
-        var polyglobal2 = new Array();     // pour tracer les lignes de la programmation  
+        
         var programmationsvrjaunes = new Array();
         var programmationsvr = new Array();
         var nomsZonesExclu = new Array();     // les 3 sont les memes
         var nomroutage = new Array();
         var routages = new Array();
+        var tabroutage=new Array();        // destiné à recevoir les resultats du routage     
         var polyglobal = new Array();     // destiné a recevoir le routage avec les couleurs de voiles 
         var polyglobal2 = new Array();     // destiné a recevoir le routage avec les couleurs de voiles 
         var teamnames = new Array();
@@ -229,7 +230,11 @@
         var Source;
         var t0routage;                    // heure de depart du routage 
         var t1routage = 0;                    // heure de depart du routage
+
         var tolerancehvmg = 0;
+        var retardpeno    = 0;
+        var eta;
+        var dureeroutage;
 
         var user_id;
         var nbWP;
@@ -624,8 +629,9 @@
    
     <span class='heuredepart'><label>Heure Depart :</label>
     <input type="datetime-local" id="datetime"   class= "datetime-compact" />
-     </span>
-    <span> Hvmg + <input class="classinput2" type="number" id="tolerancehvmg" min="0" max="10" step="1" value="0">°</span><br>
+     </span><br>
+    <span> Hvmg + <input class="classinput2" type="number" id="tolerancehvmg" min="0" max="10" step="1" value="0">°</span>
+    <span> RetardPeno <input class="classinput3" type="number" id="retardpeno" min="0" max="7200" step="300" value="0"> </span><br>
 
     <div   id ='dategrib' class='dategrib' > Grib :  </div><br>
     <div align='center'>
@@ -1003,9 +1009,9 @@ function arrondirALHeure(timestamp) {
 
     async function afficheboatinfos(boatinfosdata)  // affiche les particularites de la course
             {
-                console.log(' on est dans afficheboatinfos ')
+                //console.log(' on est dans afficheboatinfos ')
                 boatinfos = boatinfosdata.result
-                console.log('boatinfos à ' + intlhmn.format(Date.now()) + ' \n' + boatinfos)
+                console.log('boatinfos reçues à ' + intlhmn.format(Date.now()) )//+ ' \n' + boatinfos)
 
                 indicemajgrib = boatinfosdata.indicemajgrib
                 tig = boatinfosdata.tig
@@ -1648,10 +1654,10 @@ function arrondirALHeure(timestamp) {
                     ari = ['Arrivee'];
                 }
 
-                console.log('On est dans afficheselectarrivee')
-                console.log('ari  : ' + ari)
-                console.log('waypoints :    ' + waypoints)
-                console.log('leginfos dans selectarrivee\n' + leginfos)
+                // console.log('On est dans afficheselectarrivee')
+                // console.log('ari  : ' + ari)
+                // console.log('waypoints :    ' + waypoints)
+                // console.log('leginfos dans selectarrivee\n' + leginfos)
 
                 tabValues = waypoints.map(subArray => subArray[1]);
                 tabNoms = waypoints.map(subArray => subArray[1]);
@@ -2448,7 +2454,7 @@ function arrondirALHeure(timestamp) {
                         progressbar(y0, x0, latcible, loncible)
                     }
 
-                url = serveur + `/calculeroutage?course=${course}&user_id=${user_id}&isMe=${isMe}&y0=${y0}&x0=${x0}&t0=${heuredepart}&ari=${strari}&tolerancehvmg=${tolerancehvmg}&cocheexclusions=${cocheexclusions}&optionroutage=${optionroutage}`
+                url = serveur + `/calculeroutage?course=${course}&user_id=${user_id}&isMe=${isMe}&y0=${y0}&x0=${x0}&t0=${heuredepart}&ari=${strari}&retardpeno=${retardpeno}&tolerancehvmg=${tolerancehvmg}&cocheexclusions=${cocheexclusions}&optionroutage=${optionroutage}`
 
                 //console.log('t0 issu de calculeroutage et transmis par l url  ' + intlhmn.format((heuredepart * 1000)))
 
@@ -2581,6 +2587,8 @@ function arrondirALHeure(timestamp) {
 
                 // on va egalement afficcher l ETA 
                 let dernier = arrayroutage.length - 1
+                eta=t0routage + arrayroutage[dernier][1]
+                dureeparcours=arrayroutage[dernier][1]
 
                 document.getElementById('eta').innerHTML = `ETA : ${intlhmn.format((t0routage + arrayroutage[dernier][1]) * 1000)}`
                 document.getElementById('dureeeta').innerHTML = `soit ${formatSeconds(arrayroutage[dernier][1] )}`
@@ -3139,8 +3147,6 @@ function arrondirALHeure(timestamp) {
             var polylines = {}; // Objet pour stocker les polylines
             let routes = [];  // Tableau global contenant toutes les routes
 
-
-
             function getRandomColor() {
                 return "#" + Math.floor(Math.random() * 16777215).toString(16); // Génère une couleur hexadécimale aléatoire
             }
@@ -3149,7 +3155,7 @@ function arrondirALHeure(timestamp) {
 
             window.EditeurRoutes = () => { ouvrirEditeurRoutes() }
             function ouvrirEditeurRoutes()
-            // Fonction pour ouvrir l'éditeur de waypoint
+            // Fonction pour ouvrir l'éditeur de routes
             {
                 console.log(' Demande affichage ouvrirEditeurRoutes l 1941 ')
                 const RoutesEditor = document.getElementById("RoutesEditor");
@@ -3180,57 +3186,57 @@ function arrondirALHeure(timestamp) {
 
 
 
-            window.afficherroute = function (i) {
+
+
+            window.afficherRoute = function (i) {
                 if (i < 0 || i >= routes.length) {
                     console.error("Index invalide :", i);
                     return;
                 }
-
                 let route = routes[i];
+                // Nettoie le layer au cas où il contiendrait déjà des segments
+                route.layer.clearLayers();
 
-                if (!route.layer) { // Si la polyline n'existe pas encore
-                    console.log(`Affichage de la route : ${route.nom}`);
+                // Ajoute la polyline au layer dédié
+                const poly = L.polyline(route.coords, { color: route.couleur, weight: 2 });
+                poly.addTo(route.layer);
 
-                    let polylineLeaflet = L.polyline(route.polyline, { color: route.couleur, weight: 1 }).addTo(map);
-                    routes[i].layer = polylineLeaflet; // Stocke la référence dans routes[i]
-                } else if (!map.hasLayer(route.layer)) {
-                    map.addLayer(route.layer);
+                // Ajoute le layer à la carte s’il n’est pas déjà visible
+                if (!route.visible) {
+                    route.layer.addTo(map);
+                    route.visible = true;
                 }
+
+              
             };
 
 
 
 
-            window.effacerroute = function (i) {
-                if (i < 0 || i >= routes.length) {
-                    console.error("Index invalide :", i);
-                    return;
-                }
 
-                let route = routes[i];
-                console.log(`Effacement de la route : ${route.nom}`);
-
-                if (route.layer && map.hasLayer(route.layer)) {
+            window.masquerRoute = function (i) {
+                 if (i < 0 || i >= routes.length) return;
+                const route = routes[i];
+                if (route.visible) {
                     map.removeLayer(route.layer);
-                    console.log(`Route ${route.nom} supprimée de la carte`);
-                } else {
-                    console.warn(`La route ${route.nom} n'est pas affichée ou n'existe pas`);
+                    route.visible = false;
                 }
-            };
+                };
 
 
 
-            window.exporterroute = function (i) {
-                exporterroute(i)
+
+            window.exporterRoute = function (i) {
+                exporterRoute(i)
             }
 
 
-            window.supprimerroute = function (i) {
+            window.supprimerRoute = function (i) {
                 let nom = routes[i].nom;
                 console.log('Username:', username);
                 console.log('Course:', course);
                 console.log('Nom du routage à supprimer:', nom);
-                supprimerroute(i);
+                supprimerRoute(i);
             };
 
 
@@ -3262,8 +3268,14 @@ function arrondirALHeure(timestamp) {
 
                 let nomRoutage = document.getElementById('nomRoutage').value;
 
+                // if (!nomRoutage  ) {console.log ('nomroutage non present')}
+                // if (!eta  )       {console.log (' eta non present')}
+                // if( !dureeparcours  ) {console.log ('duree parcours  non present ')}
+                // if (!polyglobal  ) {console.log ('polyglobal non present')}
+
+
                 // Vérification des valeurs avant de sauvegarder
-                if (!nomRoutage || !eta || !dureeparcours || !polyglobal) {
+                if (!nomRoutage || !eta || !dureeparcours || !polyglobal ){
                     alert("Données incomplètes pour sauvegarder la route.");
                     return;
                 }
@@ -3274,10 +3286,17 @@ function arrondirALHeure(timestamp) {
                     eta: eta,
                     duree: dureeparcours,
                     couleur: color,
-                    polyline: polyglobal
+                    polyline: tabroutage
                 };
 
+
+               //console.log ('nouvelleroute'+JSON.stringify(nouvelleRoute))
+            //    console.log (username, user_id, course, typeinfo, typeaction, nomRoutage)
+            //    console.log ('polyglobal'+JSON.stringify(tabroutage))
+
+
                 try {
+
                     let message = await modifpersonalinfos(username, user_id, course, typeinfo, typeaction, nomRoutage, JSON.stringify(nouvelleRoute));
                     console.log('Sauvegarde réussie : ', message);
                     alert('Route sauvegardée avec succès !');
@@ -3287,6 +3306,8 @@ function arrondirALHeure(timestamp) {
 
                     // ✅ Mise à jour immédiate de l'affichage
                     mettreAJourTableau();
+
+
                 } catch (error) {
                     console.error('Erreur lors de la sauvegarde : ', error);
                     alert('Échec de la sauvegarde : ' + error.message);
@@ -3299,6 +3320,9 @@ function arrondirALHeure(timestamp) {
 
             function mettreAJourTableau() {
                 console.log('Mise à jour du tableau des routes');
+
+
+
 
                 let texte = `<table id="tableRoutes">
                     <tr>
@@ -3316,13 +3340,15 @@ function arrondirALHeure(timestamp) {
                     texte += `
         <tr>
             <td class="colDouble">${route.nom}</td>
-            <td>${route.eta}</td>
-            <td>${formatDuree(route.duree)}</td>            
+            
+            <td>${intlhmn.format(route.eta*1000)}</td>
+            <td>${formatSeconds(route.duree)}</td>      
+
             <td><input type="color" value="${route.couleur}" oninput="changerCouleurRoute(${i}, this.value)"></td>  
-            <td><button onclick="afficherroute(${i})">Afficher</button></td>
-            <td><button onclick="effacerroute(${i})">Masquer</button></td>
-            <td><button onclick="supprimerroute(${i})">Supprimer</button></td>
-            <td><button onclick="exporterroute(${i})">Export GPX</button></td>
+            <td><button onclick="afficherRoute(${i})">Afficher</button></td>
+            <td><button onclick="masquerRoute(${i})">Masquer</button></td>
+            <td><button onclick="supprimerRoute(${i})">Supprimer</button></td>
+            <td><button onclick="exportRouteAsGPX(${i})">Export GPX</button></td>
         </tr>`;
                 }
 
@@ -3379,23 +3405,68 @@ function arrondirALHeure(timestamp) {
 
             function recupereRoutes(personalInfosJS) {
                 routes = [];  // Réinitialisation avant de charger de nouvelles routes
+                console.log ('**************************************')
+                console.log ('on est dans recupereRoutes')
+                console.log ('**************************************')
 
-                if (personalInfosJS.routage) {
-                    for (const key in personalInfosJS.routage) {
-                        if (personalInfosJS.routage.hasOwnProperty(key)) {
-                            const routage = personalInfosJS.routage[key];
-                            //console.log ('ligne 2179 '+routage.polyline)   (un par routage)
-                            routes.push({
-                                nom: routage.nom,
-                                eta: routage.eta,
-                                duree: routage.duree,
-                                couleur: routage.couleur,
-                                polyline: routage.polyline
-                            });
-                        }
+               
+
+
+                if (!personalInfosJS || !personalInfosJS.routage) return;
+
+                let raw = personalInfosJS.routage;
+
+                // 1) Si routage est lui-même une chaîne JSON globale, parse-la
+                if (typeof raw === 'string') {
+                    try {
+                    raw = JSON.parse(raw);
+                    } catch (e) {
+                    console.error('routage global invalide:', e);
+                    return;
                     }
                 }
-                console.log("Routes chargées :", routes);
+
+                // 2) Parcours des entrées. Chaque valeur peut être soit un objet, soit une chaîne JSON.
+                for (const [key, val] of Object.entries(raw)) {
+                    let obj = val;
+                    if (typeof obj === 'string') {
+                    try {
+                        obj = JSON.parse(obj); // <-- ICI le double parse
+                    } catch (e) {
+                        console.warn('Entrée routage non parsable pour', key, e);
+                        continue;
+                    }
+                    }
+
+                    // Sécurise les champs
+                    const nom = obj.nom ?? key;
+                    const eta = obj.eta ?? null;
+                    const duree = obj.duree ?? null;
+                    const couleur = obj.couleur ?? '#3388ff';
+
+                    // Ta "polyline" actuelle est un tableau de lignes riches.
+                    // Si tu veux dessiner, on extrait [lat, lon] depuis indices 2 et 3.
+                    const coords = Array.isArray(obj.polyline)  ? obj.polyline.map(row => [row[2], row[3]])   : [];
+                   
+// chaque route a son propre layer
+   
+                    const layer = L.layerGroup();
+
+                    routes.push({
+                    nom,
+                    eta,
+                    duree,
+                    couleur,
+                    coords,           // prêt pour Leaflet
+                    layer,
+                    visible:false
+                    // polylineRaw: obj.polyline, // si tu veux garder les colonnes complètes
+                    });
+                }
+               
+
+                
+                //console.log("Routes chargées :", routes);
                 mettreAJourTableau(); // ✅ Mise à jour de l'affichage avec les données chargées
             }
 
@@ -3405,7 +3476,13 @@ function arrondirALHeure(timestamp) {
 
 
 
-            async function supprimerroute(i) {
+
+
+
+
+
+
+            async function supprimerRoute(i) {
 
                 if (i < 0 || i >= routes.length) {
                     console.error("Index invalide :", i);
@@ -3442,14 +3519,75 @@ function arrondirALHeure(timestamp) {
 
 
 
-            async function exporterroute(i) {
-                let route = routes[i];
-                let points = route.polyline[0].flat()
-                //    console.log (points)
-                nom = route.nom
-                exportGPX(points, nom);
+// Utilitaire : nettoyage du nom de fichier
+function sanitizeFilename(name) {
+  return String(name).trim().replace(/[\/\\?%*:|"<>]/g, "_");
+}
 
-            }
+// (Optionnel) utilitaire : échapper le texte XML
+function escapeXml(s) {
+  return String(s)
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&apos;");
+}
+
+// Export GPX d'une route index i (coords = [[lat, lon], ...])
+window.exportRouteAsGPX = function(i) {
+  if (i < 0 || i >= routes.length) {
+    console.error("Index invalide :", i);
+    return;
+  }
+  const route = routes[i];
+  const coords = route.coords || [];
+  if (!Array.isArray(coords) || coords.length === 0) {
+    console.warn("Aucune coordonnée à exporter pour cette route.");
+    return;
+  }
+
+  const routeName = route.nom || `Route_${i+1}`;
+  const nowISO = new Date().toISOString();
+
+  // Entête GPX 1.1
+  let gpx = `<?xml version="1.0" encoding="UTF-8"?>\n` +
+    `<gpx version="1.1" creator="vrouteur" xmlns="http://www.topografix.com/GPX/1/1" ` +
+    `xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" ` +
+    `xsi:schemaLocation="http://www.topografix.com/GPX/1/1 ` +
+    `http://www.topografix.com/GPX/1/1/gpx.xsd">\n` +
+    `  <metadata>\n` +
+    `    <name>${escapeXml(routeName)}</name>\n` +
+    `    <time>${nowISO}</time>\n` +
+    `  </metadata>\n` +
+    `  <trk>\n` +
+    `    <name>${escapeXml(routeName)}</name>\n` +
+    `    <trkseg>\n`;
+
+  // Points de la trace
+  for (const [lat, lon] of coords) {
+    if (typeof lat !== "number" || typeof lon !== "number") continue;
+    gpx += `      <trkpt lat="${lat}" lon="${lon}"></trkpt>\n`;
+  }
+
+  gpx += `    </trkseg>\n` +
+         `  </trk>\n` +
+         `</gpx>\n`;
+
+  // Déclenche le téléchargement
+  const blob = new Blob([gpx], { type: "application/gpx+xml" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = `${sanitizeFilename(routeName)}.gpx`;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+};
+
+
+
 
 
 
@@ -3468,7 +3606,7 @@ function arrondirALHeure(timestamp) {
                 if (!response.ok) throw new Error('Problème dans rechercheflotte ' + response.statusText);
 
                 let data = await response.json();
-                console.log('data.fleetinfos' + data.fleetinfos)
+                //console.log('data.fleetinfos' + data.fleetinfos)
 
                 let flotte = JSON.parse(data.fleetinfos);
                 // console.log (' teamnames dans afficheflotte '+teamnames )
@@ -4339,7 +4477,7 @@ function arrondirALHeure(timestamp) {
 
                 leginfos = await chercheleginfos(course)
                 afficheleginfos(leginfos)
-                console.log(`leginfos recuperees pour la course par chercheleginfos ${course} \n*******************\n ${leginfos}`)
+                console.log(`leginfos recuperees pour la course par chercheleginfos ${course} \n*******************\n `)    //${leginfos}`)
 
                 carte = await chargecartemaps2(y0vr, x0vr)
                 affichecarte(carte)                                       // affiche la carte locale pas forcement necessaire 
@@ -4381,7 +4519,7 @@ function arrondirALHeure(timestamp) {
                 personalInfosStr = await recherchepersonalinfos(username, user_id, course)
                 personalInfosJS = JSON.parse(personalInfosStr);
 
-                console.log('personalinfos  issues du serveur ' + personalInfosStr)
+                console.log('personalinfos  issues du serveur ')// + personalInfosStr)
 
                 affichewaypoints2(personalInfosJS)
                 afficheZonesExclusions(personalInfosJS)
@@ -5732,6 +5870,7 @@ function arrondirALHeure(timestamp) {
                 // waypoints = trajetsencours[0][12] est une variable globale  
                 console.log('ligne 4363 waypoints ' + waypoints)
                 console.log('Tolerance hvmg ' + tolerancehvmg)
+                console.log('RetardPeno     ' + retardpeno   )
 
                 ari = Array.from(idarrivee.selectedOptions).map(option => option.value);
                 if (ari == []) { ari = ['Arrivee']; }    //Si on a oublié de cocher une case       
@@ -5797,13 +5936,14 @@ function arrondirALHeure(timestamp) {
 
             document.getElementById('tolerancehvmg').addEventListener('change', function (e) {
                 tolerancehvmg = document.getElementById('tolerancehvmg').value;
+           
 
                 console.log('tolerancehvmg  = ' + tolerancehvmg)
                 console.log('username ' + username)
                 // on va ajouter tolerancehvmg dans les personalinfos
                 typeinfo = 'tolerancehvmg'
                 typeaction = 'modify',
-                    nom = 'tolerancehvmg'
+                 nom = 'tolerancehvmg'
                 valeur = tolerancehvmg
 
                 message = modifpersonalinfos(username, user_id, course, typeinfo, typeaction, nom, valeur)
@@ -5811,8 +5951,19 @@ function arrondirALHeure(timestamp) {
 
             });
 
+          document.getElementById('retardpeno').addEventListener('change', function (e) {
+                retardpeno    = document.getElementById('retardpeno').value;  
+                 console.log('retardpeno  = ' + retardpeno)
+                console.log('username ' + username)
+                // on va ajouter tolerancehvmg dans les personalinfos
+                typeinfo = 'retardpeno'
+                typeaction = 'modify',
+                nom = 'retardpeno'
+                valeur = retardpeno
+                message = modifpersonalinfos(username, user_id, course, typeinfo, typeaction, nom, valeur)
+                console.log(message) 
 
-
+             });
 
 
 document.getElementById('gpx-input').addEventListener('change', function (e) {
@@ -6114,6 +6265,8 @@ document.getElementById('csv-input3').addEventListener('change', function (event
                 let dernier = arrayroutage.length - 1
                 //(t0routage + arrayroutage[i][1])
                 // console.log (' dernier '+arrayroutage[dernier] )
+
+                
                 texteroute = `<!DOCTYPE html> <h2> ${username} -- ${tabNameCourses[indiceCourse][1]}   --  ${intlhmn.format((t0routage + arrayroutage[0][3]) * 1000)}
                             <span class="purple"> -- ETA : ${intlhmn.format((t0routage + arrayroutage[dernier][1]) * 1000)}</span></h2>
                             <title>Détail du routage </title>
