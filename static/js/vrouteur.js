@@ -2056,7 +2056,7 @@ marker.bindPopup(`
     <b>${name}  -  ${position}</b><br>
     HDG: ${heading.toFixed(2)} -- TWA: ${twa?.toFixed(2) ?? "-"} - Speed: ${speed?.toFixed(2) ?? "-"} nds<br>
     TWD: ${twd?.toFixed(2) ?? "-"} -- TWS: ${tws?.toFixed(2) ?? "-"} - Sail: ${sailtxt ?? "-"}<br>
-    t0 ${t0}
+  
 
     <a href="javascript:void(0);" onclick="copyLatLonToClipboard(${lat}, ${lon})">   Coordonnées dans presse papier  </a><br>
 
