@@ -3542,9 +3542,20 @@ class RoutageSession:                                                  # version
         self.polaires_np           = DonneesCourse1.polaires_np                               #ce sont les polaires10
         self.tabvmg                = DonneesCourse1.vmg_cpu
 
+
+        
+        
+        # pour l instant posStartVR  est systematiquement ma position 
+
         self.posStart              = calculePosDepart(self.posStartVR,self.polaires_np,self.carabateau,dt=60)    # Position de depart du routage au bout de 60 s
+
+
+        # si ce n est pas moi , va donner une mauvaise indication 
         self.isodepart             = calculeisodepart2(self.posStart)    # Transformation en iso de depart 
+        
         self.retardpeno            = retardpeno['retardpeno']
+        
+        
         # print()
         # print ('selfexclusionsVR',self.exclusionsVR) 
 
@@ -3610,6 +3621,13 @@ class RoutageSession:                                                  # version
         stamina     = posStartPartiel['stamina']
         soldepeno   = posStartPartiel['penovr']
         boost       = posStartPartiel['boost']
+
+
+
+
+        print ( '\n Dans initialiseroutagepartiel y0 = ', posStartPartiel['y0'])
+        print ( '\n Dans initialiseroutagepartiel x0 = ', posStartPartiel['x0'])
+        print ('*************************************************************')
         
         try :
             t0       = posStartPartiel['t0']
@@ -3648,7 +3666,7 @@ class RoutageSession:                                                  # version
 
         if indiceroutage==0:
             iso          = self.isodepart 
-            seuils = [[60, 300],[108,600], [672, 1800], [240, 3600]]       # 6h a 5 mn = 60 --  18h a 10 mn =108 -- 14 jours a 30mn =24*2*14=672
+            seuils = [[144, 300],[108,600], [672, 1800], [240, 3600]]       # 14h a 5 mn = 120 --  18h a 10 mn =108 -- 14 jours a 30mn =24*2*14=672
             tabdt = construire_dt(seuils, taille=1000)
             print('shape isoglobal ',isoglobal.shape) 
             print('shape iso ',iso.shape) 
@@ -3688,6 +3706,9 @@ class RoutageSession:                                                  # version
           
         }
       
+        #print ('dans initialiseroutagepartiel paramroutage',paramRoutage)
+
+
         return paramRoutage,iso
     
     
@@ -4282,7 +4303,7 @@ def routageGlobal(course,user_id,isMe,ari,y0,x0,t0,tolerancehvmg,optionroutage):
 
     waypoints       = session.waypoints
     tabvmg10to      = session.tabvmg10to
-    iso             = session.isodepart
+    iso             = session.isodepart            # la on est systematiquement sur ma pposition 
     posStartVR      = session.posStartVR
     posStart        = session.posStart
 
@@ -4304,22 +4325,46 @@ def routageGlobal(course,user_id,isMe,ari,y0,x0,t0,tolerancehvmg,optionroutage):
 
 
     if optionroutage==1:
-        session.posStartVR[1]= torch.tensor([t0], dtype=torch.float64)               # transformation de t0 en tenseur    
-        session.posStartVR[5]= torch.tensor([y0], dtype=torch.float64)               # transformation de t0 en tenseur
-        session.posStartVR[6]= torch.tensor([x0], dtype=torch.float64)
+
+        print ('On est dans l option de routage option1 avant modif posStartVR',posStart)
+        posStart['t0']= t0               # transformation de t0 en tenseur    
+        posStart['y0']= y0               # transformation de t0 en tenseur
+        posStart['x0']= x0
+        print ('iso \n',iso )
+        iso[0,3]=y0
+        iso[0,4]=x0
+
+        print ('\n On est dans l option de routage option1 posStartVR apresmodif ',posStart)
+
    
     if optionroutage==2:
         session.posStartVR[1]= torch.tensor([t0], dtype=torch.float64)               # transformation de t0 en tenseur
         session.posStartVR[5]= torch.tensor([y0], dtype=torch.float64)               # transformation de t0 en tenseur
         session.posStartVR[6]= torch.tensor([x0], dtype=torch.float64)
        
-        
+
+
+    if isMe=='no':
+
+        print ('On est dans l option de routage option1 avant modif posStartVR',posStart)
+        posStart['t0']= t0               # transformation de t0 en tenseur    
+        posStart['y0']= y0               # transformation de t0 en tenseur
+        posStart['x0']= x0
+        print ('iso \n',iso )
+        iso[0,3]=y0
+        iso[0,4]=x0
+
+        print ('\n On est dans l option de routage option1 posStartVR apresmodif ',posStart)
+
+
+
+
     tic=time.time()
 
 
     for indiceroutage in range(len(ari)):    
         if indiceroutage==0:
-            posStart=session.posStart   
+            #posStart=session.posStart   
             if isMe=='no':
                posStart['y0']=y0
                posStart['x0']=x0   
@@ -4331,7 +4376,7 @@ def routageGlobal(course,user_id,isMe,ari,y0,x0,t0,tolerancehvmg,optionroutage):
         else:
             posStart=posEnd
 
-
+        print ('\n On est dans l option de routage option1 posStart avant initialise ',posStart)
         paramRoutage,iso = session.initialiseRoutagePartiel(posStart,ari,indiceroutage)  # print ('Premier iso',iso)
 
         impression_tensor15 (iso,titre='\niso de depart correspondant à PositionVR decalee')

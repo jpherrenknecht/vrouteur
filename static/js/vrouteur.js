@@ -1730,6 +1730,62 @@ function vit_angle_vent_100(lat,lng,t0)
 			}
 
 
+
+
+function dmsToDecimal(coord) {
+    console.log('on est dans dmstodecimal');
+
+    // Capture: degrés, minutes, secondes, direction
+    const regex = /(\d+)°(\d+)'(\d+(?:\.\d+)?)"([NSEW])/g;
+    let match;
+    let lat = null, lon = null;
+
+    while ((match = regex.exec(coord)) !== null) {
+        const deg = parseFloat(match[1]);
+        const min = parseFloat(match[2]);
+        const sec = parseFloat(match[3]);
+        const dir = match[4];
+
+        let dec = deg + min / 60 + sec / 3600;
+
+        if (dir === 'S' || dir === 'W') {
+            dec = -dec;
+        }
+
+        if (dir === 'N' || dir === 'S') {
+            lat = dec;
+        } else {
+            lon = dec;
+        }
+    }
+
+    console.log('lat', lat);
+    console.log('lon', lon);
+    return [lat, lon];
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 function dmsToDecimal2(coord) {
   if (!coord || typeof coord !== "string") return [NaN, NaN];
 
@@ -1760,28 +1816,34 @@ function dmsToDecimal2(coord) {
 
 
 
+// function dmsToDecimal(coord) {
+
+// 	console.log ('on est dans dmstodecimal ') 
+//     const regex = /(\d+)°(\d+\.\d+)\s*([NSEW])/g;
+//     let match;
+//     let lat = null, lon = null;
+
+//     while ((match = regex.exec(coord)) !== null) {
+//         const deg = parseFloat(match[1]);
+//         const min = parseFloat(match[2]);
+//         const dir = match[3];
+//         const dec = deg + min / 60;
+//         if (dir === 'S' || dir === 'W') {
+//             if (lat === null) lat = -dec;
+//             else lon = -dec;
+//         } else {
+//             if (lat === null) lat = dec;
+//             else lon = dec;
+//         }
+//     }
+// 	console.log ('lat'+lat )
+// 	console.log ('lon'+lon )
+//     return [lat, lon];
+// }
 
 
-function dmsToDecimal(coord) {
-    const regex = /(\d+)°(\d+\.\d+)\s*([NSEW])/g;
-    let match;
-    let lat = null, lon = null;
 
-    while ((match = regex.exec(coord)) !== null) {
-        const deg = parseFloat(match[1]);
-        const min = parseFloat(match[2]);
-        const dir = match[3];
-        const dec = deg + min / 60;
-        if (dir === 'S' || dir === 'W') {
-            if (lat === null) lat = -dec;
-            else lon = -dec;
-        } else {
-            if (lat === null) lat = dec;
-            else lon = dec;
-        }
-    }
-    return [lat, lon];
-}
+
 
 
 
@@ -1952,7 +2014,12 @@ function addBoatMarker(Layer, name, lat, lon, options = {}) {
 	
   var sailtxt= typeVoiles[(sail % 10) - 1]
   var position = toDMSString(lat, lon)
-    
+  //var heuredepart = Math.ceil(timestamp / 60) * 60; // Arrondi à la minute supérieure
+  var heuredepart = document.getElementById('datetime').value     // on recupere l heure de depart 
+
+//console.log(`${name},${lat}, ${lon}, ${heuredepart},${waypoints},${ ari}, ${cocheexclusions}`)
+  
+
   const svg = `
   <svg xmlns="http://www.w3.org/2000/svg" viewBox="-50 -100 100 190" class="boat-marker" pointer-events="none">
     <path d="M 0,-100 C 30,-70 40,-30 40,-10 L 40,70 Q 20,85 0,90 Q -20,85 -40,70 L -40,-10 C -40,-30 -30,-70 0,-100 Z"
@@ -1989,9 +2056,38 @@ marker.bindPopup(`
     <b>${name}  -  ${position}</b><br>
     HDG: ${heading.toFixed(2)} -- TWA: ${twa?.toFixed(2) ?? "-"} - Speed: ${speed?.toFixed(2) ?? "-"} nds<br>
     TWD: ${twd?.toFixed(2) ?? "-"} -- TWS: ${tws?.toFixed(2) ?? "-"} - Sail: ${sailtxt ?? "-"}<br>
-    <a href="javascript:void(0);" onclick="copyLatLonToClipboard(${lat}, ${lon})">   Coordonnées dans presse papier  </a>
+    t0 ${t0}
+
+    <a href="javascript:void(0);" onclick="copyLatLonToClipboard(${lat}, ${lon})">   Coordonnées dans presse papier  </a><br>
+
+	<a href="javascript:void(0);" onclick="autreRoutage(
+	
+	
+    '${encodeURIComponent(name)}',
+     ${lat},
+     ${lon},
+     ${t0},
+    '${encodeURIComponent(JSON.stringify(waypoints))}',
+    '${encodeURIComponent(JSON.stringify(ari))}',
+    '${cocheexclusions}'
+
+
+	
+	
+	
+	)">  Routage de ${name}  </a><br>
+
+
+
+
+
+
+	
   </div>
 `);
+
+
+//<a href="javascript:void(0);" onclick="autreroutage(${name},${lat}, ${lon}, ${heuredepart},${waypoints},${ ari}, ${cocheexclusions})">   Router ${name}  </a>
 
 
 marker.bindTooltip(`
