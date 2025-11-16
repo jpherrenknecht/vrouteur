@@ -39,7 +39,7 @@
         // 1936  Fonctions de validation de l input  et recuperation coordonneees 
         // 2926  Gestion des waypoints
         // 2359  Recherche des cartes VR
-        // 2421  Gestion de l editeur de routes
+        // 3150  Gestion de l editeur de routes
 
         // 3785  Affichage de la flotte
         // 2818  Zones d exclusions perso
@@ -216,6 +216,7 @@
 
         // Localstorage 
         var username;
+        var username2;
         var course;
         var ycoord;                       // Derniers coordonnees rentres
         var xcoord;
@@ -237,6 +238,7 @@
         var dureeroutage;
 
         var user_id;
+        var usernameRoutage;
         var nbWP;
         var isMe = 'yes';
 
@@ -638,8 +640,8 @@
     <button  id='lancerRoutage' class='blackwhite11' value='Lancer le routage' > Lancer le Routage </button>
   
    
-    <progress value='0' min='0' max='100' id ='progress'></progress><br>
-   
+    <progress value='0' min='0' max='100' id ='progress'></progress>
+   Trace <input type='checkbox' id='showroutage' name='showroutage'   checked  /> <br>
    <span id='eta' class='eta'></span> 
    <span id='dureeeta'></span>
    <span  id='detailroute2'></span><br>
@@ -828,7 +830,7 @@
          <span class="close-button" onclick="fermerEditeurRoutes()">×</span>  
         <h3>Editeur de Routes</h3>
         <label> Route  à enregistrer </label>
-        <input type="text" size=15 id="nomRoutage" placeholder="Nom  du Routage"    value ="${genererNomRoutage()}" title="Zone à créer">
+        <input type="text" size=30 id="nomRoutage" placeholder="Nom  du Routage"    value ="${genererNomRoutage()}" title="Zone à créer">
         <button onclick="sauveroute()"  id="sauveroute">Sauvegarder la route</button>
         <br><br>
         <div id="tableroutages"></div>
@@ -2426,13 +2428,16 @@
             async function calculeroutage(username,y0, x0, heuredepart, waypoints, ari, cocheexclusions) {
                 // on va tout transmettre sauf waypoints qui est deja dans personalinfos pour eviter d avoir a faire 2 versions completement differentes 
                 let isMe = 'yes'
+                usernameRoutage=username
+                console.log('Dans calculeroutage usernameRoutage: '+usernameRoutage)
 
-                console.log('username')
+                petitnomRoutage= genererNomRoutage()
+                console.log ('nomRoutage '+petitnomRoutage)
+                document.getElementById('nomRoutage').value=  petitnomRoutage
+               
                 console.log ('ari '+ari)
 
                 username2 = document.getElementById('idusername').value
-
-
                 if (username2 != username) { console.log('On ne route pas le bateau principal'); isMe = 'no'  }
 
 
@@ -2581,7 +2586,7 @@
 
                 // affichage du tableau de routage 
                 arrayroutage = tabroutage   // ("c'est arrayroutage qui est utilise dans createtexte")
-
+                username2=username
                 texteroute = createTexteRoute()
                 // console.log ('texteroute '+texteroute)
                 document.getElementById('detailroute2').innerHTML = " <button  class='blackwhite11' >Detail Route </button>"
@@ -2604,7 +2609,7 @@
                 trajet = trouvederniertrajet()
                 console.log(' Ligne 2176 trajet ')
                 console.log(trajet)
-
+             
                 trajet = [username, course, y0, x0, y0, x0, heuredepart, y1, x1, optionroutage, user_id, ari, waypoints, 'maj suite routage']
                 updateTrajet(username, course, trajet)
                 console.log('mise a jour de memoiretrajet ')
@@ -3142,6 +3147,10 @@
 
 
 
+
+
+
+
             //**********************************************************************************************************************************
             //**********************************************************************************************************************************
             //**********    Gestion de l editeur de routes                                          ********************************************
@@ -3151,33 +3160,74 @@
             var polylines = {}; // Objet pour stocker les polylines
             let routes = [];  // Tableau global contenant toutes les routes
 
-            function getRandomColor() {
+        function getRandomColor() {
                 return "#" + Math.floor(Math.random() * 16777215).toString(16); // Génère une couleur hexadécimale aléatoire
             }
 
 
 
-            window.EditeurRoutes = () => { ouvrirEditeurRoutes() }
+        function construireRoute(nom, eta, duree, couleur, polyline) {
+            // polyline = tableau "riche" (avec plusieurs colonnes)
+            const coords = Array.isArray(polyline)
+                ? polyline.map(row => [row[2], row[3]])   // même logique que recupereRoutes
+                : [];
+
+            return {
+                nom,
+                eta,
+                duree,
+                couleur,
+                polyline,   // on garde le brut pour export GPX, etc.
+                coords,     // prêt pour Leaflet [lat, lon]
+                layer: L.layerGroup(),
+                visible: false
+            };
+        }
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+        window.EditeurRoutes = () => { ouvrirEditeurRoutes() }
             function ouvrirEditeurRoutes()
             // Fonction pour ouvrir l'éditeur de routes
             {
-                console.log(' Demande affichage ouvrirEditeurRoutes l 1941 ')
+                console.log(' Demande affichage ouvrirEditeurRoutes  ')
+                console.log ('usernameRoutage '+usernameRoutage )
                 const RoutesEditor = document.getElementById("RoutesEditor");
                 RoutesEditor.style.display = "block";
                 document.getElementById("RoutesEditor").classList.add("visible");
+                petitnomRoutage= genererNomRoutage()
+                console.log ('nomRoutage '+petitnomRoutage)
+                document.getElementById('nomRoutage').value=  petitnomRoutage
+               
             };
 
 
 
 
-            window.fermerEditeurRoutes = () => {
+        window.fermerEditeurRoutes = () => {
                 const RoutesEditor = document.getElementById("RoutesEditor");
                 RoutesEditor.style.display = "none";
                 RoutesEditor.classList.remove("visible");
             }
 
 
-            window.sauveroute = async () => {
+        window.sauveroute = async () => {
                 console.log('On est dans sauveroute');
                 try {
                     await sauveRouteServeur2();  // Attente de la sauvegarde
@@ -3189,36 +3239,98 @@
             };
 
 
+window.afficherRoute = function (i) {
+
+    console.log('indice i ' + i);
+    if (i < 0 || i >= routes.length) {
+        console.error("Index invalide :", i);
+        return;
+    }
+
+    const route = routes[i];
+    if (!route) {
+        console.error("Route inexistante à l'indice", i, "routes[i] =", route);
+        return;
+    }
+
+    if (!route.layer) {
+        route.layer = L.layerGroup();
+        route.visible = false;
+    }
+
+    route.layer.clearLayers();
+
+    if (!route.coords || !route.coords.length) {
+        console.error("Pas de coords pour la route", route);
+        return;
+    }
+
+    const poly = L.polyline(route.coords, { color: route.couleur, weight: 2 });
+    poly.addTo(route.layer);
+
+    if (!route.visible) {
+        route.layer.addTo(map);
+        route.visible = true;
+    }
+};
+
+
+        // window.afficherRoute = function (i) {
+
+        //     console.log('indice i ' + i);
+        //     if (i < 0 || i >= routes.length) {
+        //         console.error("Index invalide :", i);
+        //         return;
+        //     }
+
+        //     let route = routes[i];
+        //     if (!route) {
+        //         console.error("Route inexistante à l'indice", i, "routes[i] =", route);
+        //         return;
+        //     }
+
+        //     // Si le layer n'existe pas encore, on le crée
+        //     if (!route.layer) {
+        //         route.layer = L.layerGroup();
+        //         route.visible = false;
+        //     }
+
+        //     route.layer.clearLayers();
+
+        //     // ✅ On essaie d'abord route.coords (format [lat, lon])
+        //     let coords = route.coords;
+
+        //     // Si pas de coords, on tente de les reconstruire à partir de polyline
+        //     if ((!coords || !coords.length) && Array.isArray(route.polyline)) {
+        //         // Si polyline est du type [idx, x, lat, lon, ...]
+        //         if (Array.isArray(route.polyline[0]) && route.polyline[0].length >= 4) {
+        //             coords = route.polyline.map(row => [row[2], row[3]]);
+        //         } else {
+        //             // Sinon on suppose que polyline est déjà un tableau de [lat, lon]
+        //             coords = route.polyline;
+        //         }
+        //     }
+
+        //     if (!coords || !coords.length) {
+        //         console.error("Pas de coordonnées valides pour la route", route);
+        //         return;
+        //     }
+
+        //     const poly = L.polyline(coords, { color: route.couleur, weight: 2 });
+        //     poly.addTo(route.layer);
+
+        //     if (!route.visible) {
+        //         route.layer.addTo(map);
+        //         route.visible = true;
+        //     }
+        // };
 
 
 
-            window.afficherRoute = function (i) {
-                if (i < 0 || i >= routes.length) {
-                    console.error("Index invalide :", i);
-                    return;
-                }
-                let route = routes[i];
-                // Nettoie le layer au cas où il contiendrait déjà des segments
-                route.layer.clearLayers();
-
-                // Ajoute la polyline au layer dédié
-                const poly = L.polyline(route.coords, { color: route.couleur, weight: 2 });
-                poly.addTo(route.layer);
-
-                // Ajoute le layer à la carte s’il n’est pas déjà visible
-                if (!route.visible) {
-                    route.layer.addTo(map);
-                    route.visible = true;
-                }
-
-
-            };
 
 
 
-
-
-            window.masquerRoute = function (i) {
+        window.masquerRoute = function (i) {
                 if (i < 0 || i >= routes.length) return;
                 const route = routes[i];
                 if (route.visible) {
@@ -3230,12 +3342,12 @@
 
 
 
-            window.exporterRoute = function (i) {
+        window.exporterRoute = function (i) {
                 exporterRoute(i)
             }
 
 
-            window.supprimerRoute = function (i) {
+        window.supprimerRoute = function (i) {
                 let nom = routes[i].nom;
                 console.log('Username:', username);
                 console.log('Course:', course);
@@ -3244,79 +3356,222 @@
             };
 
 
+function genererNomRoutage() {
+
+    if (usernameRoutage === undefined) {
+        usernameRoutage = 'Routage non calculé';
+    }
+    console.log('usernameRoutage ' + usernameRoutage);
+
+    let now = new Date();
+    let jour = String(now.getDate()).padStart(2, '0');
+    let mois = String(now.getMonth() + 1).padStart(2, '0'); // mois 0–11
+    let heure = String(now.getHours()).padStart(2, '0');
+    let minute = String(now.getMinutes()).padStart(2, '0');
+
+    // Nom "propre" (une seule ligne) : ex. "Routage JP 16/11 11:32"
+    return `${usernameRoutage} ${jour}/${mois} ${heure}:${minute}`;
+}
+
+            // function genererNomRoutage() {
+
+            //     if (usernameRoutage === undefined) {usernameRoutage='Routage non calculé'}
+            //     console.log ('usernameRoutage '+usernameRoutage)
+            //     let now = new Date();
+            //     let jour = String(now.getDate()).padStart(2, '0');
+            //     let mois = String(now.getMonth() + 1).padStart(2, '0'); // Les mois commencent à 0
+            //     let heure = String(now.getHours()).padStart(2, '0');
+            //     let minute = String(now.getMinutes()).padStart(2, '0');
+            //    // document.getElementById('nomRoutage').value=  `${username}  ${jour}/${mois} ${heure}:${minute}`
+            //     return `${usernameRoutage}     <br>  ${jour}/${mois} ${heure}:${minute}`;
+            // }
 
 
 
 
 
-            function genererNomRoutage() {
-                let now = new Date();
-                let jour = String(now.getDate()).padStart(2, '0');
-                let mois = String(now.getMonth() + 1).padStart(2, '0'); // Les mois commencent à 0
-                let heure = String(now.getHours()).padStart(2, '0');
-                let minute = String(now.getMinutes()).padStart(2, '0');
-                return `Routage ${jour}/${mois} ${heure}:${minute}`;
-            }
+            // async function sauveRouteServeur2() {
+
+            //     console.log ('la route est sauvee')
+            //     typeinfo = 'routage';
+            //     typeaction = 'insert';
+            //     console.log('Sauvegarde de la route sur le serveur dans personalinfos2');
+            //     nbRoutes = routes.length
+            //     let color = colorhex[nbRoutes % colorhex.length];
+            //     console.log(color)
+
+            //     let nomRoutage = document.getElementById('nomRoutage').value;
+
+            //     // Vérification des valeurs avant de sauvegarder
+            //     if (!nomRoutage || !eta || !dureeparcours || !polyglobal) {
+            //         alert("Données incomplètes pour sauvegarder la route.");
+            //         return;
+            //     }
+
+            //     // Création de l'objet JSON pour la nouvelle route
+            //     let nouvelleRoute = {
+            //         nom: nomRoutage,
+            //         eta: eta,
+            //         duree: dureeparcours,
+            //         couleur: color,
+            //         polyline: tabroutage,
+            //         coords: tabroutage    // pour affichage immédiat
+
+            //     };
+
+            //     // ⚠️ important pour l’affichage
+            //     nouvelleRoute.layer = L.layerGroup();  // layer dédié à cette route
+            //     nouvelleRoute.visible = false;        // pas encore affichée
+                
+            //     routes.push(nouvelleRoute);
+            //     mettreAJourTableau();
+
+            //     try {
+            //         let message = await modifpersonalinfos(username, user_id, course, typeinfo, typeaction, nomRoutage, JSON.stringify(nouvelleRoute));
+            //         console.log('Sauvegarde réussie : ', message);
+            //         alert('Route sauvegardée avec succès !');
+
+            //     } catch (error) {
+            //         console.error('Erreur lors de la sauvegarde : ', error);
+            //         alert('Échec de la sauvegarde : ' + error.message);
+            //     }
+            // }
+
+async function sauveRouteServeur2() {
+
+    console.log('la route est sauvee');
+    typeinfo = 'routage';
+    typeaction = 'insert';
+    console.log('Sauvegarde de la route sur le serveur dans personalinfos2');
+
+    const nbRoutes = routes.length;
+    const color = colorhex[nbRoutes % colorhex.length];
+    console.log(color);
+
+    let nomRoutage = document.getElementById('nomRoutage').value;
+
+    if (!nomRoutage || !eta || !dureeparcours || !polyglobal) {
+        alert("Données incomplètes pour sauvegarder la route.");
+        return;
+    }
+
+    // polyline "riche" = ton tabroutage
+    const polyline = tabroutage;
+
+    // ✅ Route pour l’UI, normalisée comme celles rechargées
+    const nouvelleRoute = construireRoute(
+        nomRoutage,
+        eta,
+        dureeparcours,
+        color,
+        polyline
+    );
+
+    // ✅ Route à envoyer au serveur (sans layer, visible, coords)
+    const routePourServeur = {
+        nom: nomRoutage,
+        eta: eta,
+        duree: dureeparcours,
+        couleur: color,
+        polyline: polyline
+    };
+
+    // Ajout local + mise à jour affichage
+    routes.push(nouvelleRoute);
+    mettreAJourTableau();
+
+    try {
+        let message = await modifpersonalinfos(
+            username,
+            user_id,
+            course,
+            typeinfo,
+            typeaction,
+            nomRoutage,
+            JSON.stringify(routePourServeur)
+        );
+        console.log('Sauvegarde réussie : ', message);
+        alert('Route sauvegardée avec succès !');
+
+    } catch (error) {
+        console.error('Erreur lors de la sauvegarde : ', error);
+        alert('Échec de la sauvegarde : ' + error.message);
+    }
+}
+
+
+
+function formaterNomRoutagePourTableau(nom) {
+    // Cherche un motif "dd/mm hh:mm" et insère un <br> avant
+    // Exemple : "Routage JP 16/11 11:32"
+    // devient   "Routage JP<br>16/11 11:32"
+    return nom.replace(/(\d{2}\/\d{2}\s+\d{2}:\d{2})/, '<br>$1');
+}
+
+
+// async function sauveRouteServeur2() {
+
+//     console.log('la route est sauvee');
+//     typeinfo = 'routage';
+//     typeaction = 'insert';
+//     console.log('Sauvegarde de la route sur le serveur dans personalinfos2');
+
+//     nbRoutes = routes.length;
+//     let color = colorhex[nbRoutes % colorhex.length];
+//     console.log(color);
+
+//     let nomRoutage = document.getElementById('nomRoutage').value;
+
+//     // Vérification des valeurs avant de sauvegarder
+//     if (!nomRoutage || !eta || !dureeparcours || !polyglobal) {
+//         alert("Données incomplètes pour sauvegarder la route.");
+//         return;
+//     }
+
+//     // ✅ Construire coords exactement comme au chargement
+//     const coords = Array.isArray(tabroutage)
+//         ? tabroutage.map(row => [row[2], row[3]])
+//         : [];
+
+//     let nouvelleRoute = {
+//         nom: nomRoutage,
+//         eta: eta,
+//         duree: dureeparcours,
+//         couleur: color,
+//         polyline: tabroutage,  // tableau complet (avec les autres infos)
+//         coords: coords         // juste [lat, lon] pour Leaflet
+//     };
+
+//     // Layer dédié à cette route
+//     nouvelleRoute.layer = L.layerGroup();
+//     nouvelleRoute.visible = false;
+
+//     // Ajout local + mise à jour de l’UI
+//     routes.push(nouvelleRoute);
+//     mettreAJourTableau();
+
+//     try {
+//         let message = await modifpersonalinfos(
+//             username,
+//             user_id,
+//             course,
+//             typeinfo,
+//             typeaction,
+//             nomRoutage,
+//             JSON.stringify(nouvelleRoute)
+//         );
+//         console.log('Sauvegarde réussie : ', message);
+//         alert('Route sauvegardée avec succès !');
+
+//     } catch (error) {
+//         console.error('Erreur lors de la sauvegarde : ', error);
+//         alert('Échec de la sauvegarde : ' + error.message);
+//     }
+// }
 
 
 
 
-
-            async function sauveRouteServeur2() {
-                typeinfo = 'routage';
-                typeaction = 'insert';
-                console.log('Sauvegarde de la route sur le serveur dans personalinfos2');
-                nbRoutes = routes.length
-                let color = colorhex[nbRoutes % colorhex.length];
-                console.log(color)
-
-                let nomRoutage = document.getElementById('nomRoutage').value;
-
-                // if (!nomRoutage  ) {console.log ('nomroutage non present')}
-                // if (!eta  )       {console.log (' eta non present')}
-                // if( !dureeparcours  ) {console.log ('duree parcours  non present ')}
-                // if (!polyglobal  ) {console.log ('polyglobal non present')}
-
-
-                // Vérification des valeurs avant de sauvegarder
-                if (!nomRoutage || !eta || !dureeparcours || !polyglobal) {
-                    alert("Données incomplètes pour sauvegarder la route.");
-                    return;
-                }
-
-                // Création de l'objet JSON pour la nouvelle route
-                let nouvelleRoute = {
-                    nom: nomRoutage,
-                    eta: eta,
-                    duree: dureeparcours,
-                    couleur: color,
-                    polyline: tabroutage
-                };
-
-
-                //console.log ('nouvelleroute'+JSON.stringify(nouvelleRoute))
-                //    console.log (username, user_id, course, typeinfo, typeaction, nomRoutage)
-                //    console.log ('polyglobal'+JSON.stringify(tabroutage))
-
-
-                try {
-
-                    let message = await modifpersonalinfos(username, user_id, course, typeinfo, typeaction, nomRoutage, JSON.stringify(nouvelleRoute));
-                    console.log('Sauvegarde réussie : ', message);
-                    alert('Route sauvegardée avec succès !');
-
-                    // ✅ Ajout de la nouvelle route à `routes` localement
-                    routes.push(nouvelleRoute);
-
-                    // ✅ Mise à jour immédiate de l'affichage
-                    mettreAJourTableau();
-
-
-                } catch (error) {
-                    console.error('Erreur lors de la sauvegarde : ', error);
-                    alert('Échec de la sauvegarde : ' + error.message);
-                }
-            }
 
 
 
@@ -3343,13 +3598,15 @@
 
                     texte += `
         <tr>
-            <td class="colDouble">${route.nom}</td>
             
+            <td class="colDouble">${formaterNomRoutagePourTableau(route.nom)}</td>
+
             <td>${intlhmn.format(route.eta * 1000)}</td>
             <td>${formatSeconds(route.duree)}</td>      
 
             <td><input type="color" value="${route.couleur}" oninput="changerCouleurRoute(${i}, this.value)"></td>  
             <td><button onclick="afficherRoute(${i})">Afficher</button></td>
+
             <td><button onclick="masquerRoute(${i})">Masquer</button></td>
             <td><button onclick="supprimerRoute(${i})">Supprimer</button></td>
             <td><button onclick="exportRouteAsGPX(${i})">Export GPX</button></td>
@@ -3359,6 +3616,10 @@
                 texte += `</table>`;
                 document.getElementById('tableroutages').innerHTML = texte;
             }
+
+
+
+
 
 
 
@@ -3402,77 +3663,119 @@
 
 
 
+function recupereRoutes(personalInfosJS) {
+    routes = [];
+    console.log('**************************************');
+    console.log('on est dans recupereRoutes');
+    console.log('**************************************');
 
+    if (!personalInfosJS || !personalInfosJS.routage) return;
 
+    let raw = personalInfosJS.routage;
 
+    if (typeof raw === 'string') {
+        try {
+            raw = JSON.parse(raw);
+        } catch (e) {
+            console.error('routage global invalide:', e);
+            return;
+        }
+    }
 
-
-            function recupereRoutes(personalInfosJS) {
-                routes = [];  // Réinitialisation avant de charger de nouvelles routes
-                console.log('**************************************')
-                console.log('on est dans recupereRoutes')
-                console.log('**************************************')
-
-
-
-
-                if (!personalInfosJS || !personalInfosJS.routage) return;
-
-                let raw = personalInfosJS.routage;
-
-                // 1) Si routage est lui-même une chaîne JSON globale, parse-la
-                if (typeof raw === 'string') {
-                    try {
-                        raw = JSON.parse(raw);
-                    } catch (e) {
-                        console.error('routage global invalide:', e);
-                        return;
-                    }
-                }
-
-                // 2) Parcours des entrées. Chaque valeur peut être soit un objet, soit une chaîne JSON.
-                for (const [key, val] of Object.entries(raw)) {
-                    let obj = val;
-                    if (typeof obj === 'string') {
-                        try {
-                            obj = JSON.parse(obj); // <-- ICI le double parse
-                        } catch (e) {
-                            console.warn('Entrée routage non parsable pour', key, e);
-                            continue;
-                        }
-                    }
-
-                    // Sécurise les champs
-                    const nom = obj.nom ?? key;
-                    const eta = obj.eta ?? null;
-                    const duree = obj.duree ?? null;
-                    const couleur = obj.couleur ?? '#3388ff';
-
-                    // Ta "polyline" actuelle est un tableau de lignes riches.
-                    // Si tu veux dessiner, on extrait [lat, lon] depuis indices 2 et 3.
-                    const coords = Array.isArray(obj.polyline) ? obj.polyline.map(row => [row[2], row[3]]) : [];
-
-                    // chaque route a son propre layer
-
-                    const layer = L.layerGroup();
-
-                    routes.push({
-                        nom,
-                        eta,
-                        duree,
-                        couleur,
-                        coords,           // prêt pour Leaflet
-                        layer,
-                        visible: false
-                        // polylineRaw: obj.polyline, // si tu veux garder les colonnes complètes
-                    });
-                }
-
-
-
-                //console.log("Routes chargées :", routes);
-                mettreAJourTableau(); // ✅ Mise à jour de l'affichage avec les données chargées
+    for (const [key, val] of Object.entries(raw)) {
+        let obj = val;
+        if (typeof obj === 'string') {
+            try {
+                obj = JSON.parse(obj);
+            } catch (e) {
+                console.warn('Entrée routage non parsable pour', key, e);
+                continue;
             }
+        }
+
+        const nom = obj.nom ?? key;
+        const eta = obj.eta ?? null;
+        const duree = obj.duree ?? null;
+        const couleur = obj.couleur ?? '#3388ff';
+        const polyline = obj.polyline ?? [];
+
+        const route = construireRoute(nom, eta, duree, couleur, polyline);
+        routes.push(route);
+    }
+
+    mettreAJourTableau();
+}
+
+
+
+
+
+            // function recupereRoutes(personalInfosJS) {
+            //     routes = [];  // Réinitialisation avant de charger de nouvelles routes
+            //     console.log('**************************************')
+            //     console.log('on est dans recupereRoutes')
+            //     console.log('**************************************')
+
+
+
+
+            //     if (!personalInfosJS || !personalInfosJS.routage) return;
+
+            //     let raw = personalInfosJS.routage;
+
+            //     // 1) Si routage est lui-même une chaîne JSON globale, parse-la
+            //     if (typeof raw === 'string') {
+            //         try {
+            //             raw = JSON.parse(raw);
+            //         } catch (e) {
+            //             console.error('routage global invalide:', e);
+            //             return;
+            //         }
+            //     }
+
+            //     // 2) Parcours des entrées. Chaque valeur peut être soit un objet, soit une chaîne JSON.
+            //     for (const [key, val] of Object.entries(raw)) {
+            //         let obj = val;
+            //         if (typeof obj === 'string') {
+            //             try {
+            //                 obj = JSON.parse(obj); // <-- ICI le double parse
+            //             } catch (e) {
+            //                 console.warn('Entrée routage non parsable pour', key, e);
+            //                 continue;
+            //             }
+            //         }
+
+            //         // Sécurise les champs
+            //         const nom = obj.nom ?? key;
+            //         const eta = obj.eta ?? null;
+            //         const duree = obj.duree ?? null;
+            //         const couleur = obj.couleur ?? '#3388ff';
+
+            //         // Ta "polyline" actuelle est un tableau de lignes riches.
+            //         // Si tu veux dessiner, on extrait [lat, lon] depuis indices 2 et 3.
+            //         const coords = Array.isArray(obj.polyline) ? obj.polyline.map(row => [row[2], row[3]]) : [];
+
+            //         // chaque route a son propre layer
+
+            //         const layer = L.layerGroup();
+
+            //         routes.push({
+            //             nom,
+            //             eta,
+            //             duree,
+            //             couleur,
+            //             coords,           // prêt pour Leaflet
+            //             layer,
+            //             visible: false
+            //             // polylineRaw: obj.polyline, // si tu veux garder les colonnes complètes
+            //         });
+            //     }
+
+
+
+            //     //console.log("Routes chargées :", routes);
+            //     mettreAJourTableau(); // ✅ Mise à jour de l'affichage avec les données chargées
+            // }
 
 
 
@@ -5590,6 +5893,14 @@
 
 
 
+            // Changement affichage routage
+            const showroutage = document.getElementById('showroutage')
+            showroutage.addEventListener('change', toggleShowRoutage)
+
+            function toggleShowRoutage() {
+                if (showroutage.checked) { routageLayer.addTo(map);       }
+                else                     { map.removeLayer(routageLayer); }
+            }
 
 
 
@@ -5598,16 +5909,12 @@
             checkboxiso.addEventListener('change', toggleIsochronesLayer)
 
             function toggleIsochronesLayer() {
-                if (checkboxiso.checked) {
-                    // Ajouter le layer à la carte
-                    isochronesLayer.addTo(map);
-                } else {
-
-                    //isochronesLayer.clearLayers()
-                    // Retirer le layer de la carte
-                    map.removeLayer(isochronesLayer);
-                }
+                if (checkboxiso.checked) { isochronesLayer.addTo(map);}
+                 else                    { map.removeLayer(isochronesLayer);}
             }
+
+
+
 
             // Changement sur le showboat
             const checkboxboat = document.getElementById('showboat')
@@ -5908,6 +6215,7 @@
                 y0 = lat
                 x0 = lng
                 // on demande le routage
+                username2=username
                 calculeroutage(username,lat, lng, heuredepart, waypoints, ari, cocheexclusions)
                 // chercheprogsvr(user_id,course,heuredepart+120)
             });
@@ -6543,7 +6851,7 @@
                 const name = decodeURIComponent(encodedName);
                 const waypoints = JSON.parse(decodeURIComponent(encodedWaypoints));
                 const ari = JSON.parse(decodeURIComponent(encodedAri));
-
+                usernameRoutage= name
                 console.log ( name, lat, lon, heuredepart, waypoints, ari, cocheexclusions )
 
                 calculeroutage( name, lat, lon, heuredepart, waypoints, ari, cocheexclusions );
