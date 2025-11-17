@@ -6084,9 +6084,10 @@ function recupereRoutes(personalInfosJS) {
             document.getElementById("btnDivers").addEventListener("click", function () {
                 // const urlPolaires = "http://inc.bureauvallee.free.fr/polaires/?race_id=654.1&tws=13.6+&twa=45&utm_source=VRDashboard";
                 console.log('polar_id' + polar_id)
+                console.log ('y0'+y0)
 
-                url = `${serveur}/parametres?course=${course}&polar_id=${polar_id}&tws=${twsvr}&twa=${Math.abs(twavr)}&stam=${stamina}&hull=true&winch=true&foil=true&light=true&heavy=true&reach=true&magicFurler=true&comfortLoungePug=true&vrtexJacket=true&voile=${sail % 10}`
-                const width = 950;
+                url = `${serveur}/parametres?course=${course}&polar_id=${polar_id}&tws=${twsvr}&twa=${Math.abs(twavr)}&stam=${stamina}&lat=${y0}&lon=${x0}&hull=true&winch=true&foil=true&light=true&heavy=true&reach=true&magicFurler=true&comfortLoungePug=true&vrtexJacket=true&voile=${sail % 10}`
+                const width = 1000;
                 const height = 850;
                 const screenWidth = window.screen.width;
                 const left = screenWidth - width - 50; // 50 px du bord droit

@@ -26,6 +26,8 @@ var polairesjson     ={{polairesjson | tojson}}
 var tws              ={{tws}}
 var twa              ={{twa}}
 var voile            = {{voile}}
+var lat              = {{lat}}
+var lon              = {{lon}}
 var voileactuelle    = voile
 var bateau;
 var polar_id;
@@ -42,6 +44,8 @@ console.log ('origine de l ip '+origine )
 console.log('tws : '+tws)
 console.log('twa : '+twa)
 console.log ('voile '+voile)
+console.log ('lat '+lat)
+console.log ('lon '+lon)
 
 console.log (polairesjson)
 polairesjson=JSON.parse(polairesjson)
@@ -408,8 +412,31 @@ else if (boost>1.014  && i===k){ vit2=''; classe='red'}
         Twa <select id="signetwa"><option value=1>+</option>  <option value=-1>-</option>   </select>
         <input type="number" min="0" max="180" step=".1" value="45" style="width: 60px" id="calctwa">
         Cap <input type="number" min="0" max="360" step=".1" value="135" style="width: 60px" id="calccap">
-       
-       
+
+
+
+       <h2>Durée </h2>
+        <span class='heuredepart'><label>Heure Depart :</label>
+        <input type="datetime-local" id="datetimed"   class= "datetime-compact" />
+        </span>
+        <span class='heuredepart'><label>Heure Arrivee :</label>
+        <input type="datetime-local" id="datetimea"   class= "datetime-compact" />
+        </span>
+        <span class='heuredepart'>Duree</span> <span class='heuredepart' id='resduree'></span> <br>
+        
+        <h2>Coordonnees</h2>
+        <span class='heuredepart'> Dash        </span> <input type="text"  style="width: 200px" id="coordsdash" >
+        <span class='heuredepart'> PredictWind </span> <input type="text"  style="width: 160px" id="coordspredict" >
+        <span class='heuredepart'> Dorado      </span> <input type="text"  style="width: 170px" id="coordsdorado" >
+        <span class='heuredepart'> Lat-Lon     </span> <input type="number" step=".01" style="width: 80" id="latdecimal" > <input type="number"  step=".01" style="width: 80" id="lontdecimal" >
+
+
+
+
+
+
+        
+
         <h2>Polaires </h2>
         <div id="calculpolaires" name="calculpolaires" >
         
@@ -538,7 +565,6 @@ document.getElementById("tws20").value           = tws.toFixed(1)
 document.getElementById("tws21").value           = tws.toFixed(1)
 document.getElementById("tws30").value           = tws.toFixed(1)
 document.getElementById("tws31").value           = tws.toFixed(1)
-
 document.getElementById("twa11").value           = twa.toFixed(1)
 document.getElementById("twa21").value           = twa.toFixed(1)
 document.getElementById("twa31").value           = twa.toFixed(1)
@@ -602,10 +628,6 @@ document.getElementById("calctwa").addEventListener("change",  function () {
  signetwa=document.getElementById("signetwa").value
  twa=parseFloat(document.getElementById("calctwa").value)*signetwa
  cap= (twd+twa+360)%360
- console.log ('signe twa '+signetwa)
- console.log ('twa '+twa)
- console.log ('twd '+twd)
- console.log ('resultat '+((twd+twa)%360))
  document.getElementById("calccap").value=cap.toFixed(1)
 });
 
@@ -615,10 +637,6 @@ document.getElementById("signetwa").addEventListener("change",  function () {
  signetwa=document.getElementById("signetwa").value
  twa=parseFloat(document.getElementById("calctwa").value)*signetwa
  cap= (twd+twa+360)%360
- console.log ('signe twa '+signetwa)
- console.log ('twa '+twa)
- console.log ('twd '+twd)
- console.log ('resultat '+((twd+twa)%360))
  document.getElementById("calccap").value=cap.toFixed(1)
 });
 
@@ -629,13 +647,263 @@ document.getElementById("calccap").addEventListener("change",  function () {
  cap=parseFloat(document.getElementById("calccap").value)
  twa=ftwao(cap,twd)
  signe=twa/Math.abs(twa)
- console.log ('signe twa '+signetwa)
- console.log ('twa '+twa)
- console.log ('twd '+twd)
- console.log ('resultat '+((twd+twa)%360))
  document.getElementById("calctwa").value=Math.abs(twa).toFixed(1)
  document.getElementById("signetwa").value=signe
 });
+
+ </script>
+
+
+<script>
+function formatSeconds(totalSeconds) {
+    totalSeconds = Math.floor(totalSeconds);
+
+    const days = Math.floor(totalSeconds / 86400);
+    const hours = Math.floor((totalSeconds % 86400) / 3600);
+    const minutes = Math.floor((totalSeconds % 3600) / 60);
+
+    let parts = [];
+    if (days > 0) parts.push(days + "j");
+    if (hours > 0 || days > 0) parts.push(hours + "h");
+    if (minutes > 0 || hours > 0 || days > 0) parts.push(minutes + "mn");
+
+    return parts.join(" ");
+}
+
+function updateDuration() {
+    const d1 = document.getElementById("datetimed").value;
+    const d2 = document.getElementById("datetimea").value;
+
+    if (!d1 || !d2) {
+        document.getElementById("resduree").textContent = "";
+        return;
+    }
+
+    const t1 = new Date(d1).getTime();
+    const t2 = new Date(d2).getTime();
+
+    const diffSec = Math.max(0, (t2 - t1) / 1000);
+    document.getElementById("resduree").textContent = formatSeconds(diffSec);
+}
+
+// 🔥 FORMATTER EN HEURE LOCALE POUR datetime-local
+function toLocalDatetimeString(date) {
+    const y = date.getFullYear();
+    const m = String(date.getMonth() + 1).padStart(2, "0");
+    const d = String(date.getDate()).padStart(2, "0");
+    const h = String(date.getHours()).padStart(2, "0");
+    const mn = String(date.getMinutes()).padStart(2, "0");
+    return `${y}-${m}-${d}T${h}:${mn}`;
+}
+
+// 🔥 Initialisation des dates en LOCAL
+function initDates() {
+    const now = new Date();
+    const plus10 = new Date(now.getTime() + 10 * 86400 * 1000);
+
+    document.getElementById("datetimed").value = toLocalDatetimeString(now);
+    document.getElementById("datetimea").value = toLocalDatetimeString(plus10);
+
+    updateDuration();
+}
+
+document.getElementById("datetimed").addEventListener("change", updateDuration);
+document.getElementById("datetimea").addEventListener("change", updateDuration);
+
+window.addEventListener("load", initDates);
+</script>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<script>
+// --- helpers de parsing / formatage ---
+
+// Parse tous les formats texte (Dash, PredictWind, Dorado) -> [lat, lon] en décimal
+function parseDMSLike(str) {
+    if (!str) return null;
+
+    const regex = /(\d+(?:\.\d+)?)[°\s]\s*(\d+(?:\.\d+)?)(?:['’]?)\s*(\d+(?:\.\d+)?)?(?:["”])?\s*([NnSsEeWw])/g;
+    let match;
+    let lat = null, lon = null;
+
+    while ((match = regex.exec(str)) !== null) {
+        let deg = parseFloat(match[1]);
+        let min = parseFloat(match[2]) || 0;
+        let sec = match[3] ? parseFloat(match[3]) : 0;
+        let dir = match[4].toUpperCase();
+
+        let dec = deg + min / 60 + sec / 3600;
+        if (dir === 'S' || dir === 'W') dec = -dec;
+
+        if (lat === null) lat = dec;
+        else lon = dec;
+    }
+
+    if (lat === null || lon === null) return null;
+    return [lat, lon];
+}
+
+// Convert décimal -> DMS (deg, min, sec)
+function toDMSComponents(value) {
+    const abs = Math.abs(value);
+    const deg = Math.floor(abs);
+    const minFloat = (abs - deg) * 60;
+    const min = Math.floor(minFloat);
+    const sec = (minFloat - min) * 60;
+    return { deg, min, sec };
+}
+
+// Convert décimal -> (deg, minutes décimales)
+function toDegMin(value) {
+    const abs = Math.abs(value);
+    const deg = Math.floor(abs);
+    const minutes = (abs - deg) * 60;
+    return { deg, minutes };
+}
+
+function pad2(n) {
+    return String(n).padStart(2, '0');
+}
+
+function pad3(n) {
+    return String(n).padStart(3, '0');
+}
+
+// --- formatages ---
+
+function formatDash(lat, lon) {
+    const la = toDMSComponents(lat);
+    const lo = toDMSComponents(lon);
+    const laDir = lat >= 0 ? 'N' : 'S';
+    const loDir = lon >= 0 ? 'E' : 'W';
+
+    return `${pad2(la.deg)}°${pad2(la.min)}'${la.sec.toFixed(2)}"${laDir} ` +
+           `${pad3(lo.deg)}°${pad2(lo.min)}'${lo.sec.toFixed(2)}"${loDir}`;
+}
+
+function formatPredictwind(lat, lon) {
+    const la = toDegMin(lat);
+    const lo = toDegMin(lon);
+    const laDir = lat >= 0 ? 'n' : 's';
+    const loDir = lon >= 0 ? 'e' : 'w';
+
+    return `${la.deg} ${la.minutes.toFixed(3)}${laDir} ` +
+           `${lo.deg} ${lo.minutes.toFixed(3)}${loDir}`;
+}
+
+function formatDorado(lat, lon) {
+    const la = toDegMin(lat);
+    const lo = toDegMin(lon);
+    const laDir = lat >= 0 ? 'N' : 'S';
+    const loDir = lon >= 0 ? 'E' : 'W';
+
+    return `${pad2(la.deg)}°${la.minutes.toFixed(3)}'${laDir} - ` +
+           `${pad3(lo.deg)}°${lo.minutes.toFixed(3)}'${loDir}`;
+}
+
+// --- mise à jour globale des 4 boites ---
+
+function updateAllFields(lat, lon) {
+    if (!isFinite(lat) || !isFinite(lon)) return;
+
+    // décimal
+    document.getElementById('latdecimal').value  = lat.toFixed(5);
+    document.getElementById('lontdecimal').value = lon.toFixed(5);
+
+    // Dash
+    document.getElementById('coordsdash').value = formatDash(lat, lon);
+
+    // PredictWind
+    document.getElementById('coordspredict').value = formatPredictwind(lat, lon);
+
+    // Dorado
+    document.getElementById('coordsdorado').value = formatDorado(lat, lon);
+}
+
+// --- listeners sur les 4 champs ---
+
+window.addEventListener('DOMContentLoaded', () => {
+    const dashInput    = document.getElementById('coordsdash');
+    const predictInput = document.getElementById('coordspredict');
+    const doradoInput  = document.getElementById('coordsdorado');
+    const latInput     = document.getElementById('latdecimal');
+    const lonInput     = document.getElementById('lontdecimal');
+
+    // 1) Modification champ Dash
+    dashInput.addEventListener('change', () => {
+        const res = parseDMSLike(dashInput.value);
+        if (!res) return;
+        const [lat, lon] = res;
+        updateAllFields(lat, lon);
+    });
+
+    // 2) Modification champ PredictWind
+    predictInput.addEventListener('change', () => {
+        const res = parseDMSLike(predictInput.value);
+        if (!res) return;
+        const [lat, lon] = res;
+        updateAllFields(lat, lon);
+    });
+
+    // 3) Modification champ Dorado
+    doradoInput.addEventListener('change', () => {
+        const res = parseDMSLike(doradoInput.value);
+        if (!res) return;
+        const [lat, lon] = res;
+        updateAllFields(lat, lon);
+    });
+
+    // 4) Modification des décimaux
+    function fromDecimalChanged() {
+        const lat = parseFloat(latInput.value.replace(',', '.'));
+        const lon = parseFloat(lonInput.value.replace(',', '.'));
+        if (isNaN(lat) || isNaN(lon)) return;
+        updateAllFields(lat, lon);
+    }
+
+    latInput.addEventListener('change', fromDecimalChanged);
+    lonInput.addEventListener('change', fromDecimalChanged);
+});
+
+
+window.addEventListener('DOMContentLoaded', () => {
+    // ... tous tes listeners ...
+
+    // === INITIALISATION ===
+    const latInit = lat;   // tu remplaces
+    const lonInit = lon;   // tu remplaces
+    updateAllFields(latInit, lonInit);
+});
+
+
+
+</script>
+
 
 
 

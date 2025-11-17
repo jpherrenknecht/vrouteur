@@ -3250,6 +3250,9 @@ def parametres():
     tws        = request.args.get('tws')
     twa        = request.args.get('twa')
     voile      = request.args.get('voile')
+    lat        = request.args.get('lat')
+    lon        = request.args.get('lon')
+
     
     updated,polar_id,polairesjsonstr=rechercheTablePolaires(polar_id)   
     polairesjson=json.loads(polairesjsonstr) 
@@ -3259,7 +3262,7 @@ def parametres():
     polairesjsonstr=json.dumps(polairesjson)
     print ('polairesjsonstr \n',polairesjsonstr)
  
-    return render_template('parametres.html',origine=origine,course=course,polairesjson=polairesjson,tws=tws,twa=twa,voile=voile)
+    return render_template('parametres.html',origine=origine,course=course,polairesjson=polairesjson,tws=tws,twa=twa,voile=voile,lat=lat,lon=lon )
 
 
 
