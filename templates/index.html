@@ -2473,10 +2473,13 @@
                 // recuperation des donnees de routage
                 let data = await response.json();
                 message = data.message
+                console.log (' message de retour '+message)
+                if (message!='Erreur')
+                {
                 tabroutage = data.arrayroutage2
                 //tabroutage2 = data.arrayroutage
                 dicoIsochrones = data.isochrones
-                t1routage = data.t0routage                    // temps initial du routage
+                t1routage      = data.t0routage                    // temps initial du routage
                 tabtempsroutage = tabroutage.map(row => row[1] + t1routage)
                 tc = tabtempsroutage
                 console.log('t0routage issu de calculeroutage ' + hmns.format((t0routage * 1000)))
@@ -2615,6 +2618,16 @@
                 console.log('mise a jour de memoiretrajet ')
                 console.log('Nouveau trajet enregistré  dans localstorage ')
                 console.log(trajet)
+
+
+            }
+            else {  alert ('Le routage n\'a pas abouti. \nVotre WP n\'est probablement pas accessible directement. ');
+            console.log ('Le routage n a pas abouti \n************************************************************\n')}
+
+
+
+
+
 
             }       //fin de calcul du routage
 

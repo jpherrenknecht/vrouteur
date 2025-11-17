@@ -3253,7 +3253,7 @@ def parametres():
     lat        = request.args.get('lat')
     lon        = request.args.get('lon')
 
-    
+
     updated,polar_id,polairesjsonstr=rechercheTablePolaires(polar_id)   
     polairesjson=json.loads(polairesjsonstr) 
     print('course',course)
@@ -4574,35 +4574,25 @@ def calculeroutage():
     print()
    
     tic=time.time()
-    waypoints,isoglobal,posStartVR,posStart,nptmini,exclusions,tabvmg10to,dico_isochrones=routageGlobal(course, user_id,isMe,ari,y0,x0,t0,tolerancehvmg,optionroutage)
-  
-    chemin    = reconstruire_chemin_rapide(isoglobal, nptmini)
-    routage   = cheminToRoutage(chemin,tabvmg10to)
-    arrayroutage = routage.cpu().tolist()
-
-    routage_np      = np.array(arrayroutage,dtype=np.float64)
-    routagelisse = lissage(course,routage_np,t0,posStartVR,posStart)  
-    tabtwa       = routagelisse[:,5]
-    twasmooth=smooth(tabtwa)                      #    c est du smooth torch 
-    twasmooth2=smooth(twasmooth)
-  
-    routagelisse[:,5]= twasmooth2                   # c 'est juste une substitution de facade, il faudrait recalculer le routage
-
-
-
-
-
-  
-    arrayroutage2=[arr.tolist() for arr in routagelisse]
+    try:
+        waypoints,isoglobal,posStartVR,posStart,nptmini,exclusions,tabvmg10to,dico_isochrones=routageGlobal(course, user_id,isMe,ari,y0,x0,t0,tolerancehvmg,optionroutage)  
+        chemin    = reconstruire_chemin_rapide(isoglobal, nptmini)
+        routage   = cheminToRoutage(chemin,tabvmg10to)
+        arrayroutage = routage.cpu().tolist()
+        routage_np      = np.array(arrayroutage,dtype=np.float64)
+        routagelisse = lissage(course,routage_np,t0,posStartVR,posStart)  
+        tabtwa       = routagelisse[:,5]
+        twasmooth=smooth(tabtwa)                      #    c est du smooth torch 
+        twasmooth2=smooth(twasmooth)  
+        routagelisse[:,5]= twasmooth2                   # c 'est juste une substitution de facade, il faudrait recalculer le routage  
+        arrayroutage2=[arr.tolist() for arr in routagelisse] 
+        dico={'message':'Routage OK','waypoints':waypoints,'arrayroutage':arrayroutage,'arrayroutage2':arrayroutage2,'isochrones':dico_isochrones,'t0routage':t0}
+    except:
+        waypoints,arrayroutage,arrayroutage2,dico_isochrones,t0=0,0,0,0,0  
+        dico={'message':'Erreur','waypoints':waypoints,'arrayroutage':arrayroutage,'arrayroutage2':arrayroutage2,'isochrones':dico_isochrones,'t0routage':t0}    
 
 
 
-
-    print ('posStartVR',posStartVR)
-    print()
-    print ('posStart',posStart)
-    
-    dico={'message':'Routage OK','waypoints':waypoints,'arrayroutage':arrayroutage,'arrayroutage2':arrayroutage2,'isochrones':dico_isochrones,'t0routage':t0}
     return dico
 
 
