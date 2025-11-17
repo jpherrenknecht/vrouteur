@@ -29,7 +29,7 @@
 
         //************************************************************************************************
         // 74    Gestion du websocket
-        // 110   Declaration des variables 
+        // 156   Declaration des variables 
         // 217   Windy init
         // 255   reception update websocket  
         // 675   Fonctions d affichage         
@@ -104,12 +104,6 @@
 
 
 
-
-
-
-
-
-
         socket.on("registered", (data) => {
             if (data.status === 'ok') {
                 console.log("Client enregistré en websocket avec l'id :", data.client_id);
@@ -151,6 +145,11 @@
             // setStatusIndicator(false)
         });
 
+
+
+
+
+        
 
         async function registerClientId(user_id) {
             console.log("Enregistrement du client sur websocket  avec user_id :", user_id);
@@ -229,14 +228,17 @@
         var dep;                          // valeur de depart
 
         var Source;
+
+        // Variables routage
         var t0routage;                    // heure de depart du routage 
         var t1routage = 0;                    // heure de depart du routage
-
         var tolerancehvmg = 0;
         var retardpeno = 0;
         var eta;
         var dureeroutage;
 
+
+        // Variables generales 
         var user_id;
         var usernameRoutage;
         var nbWP;
@@ -276,9 +278,9 @@
         let popupPara;
         let overlay = null; // Variable globale
         let boite = null; // Variable globale
-        var windiv = document.getElementById("windy")
-        const options = { key: 'ydO74Xuxv2WWOEShDpel1kaiae8zCnLO', verbose: true, lat: 46.1551, lon: -1.2297, zoom: 8 };             //Positionné sur La Rochelle par defaut 
 
+
+       
 
 
         //****************************************************************************************************
@@ -312,12 +314,13 @@
         var gpx3LayerGroup = new L.layerGroup();  // groupe dédié aux CSV
         var csvLayerGroup = new L.layerGroup();  // groupe dédié aux CSV
 
-
-
-
-
-
         let windyLayers = []; // stockage des couches Windy internes
+
+
+
+        var windiv = document.getElementById("windy")
+        const options = { key: 'ydO74Xuxv2WWOEShDpel1kaiae8zCnLO', verbose: true, lat: 46.1551, lon: -1.2297, zoom: 8 };             //Positionné sur La Rochelle par defaut 
+
 
 
         windyInit(options, windyAPI => {
@@ -332,19 +335,6 @@
                 maxZoom: 22,
                 attribution: '© OpenStreetMap'
             });
-
-
-            // Capturer les couches ajoutées par Windy (souvent L.GridLayer avec une propriété .options.data)
-            // map.eachLayer(layer => {
-            //     if (layer.options && layer.options.data) {
-            //         windyLayers.push(layer);
-            //     }
-            // });
-
-
-
-            //       map.addLayer(osmLayer);
-
 
 
             map.eachLayer(layer => {
@@ -364,13 +354,6 @@
                     };
                 }
             });
-
-
-
-
-
-
-
 
 
             map.on('zoomend', () => {
@@ -401,52 +384,6 @@
                     });
                 }
             });
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-            // map.on('zoomend', () => {
-            //     const currentZoom = map.getZoom();
-            //     console.log('currentZoom ', currentZoom);
-
-            //     if (currentZoom > 9) {
-            //         map.addLayer(osmLayer);
-            //     } 
-            //     else {
-            //         map.removeLayer(osmLayer);
-
-
-            //         };
-
-            // });
-
-
-
-
-
-
-
-
-
 
 
 
@@ -7140,7 +7077,7 @@ function recupereRoutes(personalInfosJS) {
 
 
             broadcast.on('redrawFinished', () => {
-                map.removeLayer(circlew) // on retire l ancie point        
+                map.removeLayer(circlew) // on retire l ancien point        
 
                 try {        //  ne fonctionne que s'il y a eu un routage
 
@@ -7197,7 +7134,7 @@ function recupereRoutes(personalInfosJS) {
 
 
 
-            async function mainelse() {
+  async function mainelse() {
 
                 console.log('routage d un autre bateau ')
 
@@ -7328,11 +7265,6 @@ function recupereRoutes(personalInfosJS) {
 
 
                 afficheBoatInfosElse(posStart)
-
-
-
-
-
             }
 
 
