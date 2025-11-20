@@ -2052,12 +2052,14 @@ function addBoatMarker(Layer, name, lat, lon, options = {}) {
 
  
 marker.bindPopup(`
+
   <div class="tooltip-bateau">
-    <b>${name}  -  ${position}</b><br>
+    <b>${name}  - ${intlhmn.format(t0)} <br>
+	${position}</b><br>
     HDG: ${heading.toFixed(2)} -- TWA: ${twa?.toFixed(2) ?? "-"} - Speed: ${speed?.toFixed(2) ?? "-"} nds<br>
     TWD: ${twd?.toFixed(2) ?? "-"} -- TWS: ${tws?.toFixed(2) ?? "-"} - Sail: ${sailtxt ?? "-"}<br>
   
-
+    
     <a href="javascript:void(0);" onclick="copyLatLonToClipboard(${lat}, ${lon})">   Coordonnées dans presse papier  </a><br>
 
 	<a href="javascript:void(0);" onclick="autreRoutage(

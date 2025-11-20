@@ -114,6 +114,7 @@ hostname = socket.gethostname()
 
 socketio = SocketIO(app, cors_allowed_origins="*",logger=True, engineio_logger=True)   # ou 'gevent'
 clients = {}                                            # dictionnaire gardant les clients en memoire 
+users   = {}
 
 @socketio.on('connect')
 def handle_connect():
@@ -372,7 +373,9 @@ def get_carte3 (lat, lon):
 
 
 
-
+def updateUsers(users, username, user_id):
+    users[user_id] = username
+    #print ('************************',users,'/n****************************************')
 
 
 # @socketio.on('connect')
@@ -870,7 +873,7 @@ def rechercheTableProgsvr(user_id, course):
             LIMIT 1
         """, (user_id, course))
         result = cursor.fetchone()
-        print("Résultat brut de la requête SQL :", result)
+        # print("Résultat brut de la requête SQL :", result)
         return (result[0], result[1]) if result else (None, None)
     finally:
         cursor.close()
@@ -946,6 +949,27 @@ def rechercheTablePolaires(polar_id):
     finally:
         cursor.close()
         pg_pool.putconn(conn)
+
+
+
+
+def findUsername(user_id):
+    conn = pg_pool.getconn()
+    try:
+        cursor = conn.cursor()
+        cursor.execute("""
+            SELECT username
+            FROM boatinfos
+            WHERE user_id = %s
+            ORDER BY timestamp DESC
+            LIMIT 1
+        """, (user_id,))
+        row = cursor.fetchone()
+        return row[0] if row else None
+    finally:
+        cursor.close()
+        pg_pool.putconn(conn)
+
 
 
 
@@ -1219,14 +1243,27 @@ def charger_donnees(course):
     except:
         tabicelimits=[]
 
-    print ('\n******************************************************************')
+    print ('\n********************************************************************************************')
     print ('Test sur polaires ')
     twa=55
     tws=12.1
     typeVoiles = ['jib', 'Spi', 'Staysail', 'LightJib', 'Code0', 'HeavyGnk', 'LightGnk']
     voile=typeVoiles[int(polairesglobales10[8,int(tws*10),int(twa*10)])]
     print ('pour                              twa= {} tws= {} voile {} vitessemax = {:6.3f} '.format(twa,tws,voile,polairesglobales10[7,int(tws*10),int(twa*10)]))
-    print (' resultats attendus pour Ocean 50 twa= 55 tws= 12.1 voile LightJib vitessemax = 11.956 ')
+    print ('\n********************************************************************************************')
+    print ('Resultats attendus pour Ocean 50     twa= 55 tws= 12.1 voile LightJib vitessemax = 11.956 ')
+    print ('Resultats attendus pour Imoca        twa= 55 tws= 12.1 voile LightJib vitessemax = 13.450 ')
+    print ('Resultats attendus pour Figaro3      twa= 55 tws= 12.1 voile LightJib vitessemax = 6.7101 ')
+    print ('Resultats attendus pour Ultim BP XI  twa= 55 tws= 12.1 voile Jib   vitessemax = 16.202 ')
+    print ('Resultats attendus pour Class40      twa= 55 tws= 12.1 voile Jib   vitessemax = 8.5368 ')
+    print ('Resultats attendus pour CruiserRacer twa= 55 tws= 12.1 voile Jib   vitessemax = 8.197 ')
+    print ('Resultats attendus pour Volvo65      twa= 55 tws= 12.1 voile Jib   vitessemax = 10.402')
+    print ('Resultats attendus pour Mini6.5      twa= 55 tws= 12.1 voile Jib   vitessemax = 6.1')
+    print ('Resultats attendus pour OffshoreRacertwa= 55 tws= 12.1 voile Jib   vitessemax = 6.734')
+    
+
+
+
     print ('******************************************************************\n')
 
     # polairesglobales10to = torch.from_numpy(polairesglobales10).to('cuda')
@@ -1309,13 +1346,10 @@ def rechercheDonneesCourseUser( user_id,course):
     result    = rechercheTableBoatInfos(user_id,course)  #recherche dans la table locale  
     
     boatinfos = json.loads(result) 
-    
     boatinfosbs=boatinfos['bs']
 
     typebateau          = boatinfosbs['boat']['name']
     user_id             = boatinfosbs['_id']['user_id']
-    print()
-    print('1199 user_id ',user_id )
     username            = boatinfosbs['displayName']
     racevr              = boatinfosbs['_id']['race_id']
     legvr               = boatinfosbs['_id']['leg_num']
@@ -1331,7 +1365,7 @@ def rechercheDonneesCourseUser( user_id,course):
     gateGroupCounters   = boatinfosbs['gateGroupCounters']
     legStartDate        = boatinfosbs['legStartDate']
     
-    print ('state',state)
+    # print ('state',state)
     
     if state=='waiting':
         # si le state est waiting on a seulement un heading et legstartdate     
@@ -1630,70 +1664,6 @@ def calculeisodepart2(posStart):
     return isodepart
     
 
-# def calculeIsoDepart(posStartVR,polairesglobales10to,carabateau,dt=60): 
-#         ''' Calcule l iso de depart a partir de la position vr '''
-
-#         state       = posStartVR['state']
-#         numisoini   = posStartVR['numisoini']
-#         npt         = posStartVR['npt']
-#         nptmere     = posStartVR['nptmere']
-#         nptini      = posStartVR['nptini']
-#         y0          = posStartVR['y0']
-#         x0          = posStartVR['x0']
-#         t0          = posStartVR['t0']
-#         voile       = posStartVR['voile']
-#         voileAuto   = posStartVR['voileAuto']
-#         tws         = posStartVR['tws']
-#         twd         = posStartVR['twd']
-#         twa         = posStartVR['twa']
-#         twaAuto     = posStartVR['twaAuto']
-#         cap         = posStartVR['heading']
-#         speed       = posStartVR['speed']
-#         stamina     = posStartVR['stamina']
-#         soldepeno   = posStartVR['penovr']        
-#         boost       = posStartVR['boost']      
-#         numisoini   = posStartVR['numisoini'] 
-
-#         isovr64       = torch.tensor ([[numisoini,npt,nptmere,y0,x0,voile,twa,stamina,soldepeno,tws,twd,cap,60,0,0,0,speed,0,boost,0]], dtype=torch.float64, device='cuda')
-#         isovr         = isovr64.to(torch.float32)
-       
-#         if state !='waiting': 
-#             if twaAuto==True:
-#                 option=1
-#                 valeur=twa
-#             else:
-#                 option=0
-#                 valeur=cap
-            
-#             positionvr   = torch.tensor([0,t0,dt,option,valeur,y0,x0,voile,twa,cap,speed,stamina,soldepeno,twd,tws,voileAuto,boost],dtype=torch.float64)
-#             pos064         = deplacement(positionvr,polairesglobales10to,carabateau)     
-#             pos0           = pos064.to(torch.float32)
-#             ydep         = pos0[5]
-#             xdep         = pos0[6]
-#             voiledep     = pos0[7]
-#             twadep       = pos0[8]
-#             staminadep   = pos0[11]        
-#             soldepenodep = pos0[12]        
-#             twsdep       = pos0[14]
-#             twddep       = pos0[13]
-#             capdep       = pos0[9]
-#             vitdep       = pos0[10]
-#             boostdep     = pos0[16]
-#             iso          = torch.tensor ([[numisoini,npt,nptmere,ydep,xdep,voiledep,twadep,staminadep,soldepenodep,twsdep,twddep,capdep,60,0,0,0,vitdep,0,boostdep,0]], dtype=torch.float32, device='cuda')  
-
-#         else:
-#             iso=isovr
-
-#         return isovr,iso    
-    
-
-
-###########  4  #################################################################################################################################
-
-
-
-
-
 
 
 def deplacement(dep,polairesglobales10to,carabateau):
@@ -1889,6 +1859,8 @@ def recherchepersonalinfos():
     username            = request.args.get('username')            # recupere les donnees correspondant a valeur dans le site html
     user_id             = request.args.get('user_id')
     course              = request.args.get('course')              # recupere les donnees correspondant a valeur dans le site html  
+
+
     
     infos=rechercheTablePersonalInfos (user_id,course)           # recupere directement un fichier texte    
     print()
@@ -2136,12 +2108,12 @@ def extraitprogrammations (boatInfos,user_id,course):
 
      #3) # on recupere les dernières valeurs de boatactions qui on tete stockees dans la base de donnees 
     timestamp,progstable           = rechercheTableProgsvr(user_id,course)                                  # progstablestr
-    print(progstable)
+    # print(progstable)
 
   
    
     
-        # print()
+    # print()
     # print ('dernier enregistrement boatAction',time.strftime(" %d %b %H:%M ",time.localtime(lastCalcDateBA)))
     # print ('progstablestr ', progstablestr)
     # print()
@@ -2159,7 +2131,7 @@ def extraitprogrammations (boatInfos,user_id,course):
     lastCalcDateBI = ts                                              # si on n est pas parti la premeire prog est au moment du depart
     
     try:    
-        twa         = boatInfos['bs']['twa']                       # c est la twa initiale, si on esty pas parti pas de twa 
+        twa         = boatInfos['bs']['twa']                       # c est la twa initiale, si on n'est pas parti pas de twa 
     except :
         twa = 45     #par defaut 
     try : 
@@ -2198,8 +2170,8 @@ def extraitprogrammations (boatInfos,user_id,course):
     ###################################################################################################
 
     # on va reaorganiser car il peut y avoir une contradiction entre les 2 
-    print  ('lastCalcDateBA',time.strftime(" %d %b %H:%M ",time.localtime(lastCalcDateBA)),lastCalcDateBA)
-    print  ('lastCalcDateBI',time.strftime(" %d %b %H:%M ",time.localtime(lastCalcDateBI)),lastCalcDateBI)
+    # print  ('lastCalcDateBA',time.strftime(" %d %b %H:%M ",time.localtime(lastCalcDateBA)),lastCalcDateBA)
+    # print  ('lastCalcDateBI',time.strftime(" %d %b %H:%M ",time.localtime(lastCalcDateBI)),lastCalcDateBI)
 
     
     if (lastCalcDateBA>lastCalcDateBI-60 or state=='waiting') :           # c estle boat action  et donc progstable qui s applique 
@@ -2207,16 +2179,15 @@ def extraitprogrammations (boatInfos,user_id,course):
         origine='Boatactions'
         
         if  "wps" in  progstable  :
-            print ('c\'est progtable issu de BoatActions qui s applique pour les wp')
-            
+            # print ('c\'est progtable issu de BoatActions qui s applique pour les wp')            
             origine ='Boatactions'
             progsBA=progstable['wps'] 
-            print ('progsBA',progsBA)
+            # print ('progsBA',progsBA)
             programmations=json.dumps({'wps': progsBA})  
 
         else:
-            print ('c\'est progtable issu de BoatActions qui s applique pour les progs et qui existe ') 
-            print ('progstable ',progstable)
+            # print ('c\'est progtable issu de BoatActions qui s applique pour les progs et qui existe ') 
+            # print ('progstable ',progstable)
             try:
                 progsBA=progstable['progs']
                 if progsBA[0][3]!=False:
@@ -2407,101 +2378,101 @@ class DeplacementEngine2:
    
 
 
-    def posplus(self, Position,dt,dt_it,option,valeur,dtig0):
+    # def posplus(self, Position,dt,dt_it,option,valeur,dtig0):
 
-        ''' dans cette hypothese de deplacement on ne connait que la position 
-            l intervalle de temps
-            l option 
-            le cap ou la twa suivant l option 
-            la stamina initiale 
-            le solde de penalite 
+    #     ''' dans cette hypothese de deplacement on ne connait que la position 
+    #         l intervalle de temps
+    #         l option 
+    #         le cap ou la twa suivant l option 
+    #         la stamina initiale 
+    #         le solde de penalite 
 
-        '''
-        Positionfin=np.copy(Position)
+    #     '''
+    #     Positionfin=np.copy(Position)
         
-        numero      = Position[0]
-        y0          = Position[2]
-        x0          = Position[3]
-        twa         = Position[5]   # c est la twa pour le deplacement que je veux faire apparaitre dans le tableau 
-        cap         = Position[6]
-        vitesse     = Position[9]
-        voile       = int(Position[10])
-        tws0         = Position[12]
-        twd         = Position[13]
-        stamina_ini = Position[14]
-        soldepeno   = max((Position[15]),0)
-        dt_ite      = dt_it    - 0.3 * min(soldepeno, dt)        #normalement dt 
+    #     numero      = Position[0]
+    #     y0          = Position[2]
+    #     x0          = Position[3]
+    #     twa         = Position[5]   # c est la twa pour le deplacement que je veux faire apparaitre dans le tableau 
+    #     cap         = Position[6]
+    #     vitesse     = Position[9]
+    #     voile       = int(Position[10])
+    #     tws0         = Position[12]
+    #     twd         = Position[13]
+    #     stamina_ini = Position[14]
+    #     soldepeno   = max((Position[15]),0)
+    #     dt_ite      = dt_it    - 0.3 * min(soldepeno, dt)        #normalement dt 
 
-        Positionfin[0]=Position[0]+1
-        Positionfin[1]=dt
+    #     Positionfin[0]=Position[0]+1
+    #     Positionfin[1]=dt
         
-        if option==0 : 
-            cap = valeur
-            twa1= ftwaos(cap,twd) 
-        if option==1 : 
-            twa1= valeur
-            cap= fcap(twa,twd) 
+    #     if option==0 : 
+    #         cap = valeur
+    #         twa1= ftwaos(cap,twd) 
+    #     if option==1 : 
+    #         twa1= valeur
+    #         cap= fcap(twa,twd) 
 
         
-        # print (' ite {} option {} cap {:4.2f} '.format(i,option ,cap))
+    #     # print (' ite {} option {} cap {:4.2f} '.format(i,option ,cap))
     
             
-        cap_rad = np.deg2rad(cap)
+    #     cap_rad = np.deg2rad(cap)
        
-        y0_rad  = np.deg2rad(y0) 
-        y1      = y0   + vitesse * dt_ite / 3600.0 / 60.0 * math.cos(cap_rad)
-        x1      = x0   + vitesse * dt_ite / 3600.0 / 60.0 * math.sin(cap_rad) / math.cos(y0_rad)
+    #     y0_rad  = np.deg2rad(y0) 
+    #     y1      = y0   + vitesse * dt_ite / 3600.0 / 60.0 * math.cos(cap_rad)
+    #     x1      = x0   + vitesse * dt_ite / 3600.0 / 60.0 * math.sin(cap_rad) / math.cos(y0_rad)
 
 
-        Positionfin[2] = y1
-        Positionfin[3] = x1
+    #     Positionfin[2] = y1
+    #     Positionfin[3] = x1
 
         
-        tws,twd =  prevision025dtig(GR, dtig0+dt , y1, x1)                        # Previsions au point de depart  
-        Positionfin[12]=tws
-        Positionfin[13]=twd
-        Positionfin[6]=fcap(twa1,twd) 
+    #     tws,twd =  prevision025dtig(GR, dtig0+dt , y1, x1)                        # Previsions au point de depart  
+    #     Positionfin[12]=tws
+    #     Positionfin[13]=twd
+    #     Positionfin[6]=fcap(twa1,twd) 
         
-      # on va faire le calcul de voile et de vitesse 
-        tws10 = round(tws*10)
-        twa10 = abs(round(twa1*10))
-        vitesseVoileIni       = polairesglobales10[voile, tws10, twa10]                                           # vitesse voileini[voileini,tws10,twa10
-        meilleureVitesse      = polairesglobales10[7    ,  tws10, twa10]                                          # vitesse meilleure voile[voileini,tws10,twa10
-        meilleureVoile        = polairesglobales10[8,  tws10, twa10]                                              # meilleure voile
-        Boost                 = meilleureVitesse/(vitesseVoileIni+0.0001)                                    # Boost 
+    #   # on va faire le calcul de voile et de vitesse 
+    #     tws10 = round(tws*10)
+    #     twa10 = abs(round(twa1*10))
+    #     vitesseVoileIni       = polairesglobales10[voile, tws10, twa10]                                           # vitesse voileini[voileini,tws10,twa10
+    #     meilleureVitesse      = polairesglobales10[7    ,  tws10, twa10]                                          # vitesse meilleure voile[voileini,tws10,twa10
+    #     meilleureVoile        = polairesglobales10[8,  tws10, twa10]                                              # meilleure voile
+    #     Boost                 = meilleureVitesse/(vitesseVoileIni+0.0001)                                    # Boost 
 
 
-        #  # # calcul des penalites
-        if Boost >1.014 :
-            Chgt=1
-            voilefinale=meilleureVoile
-        else:
-            Chgt=0
-            voilefinale=voile
-                                                                                                                  # on remplit la colonne chgt a la place de voiledef
-        Tgybe  = ((twa*twa1)<0)*1                                                                                 # on remplit la colonne 16 Tgybe a la place de boost  (signe de twam1*twa10
+    #     #  # # calcul des penalites
+    #     if Boost >1.014 :
+    #         Chgt=1
+    #         voilefinale=meilleureVoile
+    #     else:
+    #         Chgt=0
+    #         voilefinale=voile
+    #                                                                                                               # on remplit la colonne chgt a la place de voiledef
+    #     Tgybe  = ((twa*twa1)<0)*1                                                                                 # on remplit la colonne 16 Tgybe a la place de boost  (signe de twam1*twa10
 
-        Positionfin[5]=twa1                                                        # on ne peut pas ecrasere la twa tant que la twa anterieure n a pas ete utilisee 
+    #     Positionfin[5]=twa1                                                        # on ne peut pas ecrasere la twa tant que la twa anterieure n a pas ete utilisee 
        
         
                                                                                                                  
-        Cstamina        = 2 - 0.015 * stamina_ini                                                                       # coefficient de stamina en fonction de la staminaini
-        peno_chgt       = Chgt * spline(self.lw, self.hw, self.lwtimer, self.hwtimer, tws) * self.MF * Cstamina
-        peno_gybe       = Tgybe * spline(self.lw, self.hw, self.lwtimerGybe, self.hwtimerGybe, tws) * Cstamina
+    #     Cstamina        = 2 - 0.015 * stamina_ini                                                                       # coefficient de stamina en fonction de la staminaini
+    #     peno_chgt       = Chgt * spline(self.lw, self.hw, self.lwtimer, self.hwtimer, tws) * self.MF * Cstamina
+    #     peno_gybe       = Tgybe * spline(self.lw, self.hw, self.lwtimerGybe, self.hwtimerGybe, tws) * Cstamina
         
-        perte_stamina   = calc_perte_stamina_np(tws, Tgybe, Chgt, self.coeffboat)
-        recup           = frecupstamina(dt_it, tws)
-        # print ('dans recup stamina dt {} tws {} '.format(dt, tws))
-        stamina         = min((stamina_ini - perte_stamina + recup),100)
-        soldepeno       = max((soldepeno-dt),0)         # la trajectoire a ete calculee en debut d ite avec la peno complete maintenant on retire dt puis on rajoute les nouvelles penos 
-        soldepeno1      = max((soldepeno+peno_chgt+peno_gybe ),0)   
+    #     perte_stamina   = calc_perte_stamina_np(tws, Tgybe, Chgt, self.coeffboat)
+    #     recup           = frecupstamina(dt_it, tws)
+    #     # print ('dans recup stamina dt {} tws {} '.format(dt, tws))
+    #     stamina         = min((stamina_ini - perte_stamina + recup),100)
+    #     soldepeno       = max((soldepeno-dt),0)         # la trajectoire a ete calculee en debut d ite avec la peno complete maintenant on retire dt puis on rajoute les nouvelles penos 
+    #     soldepeno1      = max((soldepeno+peno_chgt+peno_gybe ),0)   
         
-        Positionfin[9]=meilleureVitesse
-        Positionfin[10]=voilefinale
-        Positionfin[14] =stamina
-        Positionfin[15] = soldepeno1
-        Positionfin[16] = dt_ite        
-        return   Positionfin    
+    #     Positionfin[9]=meilleureVitesse
+    #     Positionfin[10]=voilefinale
+    #     Positionfin[14] =stamina
+    #     Positionfin[15] = soldepeno1
+    #     Positionfin[16] = dt_ite        
+    #     return   Positionfin    
 
    
 
@@ -2512,30 +2483,33 @@ class DeplacementEngine2:
 
 @app.route('/rechercheprogsvr', methods=["GET", "POST"])
 def rechercheprogsvr():
-    print()
+    # print()
     
 
-    print ('On est dans rechercheprogsvr suite à la demande de rafraichissement generee par boataction ')
-    user_id    = request.args.get('user_id')                                 # recupere les donnees correspondant a valeur dans le site html
-    course     = request.args.get('course')                                 # recupere les donnees correspondant a valeur dans le site
+    # print ('On est dans rechercheprogsvr suite à la demande de rafraichissement generee par boataction ')
+    user_id    = request.args.get('user_id')                                 # recupere les donnees correspondant a valeur dans le site htmlstrf
+    course     = request.args.get('course')                                  # recupere les donnees correspondant a valeur dans le site
     t0routage      = int(float(request.args.get('t0routage')))
     isMe='yes'
     ari=['WP1']   # ne sert a rien dans le cas present mais est necessaire pour que ari soit defini
 
-    session         = RoutageSession(course, user_id,isMe,ari)
-
+    session         = RoutageSession(course, user_id,isMe,ari)        # permet de recuperer les polaires et autres 
 
     positionvr      = session.positionvr
     boatinfos       = session.boatinfos
     positionvr_np   = positionvr.detach().cpu().numpy()
-    
+    lastCalcDateBI= int(boatinfos['bs']['lastCalcDate']/1000)
     # print ('boatinfos dans rechercheprogsvr\n ',boatinfos)
 
-    date,origine,programmations = extraitprogrammations (boatinfos,user_id,course)
+    date,origine,programmations = extraitprogrammations (boatinfos,user_id,course)      # va chercher dans la table 
 
+    #  print  ('lastCalcDateBA',time.strftime(" %d %b %H:%M ",time.localtime(lastCalcDateBA)),lastCalcDateBA)
+    # print  ('lastCalcDateBI',time.strftime(" %d %b %H:%M ",time.localtime(lastCalcDateBI)),lastCalcDateBI)
+    
 
-    print ('\nProgrammations retenues date :{}  ,origine : {} ,programmations {}\n'.format(date,origine,programmations))
-    print('*******************************************************************************************************************************')
+    print('\n****************************************************************************************************************************************************************')
+    print ('Programmations retenues heure Boatinfos {} BAction  :{}  ,origine : {} ,programmations {}\n'.format(time.strftime(" %d %b %H:%M ",time.localtime(lastCalcDateBI)),time.strftime(" %d %b %H:%M ",time.localtime(date)),origine,programmations))
+    print('******************************************************************************************************************************************************************')
     Position_np =np.zeros((24*60,17),dtype=np.float64)   
     Position_np[0]=positionvr_np
     donneesCourse    = rechercheDonneesCourseCache(course)
@@ -2907,6 +2881,7 @@ def index3():
 
 @app.route('/api/ajaxmessage', methods=["POST"])
 def ajaxmessage():
+    global users
     # recupere les donnees du dashboard normalement ce sont des objets qu'il faut serialiser pour les sauver dans les bases
     # Sauve les donnees suivant leur nature dans les bases de donnees pour recuperation sur demande de index
     # a chaque fois que j ai un nouveau message les donnees des autres deviennent caduques
@@ -2945,7 +2920,10 @@ def ajaxmessage():
                 # verification de l enregistrement 
                 result= rechercheTableCoursesActives(username)  
                 print ('Pour username {} \ncourses Actives {}\n'.format(username, result ))
-
+                print ('  Reception de  username {} user_id {} '.format(username,user_id))
+                updateUsers(users, username, user_id)
+                print('users',users)
+    
 
 
                 
@@ -2978,6 +2956,10 @@ def ajaxmessage():
                     course      = str(race)+'.'+str(leg)
                     state       = message['bs']['state']
                     tini0       = message['bs']['lastCalcDate']/1000
+
+
+                    updateUsers(users, username, user_id)
+                    print('users',users)
                     # print ('\n boatinfos pour  {}  le  {} \n********************************************************\n {} \n'.format(username,time.strftime(" %d %b %Y %H:%M ",time.localtime(tini0)), message))
                     # print()    
                 except:
@@ -3018,12 +3000,13 @@ def ajaxmessage():
 
         if typeinfos=='boatActions':
                 # try:         # destine a couvrir si pas de prog dans boatActions
-                # try:
+               
                 boatActions = message['boatActions']
 
-                print ("Ligne 3070 message['boatActions']")
-                print ('boatactions ligne 2858 \n',boatActions)
-                print()     
+                #print ("Ligne 3024 message['boatActions']")
+                print (boatActions)
+                print()
+
                 try:           
                     user_id     = boatActions[0]['_id']['user_id']
                     race        = boatActions[0]['_id']['race_id']
@@ -3037,29 +3020,22 @@ def ajaxmessage():
                     if (any(item.get('_id', {}).get('action') == 'heading' for item in boatActions)) :
                         # print ('Programmation detectee dans boat action')
                         progs = [item for item in boatActions if item.get('_id', {}).get('action') == 'heading']                                       
-                        progsx= condenseprogs( progs)
-                        # print() 
-                        # print ('progsx\n',progsx)
-                        # print()
-
-                        # strprogsx=json.dumps({"progs":progsx})
-                        # print ('strprogsx  : ',strprogsx)
-                        # timestamp=int(time.time())
+                        progsx= condenseprogs( progs)                                                             # Ce ne sont que les elements de boataction et ca ne reprend pas l etat actuel
+                        print (progsx)                    
+                        
                         
                         timestamp = datetime.now(timezone.utc)
-                    # timestamp=int(time.time())
+                       # timestamp=int(time.time())
                         print ('heure d enregistrement',timestamp )    
                         progsx=json.dumps({"progs": progsx } ) 
-                        print (progsx)
+                       
                     
                         cursor.execute(""" INSERT INTO progsvr (user_id, course, timestamp, progsvr)  VALUES (%s, %s, %s, %s)""", (user_id, course, timestamp,json.dumps(progsx)))
                         conn.commit()
 
                         # #On va verifier que l enregistrement est bon 
                         timestamp,progstable  = rechercheTableProgsvr(user_id,course)
-
-                        print ('ligne 2375 progstable ', progstable)
-
+                        print ('ligne 3061 progstable ', progstable)
                         if progstable==progsx:
                             print ('\nl enregistrement des programmations est correct\n********************************************')
                         else:
@@ -3521,8 +3497,8 @@ class RoutageSession:                                                  # version
         self.n3=512
         self.isoglobal=torch.zeros((1000*self.n3,15), device='cuda', dtype=torch.float32)    # isoglobal est destiné a recevoir 850 isochrones avec leurs 512 points  
         
-        print ('course',course)
-        print ('user_id',user_id)        
+        # print ('course',course)
+        # print ('user_id',user_id)        
         
         self.course  = course
         self.user_id = user_id
@@ -3563,9 +3539,9 @@ class RoutageSession:                                                  # version
             self.retardpeno=0
 
 
-        print()
-        print ('Ligne 3567 retardpeno',retardpeno )
-        print()
+        # print()
+        # print ('Ligne 3567 retardpeno',retardpeno )
+        # print()
         
         # print()
         # print ('selfexclusionsVR',self.exclusionsVR) 
@@ -3593,9 +3569,7 @@ class RoutageSession:                                                  # version
         # except:
         #     self.segments=[]
         # self.isodepart                    = calculeIsoDepart(self.posStartVR,self.polairesglobales10to,self.carabateau) # tient compte du state waiting si necessaire
-        self.t0vr                             = self.posStartVR['t0']
-     
-        
+        self.t0vr                           = self.posStartVR['t0']
         self.t0                             = self.posStart['t0']
 
 
@@ -3636,15 +3610,15 @@ class RoutageSession:                                                  # version
 
 
 
-        print ( '\n Dans initialiseroutagepartiel y0 = ', posStartPartiel['y0'])
-        print ( '\n Dans initialiseroutagepartiel x0 = ', posStartPartiel['x0'])
-        print ('*************************************************************')
+        # print ( '\n Dans initialiseroutagepartiel y0 = ', posStartPartiel['y0'])
+        # print ( '\n Dans initialiseroutagepartiel x0 = ', posStartPartiel['x0'])
+        # print ('*************************************************************')
         
         try :
             t0       = posStartPartiel['t0']
-            print()
-            print ('Heure de depart du routage partiel t0 =',time.strftime(" %d %b %H:%M %S",time.localtime(t0)))
-            print()
+            # print()
+            # print ('Heure de depart du routage partiel t0 =',time.strftime(" %d %b %H:%M %S",time.localtime(t0)))
+            # print()
             
         except:    
             ecart       = posStartPartiel['ecart']
@@ -3679,8 +3653,8 @@ class RoutageSession:                                                  # version
             iso          = self.isodepart 
             seuils = [[144, 300],[108,600], [672, 1800], [240, 3600]]       # 14h a 5 mn = 120 --  18h a 10 mn =108 -- 14 jours a 30mn =24*2*14=672
             tabdt = construire_dt(seuils, taille=1000)
-            print('shape isoglobal ',isoglobal.shape) 
-            print('shape iso ',iso.shape) 
+            # print('shape isoglobal ',isoglobal.shape) 
+            # print('shape iso ',iso.shape) 
             isoglobal[0] = iso[0,0:15]                  # il est necessaire de remplir le premier terme de isoglobal
            
     
@@ -4318,13 +4292,13 @@ def routageGlobal(course,user_id,isMe,ari,y0,x0,t0,tolerancehvmg,optionroutage):
     posStartVR      = session.posStartVR
     posStart        = session.posStart
 
-    print ('\n Demande de routage global ')
-    print ('course',course)
-    print ('ari',ari)
-    print ('Option routage ',optionroutage)
-    print ('\nposStartVR\n',posStartVR)
-    print ('\nposStart  \n',posStart)
-    print()
+    # print ('\n Demande de routage global ')
+    # print ('course',course)
+    # print ('ari',ari)
+    # print ('Option routage ',optionroutage)
+    # print ('\nposStartVR\n',posStartVR)
+    # print ('\nposStart  \n',posStart)
+    # print()
 
     
 
@@ -4337,7 +4311,7 @@ def routageGlobal(course,user_id,isMe,ari,y0,x0,t0,tolerancehvmg,optionroutage):
 
     if optionroutage==1:
 
-        print ('On est dans l option de routage option1 avant modif posStartVR',posStart)
+        # print ('On est dans l option de routage option1 avant modif posStartVR',posStart)
         posStart['t0']= t0               # transformation de t0 en tenseur    
         posStart['y0']= y0               # transformation de t0 en tenseur
         posStart['x0']= x0
@@ -4345,7 +4319,7 @@ def routageGlobal(course,user_id,isMe,ari,y0,x0,t0,tolerancehvmg,optionroutage):
         iso[0,3]=y0
         iso[0,4]=x0
 
-        print ('\n On est dans l option de routage option1 posStartVR apresmodif ',posStart)
+        # print ('\n On est dans l option de routage option1 posStartVR apresmodif ',posStart)
 
    
     if optionroutage==2:
@@ -4365,7 +4339,7 @@ def routageGlobal(course,user_id,isMe,ari,y0,x0,t0,tolerancehvmg,optionroutage):
         iso[0,3]=y0
         iso[0,4]=x0
 
-        print ('\n On est dans l option de routage option1 posStartVR apresmodif ',posStart)
+        # print ('\n On est dans l option de routage option1 posStartVR apresmodif ',posStart)
 
 
 
@@ -4387,7 +4361,7 @@ def routageGlobal(course,user_id,isMe,ari,y0,x0,t0,tolerancehvmg,optionroutage):
         else:
             posStart=posEnd
 
-        print ('\n On est dans l option de routage option1 posStart avant initialise ',posStart)
+        #print ('\n On est dans l option de routage option1 posStart avant initialise ',posStart)
         paramRoutage,iso = session.initialiseRoutagePartiel(posStart,ari,indiceroutage)  # print ('Premier iso',iso)
 
         impression_tensor15 (iso,titre='\niso de depart correspondant à PositionVR decalee')
@@ -4410,24 +4384,7 @@ def routageGlobal(course,user_id,isMe,ari,y0,x0,t0,tolerancehvmg,optionroutage):
                 
             # try: 
             iso, tmini, distmini, nptmini = session.isoplusun(iso, tmini,paramRoutage)
-                #print ('distmini ',distmini)
-                
-            # except: 
-            #     message='la destination n a pu etre atteinte' 
-            #     print (message)    
-
-                # print ('iso {} tmini {} distmini {} \n iso.shape \n{}'.format(i,tmini,distmini,iso.shape)) 
-            # except:
-            #     # on va chercher le n de point mini dans le dernier iso  comme dans isopluun
-            #     distmini, idx_min = torch.min(iso[:, 9], dim=0)                # idx_min est l’indice de la ligne où la distance est minimale   
-            #     vitesse = iso[idx_min, 16]                                     # Vitesse en nœuds (milles nautiques par heure) au point de distance mini
-            #     tmini   = ((distmini * 3600) / (vitesse * 1.852)).item()       # la distance est en km avec ma fonction dist et vitesse en noeuds pour les polaires 
-            #     nptmini = int(iso[idx_min, 1].item())    
-          
-
-
-
-
+      
              
         # Dernière itération pour rentrer dans le cercle 
         try:
@@ -4474,7 +4431,10 @@ def routageGlobal(course,user_id,isMe,ari,y0,x0,t0,tolerancehvmg,optionroutage):
    
     dernieriso=pointfinal[0]
     tempsexe =time.time()-tic
-    print ('\nRoutage effectué {} isochrones temps {} soit {} pariso  \n'.format(dernieriso ,tempsexe,tempsexe/dernieriso) )  # Ajouter iso à session.isoglobal
+    print('_________________________________________________________________________________________________________________________________________________________________________________________\
+          \nRoutage effectué {} isochrones temps de calcul {:4.2f}s  soit {:4.3f}s par Iso  \
+          \n_________________________________________________________________________________________________________________________________________________________________________________________\
+           '.format(dernieriso ,tempsexe,tempsexe/dernieriso) )  # Ajouter iso à session.isoglobal
        
 
     return waypoints,session.isoglobal,session.posStartVR,session.posStart,nptmini,session.exclusionsVR,session.tabvmg10to,dico_isochrones
@@ -4552,7 +4512,7 @@ def smoothTo(t):
 # c 'est celui qui est utilise par index nouveau modèle
 def calculeroutage():
     print('\nDemande de routage sur url routageajax3\n*************************************')
-   
+    
 
     # username            = request.args.get('username')          # recupere les donnees correspondant a valeur dans le site html
     course              = request.args.get('course')              # recupere les donnees correspondant a valeur dans le site html
@@ -4567,81 +4527,47 @@ def calculeroutage():
     optionroutage       = float(request.args.get('optionroutage'))
     ari                 = json.loads(aristr)
 
-
-  
+   
+    username            = findUsername(user_id)
+    #username            =  users[user_id]
     print ('course                                  ',course)
+    print ('username                                ',username)
     print ('user_id                                 ',user_id)
     print ('isMe                                    ',isMe)
     print ('ari                                     ',ari)
     print ('y0 routage                              ',y0)
     print ('x0 routage                              ',x0)
-    print ('t0vr                                      {} (soit) {}      '.format(t0,time.strftime(" %d %b %H:%M ",time.localtime(t0))))
-    print('tolerancehvmg                            ',tolerancehvmg  )
-    print('retardpeno                               ',retardpeno  )
+    print ('t0vr                                    ',t0,time.strftime(" %d %b %H:%M ",time.localtime(t0)))
+    print ('tolerancehvmg                           ',tolerancehvmg  )
+    print ('retardpeno                              ',retardpeno  )
     print ('optionroutage                           ',optionroutage)                           # si option 0 c'est le routage depuis la position vr  si 1 position y0,x0, heure t0 si 2 position y0,x0, heure depart
     print()
    
+  
+
     tic=time.time()
-    # try:
-    waypoints,isoglobal,posStartVR,posStart,nptmini,exclusions,tabvmg10to,dico_isochrones=routageGlobal(course, user_id,isMe,ari,y0,x0,t0,tolerancehvmg,optionroutage)  
-    chemin            = reconstruire_chemin_rapide(isoglobal, nptmini)
-    routage           = cheminToRoutage(chemin,tabvmg10to)
-    arrayroutage      = routage.cpu().tolist()
-    routage_np        = np.array(arrayroutage,dtype=np.float64)
-    routagelisse      = lissage(course,routage_np,t0,posStartVR,posStart)  
-    tabtwa            = routagelisse[:,5]
-    twasmooth         = smooth(tabtwa)                      #    c est du smooth torch 
-    twasmooth2        = smooth(twasmooth)  
-    routagelisse[:,5] = twasmooth2                   # c 'est juste une substitution de facade, il faudrait recalculer le routage  
-    arrayroutage2     = [arr.tolist() for arr in routagelisse] 
-    dico              = {'message':'Routage OK','waypoints':waypoints,'arrayroutage':arrayroutage,'arrayroutage2':arrayroutage2,'isochrones':dico_isochrones,'t0routage':t0}
-    # except:
-    #     waypoints,arrayroutage,arrayroutage2,dico_isochrones,t0=0,0,0,0,0  
-    #     dico={'message':'Erreur','waypoints':waypoints,'arrayroutage':arrayroutage,'arrayroutage2':arrayroutage2,'isochrones':dico_isochrones,'t0routage':t0}    
+    #print ('routage  pour {}'.format( username))
+    try:
+        waypoints,isoglobal,posStartVR,posStart,nptmini,exclusions,tabvmg10to,dico_isochrones=routageGlobal(course, user_id,isMe,ari,y0,x0,t0,tolerancehvmg,optionroutage)  
+        chemin            = reconstruire_chemin_rapide(isoglobal, nptmini)
+        routage           = cheminToRoutage(chemin,tabvmg10to)
+        arrayroutage      = routage.cpu().tolist()
+        routage_np        = np.array(arrayroutage,dtype=np.float64)
+        routagelisse      = lissage(course,routage_np,t0,posStartVR,posStart)  
+        tabtwa            = routagelisse[:,5]
+        twasmooth         = smooth(tabtwa)                      #    c est du smooth torch 
+        twasmooth2        = smooth(twasmooth)  
+        routagelisse[:,5] = twasmooth2                   # c 'est juste une substitution de facade, il faudrait recalculer le routage  
+        arrayroutage2     = [arr.tolist() for arr in routagelisse] 
+        dico              = {'message':'Routage OK','waypoints':waypoints,'arrayroutage':arrayroutage,'arrayroutage2':arrayroutage2,'isochrones':dico_isochrones,'t0routage':t0}
+    
+    except:
+        waypoints,arrayroutage,arrayroutage2,dico_isochrones,t0=0,0,0,0,0  
+        dico={'message':'Erreur','waypoints':waypoints,'arrayroutage':arrayroutage,'arrayroutage2':arrayroutage2,'isochrones':dico_isochrones,'t0routage':t0}    
 
 
 
     return dico
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-# @app.route('/chargecarte2', methods=["GET", "POST"])
-# def chargecarte2():
-#     print('on est dans chargecarte2')
-
-#     # on va recuperer la pos 
-#     lat      = float(request.args.get('lat'))  
-#     lon      = float(request.args.get('lon')) 
-#     pos=(lat,lon) 
-
-#     tic=time.time()
-#     # cartevr=fcarte(pos,3,4)                                     #ecart en latitude et en longitude 
-#     cartevr= get_carte(lat,lon)
-#     print ('temps de chargement de la carte ',time.time()-tic)
-#     print ('cartevr transsformer les valeurs en torch ')
-#     # polairesglobales10to = torch.from_numpy(polairesglobales10).to('cuda')
-#     # tabvmg10to   chargee ')
-   
-#     # print ('ligne 2944 cartevr \n ',cartevr)
-#     response=make_response(jsonify({'message':'Cartes envoyees par Serveur','carte':cartevr}))
-
-#     print()
-#     print(' taille carte',sys.getsizeof(cartevr))
-#     print()
-#     response.headers.add('Access-Control-Allow-Origin', '*')  # Autorise toutes les origines
-#     return response
 
 
 
