@@ -3232,11 +3232,12 @@ def parametres():
 
     updated,polar_id,polairesjsonstr=rechercheTablePolaires(polar_id)   
     polairesjson=json.loads(polairesjsonstr) 
-    print('course',course)
-    print('polar_id',polar_id)
-    print('polairesjson',polairesjson)
+    # print('course',course)
+    # print('polar_id',polar_id)
+    # print('polairesjson',polairesjson)
     polairesjsonstr=json.dumps(polairesjson)
-    print ('polairesjsonstr \n',polairesjsonstr)
+    # print ('polairesjsonstr \n',polairesjsonstr)
+    # ce serait bien de ne pas rechercher les polaires a chaque fois qu 'il y a ue modif sur parametres 
  
     return render_template('parametres.html',origine=origine,course=course,polairesjson=polairesjson,tws=tws,twa=twa,voile=voile,lat=lat,lon=lon )
 
@@ -4616,7 +4617,8 @@ def calculepolaires():
     tws      = float(request.args.get('tws'))
     twaini      = float(request.args.get('twa'))
     polar_id = int(request.args.get('polar_id'))
-    print ('ligne 3932 twa',twaini)
+    print()
+    #print ('ligne 3932 twa',twaini)
 
      # on charge le tableau des polaires 
 
@@ -4653,7 +4655,7 @@ def calculepolaires():
     pena2      = float(request.args.get('pena2'))
 
 
-    print('tws10 {} stam10 {} man10 {} tws20 {} temps20 {} ali20 {} tws21 {} man20 {} tws30 {} temps30 {} ali30 {} tws31 {} man30 {}'\
+    print('Parametres transmis tws10 {} stam10 {} man10 {} tws20 {} temps20 {} ali20 {} tws21 {} man20 {} tws30 {} temps30 {} ali30 {} tws31 {} man30 {}'\
           .format(tws10, stam10 ,man10, tws20, temps20 ,ali20 ,tws21 ,man20 ,tws30, temps30 ,ali30, tws31, man30) )
     staminaini=stam10
     Tws1010=round(tws10*10)
@@ -4715,30 +4717,27 @@ def calculepolaires():
     
 
     if man30=='Voile' :
-        print('cas1')
+        print('Chgt Voile')
         Chgt3=1
         twam13,twa3=90,90
         
     elif man30=='Gybe':
-        print('cas2')
+        print('Gybe')
         Chgt3=0
         twam13,twa3=-120,+120
     
     elif man30=='Tack':
-        print('cas3')
+        print('Tack')
         Chgt3=0
         twam13,twa3=-60,+60
 
     elif man20=='Combo':
-        print('cas4')
+        print('Combo')
         Chgt3=1
         twam13,twa3=-60,+60
 
     else :    
         print('cas probleme')
-
-
-  
 
     print ('Chgt ',Chgt)
 
@@ -4765,17 +4764,7 @@ def calculepolaires():
     stam20+=recup20
     stam20=min(max,stam20)
 
-    print ('ali20',ali20 )
-    print()
-
-
-    print ('stam11                 {}'.format(stam11))
-    print ('penalite               {}'.format(peno11))
-    print ('speed                  {:6.2f}'.format(speed))
-    print ('distance perdue        {:6.2f}'.format(dist11))
-    print ('recuperation de points {}'.format(recup20))
-    print ('stam20                 {}'.format(stam20))
-    print()
+  
 
 
     # on calcule la penalite de la 2eme manoeuvre
@@ -4800,14 +4789,7 @@ def calculepolaires():
     stam30=min(max,stam30)
 
 
-    print ('stam21   {}'.format(stam21))
-    print ('penalite2 {}'.format(peno21))
-    print ('speed2    {}'.format(speed2))
-    print('distance perdue ',dist21)
-    print('cumul distance perdue ',cumul21)
-    print('recuperation de points ',recup30)
-    print('stam30                 ',stam30)
-
+  
 
  # on calcule la penalite de la 3eme manoeuvre
     stam31,peno31=calculpenalitesnump(Tws1031, Chgt3, twam13, twa3, stam30, carabateau)
@@ -4817,13 +4799,34 @@ def calculepolaires():
    
     dist31=float((speed3*peno31/3600)*.3)
     cumul31=cumul21+dist31
-    print ('stam31   {}'.format(stam31))
-    print ('penalite3 {}'.format(peno31))
-
-    print ('speed3    {}'.format(speed3))
-    print('distance perdue ',dist31)
-    print('cumul distance perdue ',cumul31)
-
+    
+    print ('ali20:                ',ali20 )
+    print ('stam11                 {:6.2f}'.format(stam11))
+    print ('penalite               {:6.2f}'.format(peno11))
+    print ('speed                  {:6.2f}'.format(speed))
+    print ('distance perdue        {:6.2f}'.format(dist11))
+    print ('recuperation de points {:6.2f}'.format(recup20))
+    print ('stam20                 {:6.2f}'.format(stam20))
+    print ('stam21                 {:6.2f}'.format(stam21))
+    print ('penalite2              {:6.2f}'.format(peno21))
+    print ('speed2                 {:6.2f}'.format(speed2))
+    print ('distance perdue        {:6.2f}'.format(dist21))
+    print ('cumul distance perdue  {:6.2f}'.format(cumul21))
+    print ('recuperation de points {:6.2f}'.format(recup30))
+    print ('stam30                 {:6.2f}'.format(stam30))
+    print ('stam21                 {:6.2f}'.format(stam21))
+    print ('penalite2              {:6.2f}'.format(peno21))
+    print ('speed2                 {:6.2f}'.format(speed2))
+    print ('distance perdue        {:6.2f}'.format(dist21))
+    print ('cumul distance perdue  {:6.2f}'.format(cumul21))
+    print ('recuperation de points {:6.2f}'.format(recup30))
+    print ('stam30                 {:6.2f}'.format(stam30))
+    print ('stam31                 {:6.2f}'.format(stam31))
+    print ('penalite3              {:6.2f}'.format(peno31))
+    print ('speed3                 {:6.2f}'.format(speed3))
+    print ('distance perdue        {:6.2f}'.format(dist31))
+    print ('cumul distance perdue  {:6.2f}'.format(cumul31))
+    print ()
 
 
 # on calcule l amortissement en temps pour changement de voile    
@@ -4841,10 +4844,10 @@ def calculepolaires():
     twa10 = abs(round(twaini*10))
     # on extrait le tableau des vmg pour la tws et le calcul des voiles pour la twa 
     
-    print ()
-    print ('twa',twaini)
-    print ('twa10',twa10)
-    print('************************************')
+    # print ()
+    # print ('twa',twaini)
+    # print ('twa10',twa10)
+    # print('************************************')
     
     vmgpourjs= tabvmg10[tws10,:]
     polairespourjs=polairesglobales10[:,tws10,twa10]  
@@ -4852,8 +4855,8 @@ def calculepolaires():
     tabrecouvrements=[]
     vmgpourjs     =  [arr.tolist() for arr in vmgpourjs]
     polairespourjs=  [arr.tolist() for arr in polairespourjs]
-    print('vmgpourjs',vmgpourjs)
-    print('polairespourjs',polairespourjs)
+    # print('vmgpourjs',vmgpourjs)
+    # print('polairespourjs',polairespourjs)
 
    
     response=make_response(jsonify({"message":"Tout va bien","polairespourjs":polairespourjs,"vmgpourjs":vmgpourjs  ,
@@ -4881,7 +4884,7 @@ def cherchecarabateau(polar_id):
     updated,polar_id,polairesjsonstr=rechercheTablePolaires(polar_id)    # nouvelle version
     polairesjson=json.loads(polairesjsonstr) 
     polairesjson=json.loads(polairesjson) 
-    print(' en 3753', polairesjson)
+    #print(' en 3753', polairesjson)
                       
     nbvoiles       = len(polairesjson['sail'])
     print('nbvoiles',nbvoiles)
