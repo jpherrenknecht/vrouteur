@@ -596,13 +596,13 @@ def gribFileName(basedir):
     dateveille_formatcourt=time.strftime("%Y%m%d", time.gmtime(temps_secondes-86400))
     mn_jour_utc =date_tuple[3]*60+date_tuple[4]
    
-    if (mn_jour_utc <3*60+45):                          #avant 3h 48 UTC le nom de fichier est 18 h de la veille 
+    if (mn_jour_utc <3*60+43):                          #avant 3h 48 UTC le nom de fichier est 18 h de la veille 
         filename=basedir+"gfs_"+dateveille_formatcourt+"-18.npy"
-    elif (mn_jour_utc<9*60+45):   
+    elif (mn_jour_utc<9*60+43):   
         filename=basedir+"gfs_"+date_formatcourt+"-00.npy"
-    elif (mn_jour_utc<15*60+45): 
+    elif (mn_jour_utc<15*60+43): 
         filename=basedir+"gfs_"+date_formatcourt+"-06.npy"
-    elif (mn_jour_utc<21*60+45):   
+    elif (mn_jour_utc<21*60+43):   
         filename=basedir+"gfs_"+date_formatcourt+"-12.npy"
     else:                                              # entre 21h 48UTC  et minuit    
         filename=basedir+"gfs_"+date_formatcourt+"-18.npy" 

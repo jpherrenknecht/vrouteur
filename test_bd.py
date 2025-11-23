@@ -5,6 +5,9 @@ from datetime import datetime
 import json
 
 
+#from fonctions2024 import *
+from fonctions2025 import *
+
 
 pg_pool = pool.SimpleConnectionPool(
                                         1, 10,  # minconn, maxconn
@@ -776,11 +779,11 @@ def rechercheTablePolaires(polar_id):
         cursor.close()
         pg_pool.putconn(conn)
 
-polar_id=3
-res= rechercheTablePolaires(polar_id)
+# polar_id=3
+# res= rechercheTablePolaires(polar_id)
 
-print()
-print (res)
+# print()
+# print (res)
   
 
 
@@ -801,3 +804,27 @@ def rechercheTablePersonalInfos(user_id, course):
     finally:
         cursor.close()
         pg_pool.putconn(conn)
+
+
+#***********************************************************************************************************
+#   Extraction des derniers routages effectués
+#***********************************************************************************************************
+
+
+
+def get_last_50(conn):
+    sql = """
+        SELECT *
+        FROM historoutages
+        ORDER BY timestamp ASC
+        LIMIT 50
+    """
+    with conn.cursor() as cur:
+        cur.execute(sql)
+        return cur.fetchall()
+    
+
+
+print()
+rows=get_last_50(conn)
+print_results_pretty(rows)

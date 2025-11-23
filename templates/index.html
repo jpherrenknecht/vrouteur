@@ -255,7 +255,6 @@
 
         var unixTimestamp;      // valeur du temps unix  
         var ecartTemps;            // Ecart entre la mise a jour et le temps actuel pour message sur position>10mn
-        var eta;
         var dureeparcours;
 
         // valeurs extraites des tables 
@@ -946,7 +945,7 @@
 
 
 
-            async function afficheboatinfos(boatinfosdata)  // affiche les particularites de la course
+    async function afficheboatinfos(boatinfosdata)  // affiche les particularites de la course
             {
                 //console.log(' on est dans afficheboatinfos ')
                 boatinfos = boatinfosdata.result
@@ -1195,9 +1194,11 @@
 
                 //console.log ('ligne 3599 '+y0vr+'  '+x0vr+ '  '+t0+' '+twsvr+'  '+twavr+' '+polar_id)
                 resvoiles = await cherchevoiles(y0vr, x0vr, t0, twsvr, twavr, polar_id)
-                //deltat= nowUnix-LastCalcDate/1000
-                //console.log ('ecartTemps   '+ecartTemps ) 
-                //verifierDeltat(ecartTemps) 
+                
+                let nowUnix = Math.floor(Date.now()); // Timestamp Unix en M secondes  
+                ecarttemps= nowUnix/1000-t0
+                console.log ('ecartTemps   '+ecartTemps+'s' ) 
+                verifierDeltat(ecartTemps)                                             // ca sa marche si je recois des boatinfos 
 
 
             }

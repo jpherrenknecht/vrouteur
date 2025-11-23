@@ -1357,8 +1357,9 @@ def fcarte3(lat,lon):
 
     lat0=int(10*(lat//10) +10)
     lon0=int(10*(lon//10))
-    print (lat0,lon0)
+    # print (lat0,lon0)
     filename='maps2/carteoffset_'+str(lat0)+'_'+str(lon0)+'.npy'
+    print('**********************************************')
     print ('filename ',filename)
 
 
@@ -1965,3 +1966,30 @@ def segment_coupe_carte(carte_np, y1, x1, y2, x2):
     return np.any(segments_intersect(p1, p2, q1s, q2s))
 
 
+
+def format_time(ts):
+    # conversion depuis timestamp Unix
+    return time.strftime(" %d %b %H:%M ",time.localtime(ts))
+ 
+
+
+
+def print_results_pretty(rows):                             
+    '''pour impression de la liste des routages effectués '''
+
+    print ('Routages effectués')
+    for row in rows:
+        id_, ts, user, user_id, status, hd, lat, lon, eta = row
+        
+        print(
+            f"{id_:3} | "
+            f"{format_time(ts):12} | "
+            f"{user:10} | "
+            f"{user_id:8} | "
+            f"{status:6} | "
+            f"{format_time(hd):12} | "
+            f"{lat:8.4f} | "
+            f"{lon:9.4f} | "
+            f"ETA {format_time(eta):12}"
+        )
+    return None    
