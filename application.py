@@ -1268,7 +1268,7 @@ def charger_donnees(course):
         # print ('tabexclusions l 1203 ************\n',tabexclusions)        
   
     except:   
-         print ('on est dans le except de leginfos  our les exclusions\n**********************************************************')
+         print ('on est dans le except de leginfos  (Pas d\'exclusions\n**********************************************************')
          tabexclusions={}       
     # print(result)
 
@@ -1283,29 +1283,28 @@ def charger_donnees(course):
     except:
         tabicelimits=[]
 
-    print ('\n********************************************************************************************')
-   
-    print ('Test sur polaires pour ',label)
     twa=55
     tws=12.1
     typeVoiles = ['jib', 'Spi', 'Staysail', 'LightJib', 'Code0', 'HeavyGnk', 'LightGnk']
     voile=typeVoiles[int(polairesglobales10[8,int(tws*10),int(twa*10)])]
-    print ('pour                              twa= {} tws= {} voile {} vitessemax = {:6.3f} '.format(twa,tws,voile,polairesglobales10[7,int(tws*10),int(twa*10)]))
+
+
+    print ('\n********************************************************************************************')   
+    print ('Test sur polaires pour ',label)  
+    print ('pour                                        twa= {} tws= {} voile {} vitessemax = {:6.3f} '.format(twa,tws,voile,polairesglobales10[7,int(tws*10),int(twa*10)]))
     print ('\n********************************************************************************************')
-    print ('Resultats attendus pour Ocean 50     twa= 55 tws= 12.1 voile LightJib vitessemax = 11.956 ')
-    print ('Resultats attendus pour Imoca        twa= 55 tws= 12.1 voile LightJib vitessemax = 13.450 ')
-    print ('Resultats attendus pour Figaro3      twa= 55 tws= 12.1 voile LightJib vitessemax = 6.7101 ')
-    print ('Resultats attendus pour Ultim BP XI  twa= 55 tws= 12.1 voile Jib   vitessemax = 16.202 ')
-    print ('Resultats attendus pour Class40      twa= 55 tws= 12.1 voile Jib   vitessemax = 8.5368 ')
-    print ('Resultats attendus pour CruiserRacer twa= 55 tws= 12.1 voile Jib   vitessemax = 8.197 ')
-    print ('Resultats attendus pour Volvo65      twa= 55 tws= 12.1 voile Jib   vitessemax = 10.402')
-    print ('Resultats attendus pour Mini6.5      twa= 55 tws= 12.1 voile Jib   vitessemax = 6.1')
-    print ('Resultats attendus pour OffshoreRacertwa= 55 tws= 12.1 voile Jib   vitessemax = 6.734')
-    
-
-
-
+    print ('Resultats attendus pour Ocean 50            twa= 55 tws= 12.1 voile LightJib vitessemax = 11.956 ')
+    print ('Resultats attendus pour Imoca               twa= 55 tws= 12.1 voile LightJib vitessemax = 13.450 ')
+    print ('Resultats attendus pour Figaro3             twa= 55 tws= 12.1 voile LightJib vitessemax = 6.7101 ')
+    print ('Resultats attendus pour Ultim BP XI         twa= 55 tws= 12.1 voile Jib      vitessemax = 16.202 ')
+    print ('Resultats attendus pour Class40             twa= 55 tws= 12.1 voile Jib      vitessemax = 8.5368 ')
+    print ('Resultats attendus pour CruiserRacer        twa= 55 tws= 12.1 voile Jib      vitessemax = 8.197 ')
+    print ('Resultats attendus pour Volvo65             twa= 55 tws= 12.1 voile Jib      vitessemax = 10.402')
+    print ('Resultats attendus pour Mini6.5             twa= 55 tws= 12.1 voile Jib      vitessemax = 6.1')
+    print ('Resultats attendus pour Super Maxi 100      twa= 55 tws= 12.1 voile LightJib vitessemax = 15.457')
+    print ('Resultats attendus pour OffshoreRacer       twa= 55 tws= 12.1 voile Jib      vitessemax = 6.734')
     print ('*********************************************************************************************\n')
+
 
     # polairesglobales10to = torch.from_numpy(polairesglobales10).to('cuda')
     # tabvmg10to           = torch.from_numpy(tabvmg10).to('cuda')      
@@ -2592,7 +2591,7 @@ def rechercheprogsvr():
 
         
             
-        routeprogs = Position_np[:,[1,3,4,5,6,7,8,9,10,13,14]] 
+        routeprogs = Position_np[:,[1,3,4,5,6,7,8,9,10,13,14]]      # ensemble des
         routeprogs =[arr.tolist() for arr in routeprogs]
 
         # on transforme en tableau pour la transmission 
@@ -4543,9 +4542,9 @@ def calculeroutage():
     print ('user_id                                 ',user_id)
     print ('isMe                                    ',isMe)
     print ('ari                                     ',ari)
-    print ('y0 routage                              ',y0)
-    print ('x0 routage                              ',x0)
-    print ('t0vr                                    ',t0,time.strftime(" %d %b %H:%M ",time.localtime(t0)))
+    print ('y0 routage                               {:8.4f}'.format(y0))
+    print ('x0 routage                               {:8.4f}'.format(x0))
+    print ('t0vr                                     {}'.format(time.strftime("%d %b %H:%M ",time.localtime(t0))))
     print ('tolerancehvmg                           ',tolerancehvmg  )
     print ('retardpeno                              ',retardpeno  )
     print ('optionroutage                           ',optionroutage)                           # si option 0 c'est le routage depuis la position vr  si 1 position y0,x0, heure t0 si 2 position y0,x0, heure depart

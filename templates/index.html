@@ -37,7 +37,7 @@
         // 1779   Fonctions de gestion de localstorage 
         // 1526  Fonctions asynchrones de recuperation des infos sur serveur
         // 1936  Fonctions de validation de l input  et recuperation coordonneees 
-        // 2926  Gestion des waypoints
+        // 2635  Gestion des waypoints
         // 2359  Recherche des cartes VR
         // 3150  Gestion de l editeur de routes
 
@@ -2675,8 +2675,6 @@
                 const filtres = waypoints.filter(wp => wp[0] !== 99);     // waypoints sans arrivee 
 
                 console.log('waypoints filtres ' + filtres)
-
-
                 let nouveauNom, numero;
 
                 if (filtres.length === 0) {
@@ -2720,7 +2718,7 @@
                     radius: rayon * 1852,    // Stockage et affichage leaflet se fait en metres
                     draggable: true
                 }).bindTooltip(nouveauNom)
-                    .addTo(WpCirclesLayer);
+                  .addTo(WpCirclesLayer);
 
                 newCircle.on('drag', function (event) {
                     cercleSelectionne = newCircle;
@@ -2735,13 +2733,8 @@
                 });
                 // ajout du newcircle dans waypointsJS
                 waypointsJS[nouveauNom] = newCircle;
-                console.log('Tout va bien ')
                 var waypointEditor = document.getElementById("waypointEditor");
-                console.log('Tout va bien 2')
-
-                waypointEditor.style.display = "block";
-
-                console.log('Tout va bien 3')
+                waypointEditor.style.display = "block";         
                 waypointEditor.classList.add("visible");
 
                 console.log(' ')
@@ -2844,6 +2837,8 @@
             }
 
 
+
+
             function ouvrirEditeurModifWaypoint(cercle, nom, couleurParDefaut = "#FFFF00") {
                 const waypointEditor = document.getElementById("waypointEditor");
                 waypointEditor.style.display = "block";
@@ -2869,8 +2864,6 @@
                 };
 
 
-                //  <td><input type="color" value="${route.couleur}" oninput="changerCouleurRoute(${i}, this.value)"></td>  
-
                 // Mise à jour de la couleur en temps réel
                 document.getElementById('wpColor').oninput = function () {
                     var newCouleur = this.value;
@@ -2880,13 +2873,10 @@
                 };
 
 
-
                 document.getElementById("saveWaypoint").onclick = function () {
                     wpRadius = parseFloat(document.getElementById('wpRadius').value)      //la c est une valeur en mN de la boite de dialogue 
-
                     wpColor = document.getElementById('wpColor').value
-
-                    console.log(`on declenche miseajourwaypoint2 avec nom ${nom} lat${lat} lon${lon}  wpradius${wpRadius}  color ${wpColor}`)
+              //    console.log(`on declenche miseajourwaypoint2 avec nom ${nom} lat${lat} lon${lon}  wpradius${wpRadius}  color ${wpColor}`)
                     miseajourWaypoint2(nom, lat, lon, wpRadius, wpColor);
                     waypointSauve = true;
                     fermerEditeurWaypoint();
@@ -2907,7 +2897,7 @@
 
                 typeinfo = 'wp'
                 typeaction = 'modify',
-                    nouveauWP = [ordre, nomwp, newLat, newLon, newRayon, newColor]
+                nouveauWP = [ordre, nomwp, newLat, newLon, newRayon, newColor]
                 nouveauWPStr = JSON.stringify(nouveauWP)
                 console.log('WPStr modifié ' + nouveauWPStr)
                 message = await modifpersonalinfos(username, user_id, course, typeinfo, typeaction, nomwp, nouveauWPStr)
