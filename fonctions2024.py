@@ -583,31 +583,7 @@ def chgtgrib(Tiso):
 ##########################################################################################################
 # 3)Fonctions de gribs et previsions
 ##########################################################################################################
-def gribFileName(basedir):
-    ''' cherche le dernier grib complet disponible au temps en secondes '''
-    ''' temps_secondes est par defaut le temps instantané '''
-    ''' Cherche egalement le dernier grib chargeable partiellement'''
-    ''' Change le nom du fichier a 48 '''
 
-    temps_secondes=time.time()
-    date_tuple       = time.gmtime(temps_secondes) 
-    date_formatcourt = time.strftime("%Y%m%d", time.gmtime(temps_secondes))
-    dateveille_tuple = time.gmtime(temps_secondes-86400) 
-    dateveille_formatcourt=time.strftime("%Y%m%d", time.gmtime(temps_secondes-86400))
-    mn_jour_utc =date_tuple[3]*60+date_tuple[4]
-   
-    if (mn_jour_utc <3*60+43):                          #avant 3h 48 UTC le nom de fichier est 18 h de la veille 
-        filename=basedir+"gfs_"+dateveille_formatcourt+"-18.npy"
-    elif (mn_jour_utc<9*60+43):   
-        filename=basedir+"gfs_"+date_formatcourt+"-00.npy"
-    elif (mn_jour_utc<15*60+43): 
-        filename=basedir+"gfs_"+date_formatcourt+"-06.npy"
-    elif (mn_jour_utc<21*60+43):   
-        filename=basedir+"gfs_"+date_formatcourt+"-12.npy"
-    else:                                              # entre 21h 48UTC  et minuit    
-        filename=basedir+"gfs_"+date_formatcourt+"-18.npy" 
-    date,heure,tig =dateheure(filename) 
-    return filename,tig  
 
 
 
@@ -647,23 +623,6 @@ def fileNames025(basedir):
 
 
 
-def dateheure(filename):
-    '''retourne la date et heure du fichier grib a partir du nom'''
-    ''' necessaire pour charger le NOAA'''
-    tic=time.time()
-    ticstruct = time.localtime()
-    utc = time.gmtime()
-    decalage = ticstruct[3] - utc[3]
-    x     = filename.split('.')[0]
-    x     = x.split('/')[-1]
-    heure = x.split('-')[1]
-    date  = (x.split('-')[0]).split('_')[1]
-    year  = int(date[0:4])
-    month = int(date[4:6])
-    day   = int(date[6:8])
-    tigt=datetime(year,month,day,int(heure),0, 0)
-    tig=time.mktime(tigt.timetuple()) +decalage*3600 # en secondes UTC
-    return date,heure,tig 
 
 
 

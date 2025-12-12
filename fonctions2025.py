@@ -9,6 +9,7 @@ import sqlite3 as sql
 import zlib
 import requests
 import folium
+import calendar
 from scipy.signal import savgol_filter
 from scipy.ndimage import label, generate_binary_structure
 from urllib.request import urlretrieve
@@ -449,6 +450,70 @@ def rechercheTablePolaires(polar_id):
     return polairesjson
 
 
+
+
+def prevision025dtig(GR025,dtig, lat0, lon0):
+    '''Calcule une prevision a partir du grib composite'''
+    '''le tig est le tig du grib le plus recent '''
+    tig=GR025[0,0,0,0]*100
+    
+   
+
+    if not isinstance(lat0,np.ndarray):           #permet de traiter le cas de valeurs simples 
+        lat=np.array([lat0])
+        lon=np.array([lon0]) 
+    else:
+        lat=lat0.ravel()
+        lon=lon0.ravel()
+    # if not isinstance(tp,np.ndarray):    
+    #     tp=np.array([tp]) 
+    if not isinstance(dtig,np.ndarray):    
+        dtig=np.array([dtig]) 
+
+  
+
+    # indices decimaux
+    itemp  = dtig/3600/3 
+    lat    = (90-lat)*4
+    lon    = (lon%360)*4
+
+    #indices entiers 
+    lati   = lat.astype(int)
+    loni   = lon.astype(int)
+    iitemp = itemp.astype(int)       # le -1 a ete supprime 
+    iitemp[iitemp>127]=127
+    
+    # partie fractionnaire des indices 
+    ditemp   = itemp%1 
+    dx       = lon%1
+    dy       = lat%1
+   
+
+    #print ('indices ligne 422 ',itemp,lat,lon)   
+    #Recuperation des valeurs sous forme complexe
+    UV000=GR025[iitemp,lati,loni,0]                    +GR025[iitemp,lati,loni,1]*1j
+    UV010=GR025[iitemp,(lati+1)%720,loni,0]            +GR025[iitemp,(lati+1)%720,loni,1]*1j
+    UV001=GR025[iitemp,lati,(loni+1)%1440,0]           +GR025[iitemp,lati,(loni+1)%1440,1]*1j
+    UV011=GR025[iitemp,(lati+1)%720,(loni+1)%1440,0]   +GR025[iitemp,(lati+1)%720,(loni+1)%1440,1]*1j
+    UV100=GR025[iitemp+1,lati,loni,0]                  +GR025[iitemp+1,lati,loni,1]*1j
+    UV110=GR025[iitemp+1,(lati+1)%720,loni,0]          +GR025[iitemp+1,(lati+1)%720,loni,1]*1j
+    UV101=GR025[iitemp+1,lati,(loni+1)%1440,0]         +GR025[iitemp+1,lati,(loni+1)%1440,1]*1j
+    UV111=GR025[iitemp+1,(lati+1)%720,(loni+1)%1440,0] +GR025[iitemp+1,(lati+1)%720,(loni+1)%1440,1]*1j
+
+
+    #print ('ligne 434 UV000 : ',UV000)
+
+    # Interpolation sur le temps 
+    UVX00=UV000+ditemp*(UV100-UV000)     
+    UVX10=UV010+ditemp*(UV110-UV010)
+    UVX01=UV001+ditemp*(UV101-UV001)
+    UVX11=UV011+ditemp*(UV111-UV011)
+    
+    #Interpolation bilineaire 
+    res=UVX00+(UVX01-UVX00)*dx +(UVX10-UVX00)*dy  +(UVX11+UVX00-UVX10-UVX01)*dx*dy   
+    
+    vitesses,angles=vitangle(res)
+    return vitesses,angles
 
 
 def vitangleto(res): 
@@ -1993,3 +2058,446 @@ def print_results_pretty(rows):
             f"ETA {format_time(eta):12}"
         )
     return None    
+
+
+
+
+#__________________________________________________________________________________
+# Partie GFS
+#_________________________________________________________________________________
+
+
+
+def dateheure(filename):
+    '''retourne la date et heure du fichier grib a partir du nom'''
+    ''' necessaire pour charger le NOAA'''
+    tic=time.time()
+    ticstruct = time.localtime()
+    utc = time.gmtime()
+    decalage = ticstruct[3] - utc[3]
+    x     = filename.split('.')[0]
+    x     = x.split('/')[-1]
+    heure = x.split('-')[1]
+    date  = (x.split('-')[0]).split('_')[1]
+    year  = int(date[0:4])
+    month = int(date[4:6])
+    day   = int(date[6:8])
+    tigt=datetime(year,month,day,int(heure),0, 0)
+    tig=time.mktime(tigt.timetuple()) +decalage*3600 # en secondes UTC
+    return date,heure,tig
+
+
+def gribFileName(basedir):
+    ''' cherche le dernier grib complet disponible au temps en secondes '''
+    ''' temps_secondes est par defaut le temps instantané '''
+    ''' Cherche egalement le dernier grib chargeable partiellement'''
+    ''' Change le nom du fichier a 48 '''
+
+    temps_secondes=time.time()
+    date_tuple       = time.gmtime(temps_secondes) 
+    date_formatcourt = time.strftime("%Y%m%d", time.gmtime(temps_secondes))
+    dateveille_tuple = time.gmtime(temps_secondes-86400) 
+    dateveille_formatcourt=time.strftime("%Y%m%d", time.gmtime(temps_secondes-86400))
+    mn_jour_utc =date_tuple[3]*60+date_tuple[4]
+   
+    if (mn_jour_utc <3*60+43):                          #avant 3h 48 UTC le nom de fichier est 18 h de la veille 
+        filename=basedir+"gfs_"+dateveille_formatcourt+"-18.npy"
+    elif (mn_jour_utc<9*60+43):   
+        filename=basedir+"gfs_"+date_formatcourt+"-00.npy"
+    elif (mn_jour_utc<15*60+43): 
+        filename=basedir+"gfs_"+date_formatcourt+"-06.npy"
+    elif (mn_jour_utc<21*60+43):   
+        filename=basedir+"gfs_"+date_formatcourt+"-12.npy"
+    else:                                              # entre 21h 48UTC  et minuit    
+        filename=basedir+"gfs_"+date_formatcourt+"-18.npy" 
+    date,heure,tig =dateheure(filename) 
+    return filename,tig  
+
+
+def chargement_grib():
+    global GR,tig,heure
+    try:
+        # on essaye de charger sur serveur  A priori plus necessaire sur linux 3
+        fileName,tig=gribFileName(basedirGribs025)
+        heure= datetime.fromtimestamp(tig, tz=timezone.utc).hour
+        with open(fileName, 'rb') as f:
+                GR = np.load(f)           
+        print('Le grib 025  {} h+ {:3.0f}h            {}     a été chargé sur le site distant'.format(heure, GR[0,0,0,1]*3,fileName))
+        print 
+        return GR,tig
+
+    except:        
+        basedirgribs='/home/jp/gribslocaux/gribs025/'
+        fileName,tig=gribFileName(basedirgribs)
+        heure= datetime.fromtimestamp(tig, tz=timezone.utc).hour
+        try:
+            with open(fileName, 'rb') as f:
+                    GR = np.load(f)
+            print('Le grib 025 {} h+ {:3.0f}h            {}      a été chargé sur l ordi local  '.format(heure,GR[0,0,0,1]*3,fileName))
+            return 
+        except:
+            return    
+       
+
+
+
+
+def majgrib():
+    print('\nRecherche majgrib')
+    global GR,GR_cpu,GR_gpu,tig,heure
+    filename,derniertig=gribFileName(basedirGribs025) 
+    print('Dernier Indice chargé ',GR[0,0,0,1]*3,'h\n')
+    heure= datetime.fromtimestamp(derniertig, tz=timezone.utc).hour
+    if os.path.exists(filename) == True:
+
+    #  si pas sur dernier grib ou si moins de  360 h chargées
+   
+        if (derniertig!=GR[0,0,0,0]*100 )   or (int(GR[0,0,0,1]<120) ):
+            print('Rechargement du grib necessaire\n******************************')
+            GR,tig = chargement_grib()
+            print('Indice chargé',GR[0,0,0,1]*3,'h\n')
+            
+            tig=int(GR[0,0,0,0]*100)
+            GR[0,0,0,0]=0
+            GR_cpu = torch.from_numpy(GR)
+            GR_gpu = GR_cpu.to('cuda', non_blocking=True)   
+            GR[0,0,0,0]=int(tig)/100
+            return 
+    else:
+        print('Le fichier {}  n existe pas encore'.format(filename))
+        return
+
+
+
+
+
+
+
+
+
+
+#__________________________________________________________________________________
+# Partie ECMWF
+#_________________________________________________________________________________
+
+
+# Globals ECMWF
+GRECM         = None   # numpy
+GRECM_cpu     = None   # torch
+GRECM_gpu     = None   # torch
+tig_ecmwf     = None   # int (timestamp Unix du run ECMWF)
+steps_ecmwf   = None   # numpy 1D (heures)
+steps_ecmwf_t = None   # torch 1D
+lats_ecmwf    = None   # numpy 1D/2D
+lons_ecmwf    = None   # numpy 1D/2D
+lats_ecmwf_t  = None   # torch
+lons_ecmwf_t  = None   # torch
+
+
+
+
+def majecmwf_npy(basedirGribsECMWF, device='cuda'):
+    """
+    Met à jour le cube ECMWF à partir du dernier fichier .npy disponible.
+    Recharge si :
+      - le tig du run a changé, ou
+      - le fichier contient plus de steps que celui déjà chargé.
+
+    Remplit les globals :
+      GRECM, GRECM_cpu, GRECM_gpu,
+      tig_ecmwf, steps_ecmwf, steps_ecmwf_t,
+      lats_ecmwf, lons_ecmwf, lats_ecmwf_t, lons_ecmwf_t
+    """
+
+    global GRECM, GRECM_cpu, GRECM_gpu
+    global tig_ecmwf, steps_ecmwf, steps_ecmwf_t
+    global lats_ecmwf, lons_ecmwf, lats_ecmwf_t, lons_ecmwf_t
+
+    print("\nRecherche mise à jour ECMWF")
+
+    # Dernier fichier dispo
+    fileName, derniertig = ecmwfFileNamenpy(basedirGribsECMWF)
+
+    if not os.path.exists(fileName):
+        print(f"Le fichier ECMWF {fileName} n'existe pas encore")
+        return
+
+    # Si jamais rien n'est encore chargé → on recharge forcément
+    if GRECM is None or tig_ecmwf is None:
+        print("Aucun ECMWF en mémoire → chargement initial")
+        GRECM, tig0, steps_h, lats, lons = charge_ecmwf_npy(fileName)
+
+        tig_ecmwf   = int(tig0)       # base du run ECMWF (Unix)
+        steps_ecmwf = steps_h         # numpy
+        lats_ecmwf  = lats
+        lons_ecmwf  = lons
+
+        # Tensors
+        GRECM_cpu = torch.from_numpy(GRECM)
+        GRECM_gpu = GRECM_cpu.to(device, non_blocking=True)
+
+        steps_ecmwf_t = torch.from_numpy(steps_ecmwf).to(device, dtype=torch.float32)
+        lats_ecmwf_t  = torch.from_numpy(lats_ecmwf).to(device, dtype=torch.float32)
+        lons_ecmwf_t  = torch.from_numpy(lons_ecmwf).to(device, dtype=torch.float32)
+
+        print(f"ECMWF chargé : tig = {tig_ecmwf}, {len(steps_ecmwf)} steps")
+        return
+
+    # Sinon, on teste si on a besoin d'un rechargement
+
+    # 1) Run plus récent ?
+    besoin_rechargement = False
+    if derniertig != tig_ecmwf:
+        print("Nouveau run ECMWF détecté")
+        besoin_rechargement = True
+
+    # 2) Ou même fichier, mais plus de steps (fichier réécrit avec steps supplémentaires)
+    #    -> on recharge pour vérifier
+    if not besoin_rechargement:
+        GRECM_tmp, tig0_tmp, steps_h_tmp, lats_tmp, lons_tmp = charge_ecmwf_npy(fileName)
+        if len(steps_h_tmp) > len(steps_ecmwf):
+            print("Même run ECMWF mais plus de steps disponibles")
+            besoin_rechargement = True
+        else:
+            print("ECMWF déjà à jour (même run, même nombre de steps)")
+            return  # Rien à faire
+
+        # Si besoin_rechargement, on réutilisera ces données au lieu de relire le fichier
+        GRECM_new   = GRECM_tmp
+        tig0_new    = tig0_tmp
+        steps_h_new = steps_h_tmp
+        lats_new    = lats_tmp
+        lons_new    = lons_tmp
+    else:
+        # Nouveau run → on relit proprement (tu peux factoriser avec au-dessus si tu veux)
+        GRECM_new, tig0_new, steps_h_new, lats_new, lons_new = charge_ecmwf_npy(fileName)
+
+    # Mise à jour des globals
+    GRECM       = GRECM_new
+    tig_ecmwf   = int(tig0_new)
+    steps_ecmwf = steps_h_new
+    lats_ecmwf  = lats_new
+    lons_ecmwf  = lons_new
+
+    GRECM_cpu = torch.from_numpy(GRECM)
+    GRECM_gpu = GRECM_cpu.to(device, non_blocking=True)
+
+    steps_ecmwf_t = torch.from_numpy(steps_ecmwf).to(device, dtype=torch.float32)
+    lats_ecmwf_t  = torch.from_numpy(lats_ecmwf).to(device, dtype=torch.float32)
+    lons_ecmwf_t  = torch.from_numpy(lons_ecmwf).to(device, dtype=torch.float32)
+
+    heure_run = datetime.fromtimestamp(tig_ecmwf, tz=timezone.utc).hour
+    print(f"ECMWF rechargé : run {heure_run:02d}Z, {len(steps_ecmwf)} steps")
+
+
+
+
+
+
+
+
+# # nom du dernier fichier ECMWF
+
+def ecmwfFileNamenpy(basedir):
+    """
+    Cherche le dernier GRIB ECMWF complet disponible en fonction de l'heure UTC.
+    Hypothèses :
+      - runs 00Z complet vers ~08:00 UTC
+      - runs 12Z complet vers ~20:00 UTC
+    Retourne (filename, tig)
+    """
+
+    temps_secondes = time.time()
+    date_tuple = time.gmtime(temps_secondes)
+    date_formatcourt = time.strftime("%Y%m%d", date_tuple)
+    dateveille_formatcourt = time.strftime(
+        "%Y%m%d",
+        time.gmtime(temps_secondes - 86400)
+    )
+
+    mn_jour_utc = date_tuple[3] * 60 + date_tuple[4]   # heure*60 + minute (UTC)
+
+    # Avant 08:00 UTC : dernier run complet = 12Z de la veille
+    if mn_jour_utc < 8 * 60:
+        date_run = dateveille_formatcourt
+        heure_run = 12
+    # Entre 08:00 et 20:00 UTC : dernier run complet = 00Z du jour
+    elif mn_jour_utc < 20 * 60:
+        date_run = date_formatcourt
+        heure_run = 0
+    # Après 20:00 UTC : dernier run complet = 12Z du jour
+    else:
+        date_run = date_formatcourt
+        heure_run = 12
+
+    filename = os.path.join(
+        basedir,
+        f"ecmwf_{date_run}-{heure_run:02d}.npy"
+    )
+     # # Récupère tig  
+    tt = time.strptime(f"{date_run}{heure_run:02d}", "%Y%m%d%H")
+    tig = calendar.timegm(tt)     # secondes unix (UTC)
+   
+    return filename, tig
+
+
+steps_3h_ecmwf = list(range(0, 147, 3))      # 0,3,...,144
+steps_6h_ecmwf = list(range(150, 361, 6))    # 150,156,...,360
+iprev_ecmwf_heures = steps_3h_ecmwf + steps_6h_ecmwf
+steps_h= steps_3h_ecmwf + steps_6h_ecmwf
+
+
+
+def charge_ecmwf_npy(fileName):
+    """Charge un fichier ECMWF .npy et prépare tig0, steps_h, lats, lons."""
+    GRECM = np.load(fileName)    
+    tig0 = GRECM[0, 0, 0, 0] * 100.0                       # tig0 en secondes unix    
+    steps_h = np.array(iprev_ecmwf_heures, dtype=np.int32) # steps_h : les heures correspondant au 1er axe      
+    lats = 90.0 - 0.25 * np.arange(721, dtype=np.float32)  # Grille ECMWF HRES 0.25° globale    
+    lons = 0.0 + 0.25 * np.arange(1440, dtype=np.float32)
+
+    return GRECM, tig0, steps_h, lats, lons
+
+
+def prevision_ecmwf_dtig(GR, dtig, lat0, lon0):
+    """
+    Interpolation trilinéraire (temps + bilinéaire espace) dans le cube ECMWF:
+      GR[itime, ilat, ilon, comp]  avec comp=0 -> u10, comp=1 -> v10
+
+    Hypothèses sur la grille ECMWF :
+      - grille régulière globale
+      - latitude : 90 -> -90 (ny points)
+      - longitude : 0 -> 360 (nx points), pas constant
+      - GR.shape = (n_steps, ny, nx, 2)
+
+    steps_h : global 1D, échéances des pas de temps en heures
+    dtig    : écart en secondes par rapport au temps 0 du grib
+    lat0, lon0 : latitude/longitude en degrés (lon peut être en [-180,180] ou [0,360])
+
+    Retourne vitesses (ndarray ou scalaire) et angles (ndarray ou scalaire).
+    """
+
+    # --- mise en forme des entrées ---
+    if not isinstance(lat0, np.ndarray):
+        lat = np.array([lat0], dtype=np.float32)
+        lon = np.array([lon0], dtype=np.float32)
+    else:
+        lat = lat0.astype(np.float32).ravel()
+        lon = lon0.astype(np.float32).ravel()
+
+    if not isinstance(dtig, np.ndarray):
+        dtig = np.array([dtig], dtype=np.float32)
+    else:
+        dtig = dtig.astype(np.float32).ravel()
+
+    # broadcast dtig sur toutes les lat/lon si besoin
+    if dtig.size == 1 and lat.size > 1:
+        dtig = np.full(lat.shape, dtig[0], dtype=np.float32)
+
+    # --- TEMPS ---
+    global steps_h
+    steps_h = np.asarray(steps_h, dtype=np.float32)  # tableau global
+    t_hours = dtig / 3600.0  # secondes -> heures
+
+    # on trouve l'intervalle [step0, step1] qui entoure t_hours
+    idx = np.searchsorted(steps_h, t_hours, side='right') - 1
+    idx = np.clip(idx, 0, len(steps_h) - 2)
+
+    step0 = steps_h[idx]
+    step1 = steps_h[idx + 1]
+    dt_step = step1 - step0
+    dt_step[dt_step == 0] = 1.0  # évite division par zéro, cas très limite
+
+    ditemp = (t_hours - step0) / dt_step
+    ditemp = np.clip(ditemp, 0.0, 1.0)
+    iitemp = idx.astype(int)
+
+    # --- GEOMETRIE DE LA GRILLE (pas besoin de lats/lons en entrée) ---
+    n_steps, ny, nx, _ = GR.shape
+
+    # grille supposée :
+    #  lat : 90 -> -90  (ny points, espacement régulier)
+    #  lon : 0 -> 360   (nx points, espacement régulier)
+    dlat = 180.0 / (ny - 1)   # ex: 180/720 = 0.25°
+    dlon = 360.0 / nx         # ex: 360/1440 = 0.25°
+
+    lat_max = 90.0            # indice 0 = 90°N
+    lon_min = 0.0             # indice 0 = 0°
+
+    # --- mapping des latitudes ---
+    # lat_idx_f = (lat_max - lat) / dlat
+    lat_idx_f = (lat_max - lat) / dlat
+
+    # --- mapping des longitudes (0–360, modulo si on passe du -180/180) ---
+    lon360 = lon % 360.0
+    lon_idx_f = (lon360 - lon_min) / dlon   # = lon360 / dlon
+
+    # indices entiers
+    lati = np.floor(lat_idx_f).astype(int)
+    loni = np.floor(lon_idx_f).astype(int)
+
+    # bornes pour pouvoir accéder i+1
+    lati = np.clip(lati, 0, ny - 2)
+    loni = np.clip(loni, 0, nx - 2)
+
+    lati_p1 = lati + 1
+    loni_p1 = loni + 1
+
+    dx = lon_idx_f - loni   # [0,1)
+    dy = lat_idx_f - lati   # [0,1)
+
+    # --- interpolation des composantes complexes U + jV ---
+
+    UV000 = GR[iitemp,   lati,    loni,    0] + 1j * GR[iitemp,   lati,    loni,    1]
+    UV010 = GR[iitemp,   lati_p1, loni,    0] + 1j * GR[iitemp,   lati_p1, loni,    1]
+    UV001 = GR[iitemp,   lati,    loni_p1, 0] + 1j * GR[iitemp,   lati,    loni_p1, 1]
+    UV011 = GR[iitemp,   lati_p1, loni_p1, 0] + 1j * GR[iitemp,   lati_p1, loni_p1, 1]
+
+    UV100 = GR[iitemp+1, lati,    loni,    0] + 1j * GR[iitemp+1, lati,    loni,    1]
+    UV110 = GR[iitemp+1, lati_p1, loni,    0] + 1j * GR[iitemp+1, lati_p1, loni,    1]
+    UV101 = GR[iitemp+1, lati,    loni_p1, 0] + 1j * GR[iitemp+1, lati,    loni_p1, 1]
+    UV111 = GR[iitemp+1, lati_p1, loni_p1, 0] + 1j * GR[iitemp+1, lati_p1, loni_p1, 1]
+
+    # interpolation temporelle
+    UVX00 = UV000 + ditemp * (UV100 - UV000)
+    UVX10 = UV010 + ditemp * (UV110 - UV010)
+    UVX01 = UV001 + ditemp * (UV101 - UV001)
+    UVX11 = UV011 + ditemp * (UV111 - UV011)
+
+    # bilinéaire en espace
+    res = (UVX00
+           + (UVX01 - UVX00) * dx
+           + (UVX10 - UVX00) * dy
+           + (UVX11 + UVX00 - UVX10 - UVX01) * dx * dy)
+    u10=np.real(res)
+    v10=np.imag(res)
+
+    tig0 = GR[0, 0, 0, 0] * 100.0
+    print ('Temps de base du grib ',time.strftime("%d %b %H:%M ",time.localtime(float(tig0))))
+    print ('indices dans ECMWF2{} {} {} u10 {} v10 {} '.format(iitemp,   lati,    loni,u10,v10))
+
+    vitesses, angles = vitangle(res)
+    return vitesses, angles
+
+
+def vitangle(res): 
+    """ transforme le complexe u + j*V en vitesse (kn) et angle (°) """
+
+    if not isinstance(res, np.ndarray):
+        res = np.array([res])
+
+    vitesses = np.abs(res) * 1.94384
+    vitesses[vitesses > 70] = 70
+    vitesses[vitesses < 1] = 1
+
+    angles = (270 - np.angle(res, deg=True)) % 360
+    # u10 = np.real(res)
+    # v10 = np.imag(res)
+    # print('u10 {} v10 {}'.format(u10, v10))
+
+    if len(res) == 1:
+        vitesses = vitesses[0]
+        angles = angles[0]
+
+    return vitesses, angles   
+

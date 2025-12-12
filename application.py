@@ -3535,6 +3535,9 @@ def pointfinalToPosEnd(pointfinal):
     return posEnd
 
 
+
+
+
 class RoutageSession:                                                  # version au 8 aout
 
 
@@ -4288,8 +4291,9 @@ class RoutageSession:                                                  # version
 
 
 
-def routageGlobal(course,user_id,isMe,ari,y0,x0,t0,tolerancehvmg,optionroutage):
-
+def routageGlobal(course,user_id,isMe,ari,y0,x0,t0,tolerancehvmg,optionroutage):                              # version Vrouteur 1/12/2025
+    ''' Calcule le routage '''
+    ''' Recupère les données et parcoure les differents waypoints '''
 
     session         = RoutageSession(course, user_id,isMe,ari) 
 
@@ -4307,14 +4311,9 @@ def routageGlobal(course,user_id,isMe,ari,y0,x0,t0,tolerancehvmg,optionroutage):
     # print ('\nposStart  \n',posStart)
     # print()
 
-    
 
     # suivant l option de routage, on va changer sessionposStartVR
     #positionvr=torch.tensor([0,t0vr,dt1,option,valeur,y0vr,x0vr,voile,twavr,headingvr,speedvr,staminavr,penovr,twdvr,twsvr,voileAuto,boost],dtype=torch.float64,device='cpu')
-   
-   
-
-
 
     if optionroutage==1:
 
@@ -4327,17 +4326,14 @@ def routageGlobal(course,user_id,isMe,ari,y0,x0,t0,tolerancehvmg,optionroutage):
         iso[0,4]=x0
 
         # print ('\n On est dans l option de routage option1 posStartVR apresmodif ',posStart)
-
    
     if optionroutage==2:
         session.posStartVR[1]= torch.tensor([t0], dtype=torch.float64)               # transformation de t0 en tenseur
         session.posStartVR[5]= torch.tensor([y0], dtype=torch.float64)               # transformation de t0 en tenseur
-        session.posStartVR[6]= torch.tensor([x0], dtype=torch.float64)
-       
+        session.posStartVR[6]= torch.tensor([x0], dtype=torch.float64)      
 
 
     if isMe=='no':
-
         print ('On est dans l option de routage option1 avant modif posStartVR',posStart)
         posStart['t0']= t0               # transformation de t0 en tenseur    
         posStart['y0']= y0               # transformation de t0 en tenseur
@@ -4346,15 +4342,9 @@ def routageGlobal(course,user_id,isMe,ari,y0,x0,t0,tolerancehvmg,optionroutage):
         iso[0,3]=y0
         iso[0,4]=x0
 
-        # print ('\n On est dans l option de routage option1 posStartVR apresmodif ',posStart)
-
-
-
-
     tic=time.time()
 
-
-    for indiceroutage in range(len(ari)):    
+    for indiceroutage in range(len(ari)):     # Parcourt les differents  waypoints 
         if indiceroutage==0:
             #posStart=session.posStart   
             if isMe=='no':
@@ -4385,14 +4375,9 @@ def routageGlobal(course,user_id,isMe,ari,y0,x0,t0,tolerancehvmg,optionroutage):
         # print ('rwp',rwp)
         # print ('numisoini',numisoini)
       
-
-      
         while distmini > rwp:
-                
-            # try: 
             iso, tmini, distmini, nptmini = session.isoplusun(iso, tmini,paramRoutage)
-      
-             
+                   
         # Dernière itération pour rentrer dans le cercle 
         try:
             iso, tmini, distmini, nptmini     = session.isoplusun(iso, tmini,paramRoutage)
@@ -4402,9 +4387,7 @@ def routageGlobal(course,user_id,isMe,ari,y0,x0,t0,tolerancehvmg,optionroutage):
             vitesse = iso[idx_min, 16]                                     # Vitesse en nœuds (milles nautiques par heure) au point de distance mini
             tmini   = ((distmini * 3600) / (vitesse * 1.852)).item()       # la distance est en km avec ma fonction dist et vitesse en noeuds pour les polaires 
             nptmini = int(iso[idx_min, 1].item())    
-          
-
-       
+                 
 
         distmini, idx_min = torch.min(iso[:, 9], dim=0)                # idx_min est l’indice de la ligne où la distance est minimale  
       
@@ -4415,26 +4398,19 @@ def routageGlobal(course,user_id,isMe,ari,y0,x0,t0,tolerancehvmg,optionroutage):
         posEnd= pointfinalToPosEnd(pointfinal)
         derniereligne = int(iso[-1,1].item())
         pointfinal[0]+=1           #on incremente directement le numero d iso
-        pointfinal[1]= derniereligne
-     
-
-        
-    # j ai besoin de la derniere ligne de isoglobal pour reduire isoglobal  
-    derniereligne = int(iso[-1,1].item())
-       
-                                      # derniere ligne du dernier iso donne le dernier numero de point et donc la derniere ligne de  de isoglobal   
-    session.isoglobal = session.isoglobal[:derniereligne,:]                                     # on ne garde que la partie contenant les valeurs calculees dans isoglobal
-    
-      
-        
-    dico_isochrones = {}                              # Dictionnaire pour stocker les courbes
+        pointfinal[1]= derniereligne        
+   
+    derniereligne = int(iso[-1,1].item())                                     # derniere ligne du dernier iso donne le dernier numero de point et donc la derniere ligne de  de isoglobal   
+    session.isoglobal = session.isoglobal[:derniereligne,:]                   # on ne garde que la partie contenant les valeurs calculees dans isoglobal
+            
+    dico_isochrones = {}                                                      # Dictionnaire pour stocker les courbes des isos 
     numerosIso = torch.unique(session.isoglobal[:, 0])
 
     for iso in numerosIso:
-        mask = session.isoglobal[:, 0] == iso                 # Masque pour sélectionner les lignes de cet isochrone
-        lat_lon = session.isoglobal[mask][:, [3, 4]]          # Extraction des colonnes lat/lon (3 et 4)    
+        mask = session.isoglobal[:, 0] == iso                                 # Masque pour sélectionner les lignes de cet isochrone
+        lat_lon = session.isoglobal[mask][:, [3, 4]]                          # Extraction des colonnes lat/lon (3 et 4)    
         isodecoupe=decoupe_latlon(lat_lon, seuil=0.01)
-        dico_isochrones[int(iso.item())] = isodecoupe    # Ajout au dictionnaire (clé en int pour faciliter la lecture)
+        dico_isochrones[int(iso.item())] = isodecoupe                         # Ajout au dictionnaire (clé en int pour faciliter la lecture)
    
     dernieriso=pointfinal[0]
     tempsexe =time.time()-tic
@@ -4442,7 +4418,6 @@ def routageGlobal(course,user_id,isMe,ari,y0,x0,t0,tolerancehvmg,optionroutage):
           \nRoutage effectué en {:4.2f}s  {} isochrones  {:4.3f}s par Iso  \
           \n_________________________________________________________________________________________________________________________________________________________________________________________\
            '.format(tempsexe,dernieriso ,tempsexe/dernieriso) )  # Ajouter iso à session.isoglobal
-       
 
     return waypoints,session.isoglobal,session.posStartVR,session.posStart,nptmini,session.exclusionsVR,session.tabvmg10to,dico_isochrones
 
@@ -4562,6 +4537,7 @@ def calculeroutage():
         routage_np        = np.array(arrayroutage,dtype=np.float64)
         routagelisse      = lissage(course,routage_np,t0,posStartVR,posStart)  
         tabtwa            = routagelisse[:,5]
+
         twasmooth         = smooth(tabtwa)                      #    c est du smooth torch 
         twasmooth2        = smooth(twasmooth)  
         routagelisse[:,5] = twasmooth2                   # c 'est juste une substitution de facade, il faudrait recalculer le routage  
