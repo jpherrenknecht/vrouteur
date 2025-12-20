@@ -54,6 +54,48 @@ torch.cuda.empty_cache()
 torch.cuda.synchronize()
 
 
+hostname = socket.gethostname()
+print(f"Nom de l'ordinateur : {hostname}\n")
+
+if hostname=='linux0' :         # sur ordi linux1  (serveur)
+    basedirnpy          = '/home/jp/static/npy/'
+    basedirGribs025     = '/home/jp/gribs/gribs025/'
+    basedirECMWF        = '/home/jp/gribs/ecmwf/'
+    basedirGribsVR32    = '/home/jp/gribs/gribsvr32/'
+    basedirGribsGfs32   = '/home/jp/gribs/gribsgfs32/'
+    staticbd            = '/home/jp/static/bd/basededonnees.db'
+    staticCommandes     = '/home/jp/static/bd/commandes.db'
+
+
+if hostname=='linux1' :          # sur ordi linux1  (2eme ordi)
+    basedirnpy          = '/home/jp/static/npy/'
+    basedirGribs025     = '/home/jp/gribslocaux/gribs025/'
+    basedirECMWF        = '/home/jp/gribslocaux/ecmwf/'
+    basedirGribsVR32    = '/home/jp/gribslocaux/gribsvr32/'
+    basedirGribsGfs32   = '/home/jp/gribslocaux/gribsgfs32/'
+    staticbd            = '/home/jp/staticLocal/bd/basededonnees.db'
+    staticCommandes     = '/home/jp/staticLocal/bd/commandes.db'
+
+
+if hostname=='linux3' :          # sur ordi linux1  (2eme ordi)
+    basedirnpy          = '/home/jp/staticLocal/npy/'
+    basedirGribs025     = '/home/jp/gribslocaux/gribs025/'
+    basedirECMWF        = '/home/jp/gribslocaux/ecmwf/'
+    basedirGribsVR32    = '/home/jp/gribslocaux/gribsvr32/'
+    basedirGribsGfs32   = '/home/jp/gribslocaux/gribsgfs32/'
+    staticbd            = '/home/jp/static/bd/basededonnees.db'      # plus d actualite avec mabase postgre 
+    staticCommandes     = '/home/jp/static/bd/commandes.db'         # plus d actualite avec mabase postgre
+
+
+
+if hostname=='portable' :          # sur ordi portable  (3eme ordi)
+    basedirnpy          = '/home/jp/static/npy/'
+    basedirGribs025     = '/home/jp/gribslocaux/gribs025/'
+    basedirGribsVR32    = '/home/jp/gribslocaux/gribsvr32/'
+    basedirGribsGfs32   = '/home/jp/gribslocaux/gribsgfs32/'
+    staticbd            = '/home/jp/staticLocal/bd/basededonnees.db'
+    staticCommandes     = '/home/jp/staticLocal/bd/commandes.db'
+
 # for debug cuda 
 # print()
 # print(torch.__version__)
@@ -110,6 +152,48 @@ hostname = socket.gethostname()
 ################################################################################################
 ################      Gestion du websocket     #################################################
 ################################################################################################
+
+
+
+
+pg_pool = pool.SimpleConnectionPool(
+                                        1, 10,  # minconn, maxconn
+                                        dbname="vrouteur",
+                                        user="jp",
+                                        password="Licois1000",
+                                        host="localhost",  # ou l'adresse IP/nom de domaine
+                                        port="5432"        # par défaut PostgreSQL
+                                    )
+
+
+# sera a mettre apres creation des bases dans les fonctions de recherche
+conn = pg_pool.getconn()
+cursor = conn.cursor()
+
+# # connection a la base postgres locale 
+# conn = psycopg2.connect(
+#     host="localhost",
+#     database="databaselinux3",
+#     user="jp",
+#     password="Licois1000"
+# )
+# cursor = conn.cursor()
+
+
+
+
+
+# def start_scheduler():
+#     scheduler = BackgroundScheduler()
+#     scheduler.add_job(delete_old_records, 'interval', days=1)  # Exécute tous les jours
+#     scheduler.start()
+
+# delete_old_records()
+
+
+###############################################################################"
+# creation d'une classe pour enregistrements des donnees course en cache 
+###############################################################################"
 
 
 socketio = SocketIO(app, cors_allowed_origins="*",logger=True, engineio_logger=True)   # ou 'gevent'
@@ -179,6 +263,15 @@ def send_update_to_client(client_id, message):
 ################################################################################################
 
 
+
+GRECM      = None
+GRECM_cpu  = None
+GRECM_gpu  = None
+tigECM     = None
+heure      = None
+ecm_interp     = None
+
+
 def chargement_grib():
     global GR,tig,heure
     try:
@@ -199,7 +292,7 @@ def chargement_grib():
         try:
             with open(fileName, 'rb') as f:
                     GR = np.load(f)
-            print('Le grib 025 {} h+ {:3.0f}h            {}      a été chargé sur l ordi local  '.format(heure,GR[0,0,0,1]*3,fileName))
+            print('Le grib 025GFS {} h+ {:3.0f}h            {}      a été chargé sur l ordi local  '.format(heure,GR[0,0,0,1]*3,fileName))
             return 
 
         except:
@@ -211,7 +304,7 @@ def majgrib():
     print('\nRecherche majgrib')
     global GR,GR_cpu,GR_gpu,tig,heure
     filename,derniertig=gribFileName(basedirGribs025) 
-    print('Dernier Indice chargé ',GR[0,0,0,1]*3,'h\n')
+    print('Dernier Indice chargé GFS',GR[0,0,0,1]*3,'h\n')
     heure= datetime.fromtimestamp(derniertig, tz=timezone.utc).hour
     if os.path.exists(filename) == True:
 
@@ -220,7 +313,7 @@ def majgrib():
         if (derniertig!=GR[0,0,0,0]*100 )   or (int(GR[0,0,0,1]<120) ):
             print('Rechargement du grib necessaire\n******************************')
             GR,tig = chargement_grib()
-            print('Indice chargé',GR[0,0,0,1]*3,'h\n')
+            print('Indice chargé GFS',GR[0,0,0,1]*3,'h\n')
             
             tig=int(GR[0,0,0,0]*100)
             GR[0,0,0,0]=0
@@ -240,15 +333,43 @@ tig=int(GR[0,0,0,0]*100)
 GR[0,0,0,0]=0
 GR_cpu = torch.from_numpy(GR)
 GR_gpu = GR_cpu.to('cuda', non_blocking=True)    
-#GR_gpu = safe_to_cuda(torch.from_numpy(GR), clamp=500, name="GR")
-
 GR[0,0,0,0]=int(tig)/100
 
-print ('tig : ',time.strftime(" %d %b %H:%M ",time.gmtime(tig)))
-print 
+# print ('tig : ',time.strftime(" %d %b %H:%M ",time.gmtime(tig)))
+# print 
 
 
 majgrib()                         # met a jour egalement les fichiers torch GR_gpu et GR_cpu   
+
+
+#________________________________________________________________________
+#  Chargement ECMMWF
+#________________________________________________________________________
+fileName, tigECM                    = ecmwfFileNamenpy(basedirECMWF)
+GRECM, tigECM, steps_h, lats, lons  = charge_ecmwf_npy(fileName)
+
+
+#--------------------------------------------------------------------------------------------------
+#    Test de quelques échéances
+#--------------------------------------------------------------------------------------------------
+
+
+
+
+# lat = -4
+# lon = -93
+# heures_test =  [ 0, 12, 24, 48,96,120,144]   # T+0h, 6h, 24h, 72h
+# print ('heure ECM  : {} '.format(time.strftime("%d %b %H:%M ",time.localtime(float(tigECM)))))
+
+# for h in heures_test:
+#     heure = tigECM + h * 3600.0
+#     dtig = heure - tigECM
+#     vit, angle = prevision_ecmwf_dtig( GRECM, dtig,lat, lon)  
+   
+    
+#     print(' Test ECMWF à {} localtime pour lat {:6.4f} lon {:6.4f}    Vitesse {:6.3f} angle : {:6.3f}° '.format(time.strftime("%d %b %H:%M ",time.localtime(float(heure))),lat,lon,vit,angle))
+
+
 
 
 #####################################################################################
@@ -394,6 +515,48 @@ def updateUsers(users, username, user_id):
 # def handle_disconnect():
 #     client_id = None
 #     for key, value in clients.items():
+
+
+pg_pool = pool.SimpleConnectionPool(
+                                        1, 10,  # minconn, maxconn
+                                        dbname="vrouteur",
+                                        user="jp",
+                                        password="Licois1000",
+                                        host="localhost",  # ou l'adresse IP/nom de domaine
+                                        port="5432"        # par défaut PostgreSQL
+                                    )
+
+
+# sera a mettre apres creation des bases dans les fonctions de recherche
+conn = pg_pool.getconn()
+cursor = conn.cursor()
+
+# # connection a la base postgres locale 
+# conn = psycopg2.connect(
+#     host="localhost",
+#     database="databaselinux3",
+#     user="jp",
+#     password="Licois1000"
+# )
+# cursor = conn.cursor()
+
+
+
+
+
+# def start_scheduler():
+#     scheduler = BackgroundScheduler()
+#     scheduler.add_job(delete_old_records, 'interval', days=1)  # Exécute tous les jours
+#     scheduler.start()
+
+# delete_old_records()
+
+
+###############################################################################"
+# creation d'une classe pour enregistrements des donnees course en cache 
+###############################################################################"
+
+
 #         if value == request.sid:
 #             client_id = key
 #             break
@@ -444,45 +607,6 @@ app.config["SESSION_TYPE"] = "filesystem"
 ################      Gestion des repertoires  #################################################
 ################################################################################################
 
-
-hostname = socket.gethostname()
-print(f"Nom de l'ordinateur : {hostname}\n")
-
-if hostname=='linux0' :         # sur ordi linux1  (serveur)
-    basedirnpy          = '/home/jp/static/npy/'
-    basedirGribs025     = '/home/jp/gribs/gribs025/'
-    basedirGribsVR32    = '/home/jp/gribs/gribsvr32/'
-    basedirGribsGfs32   = '/home/jp/gribs/gribsgfs32/'
-    staticbd            = '/home/jp/static/bd/basededonnees.db'
-    staticCommandes     = '/home/jp/static/bd/commandes.db'
-
-
-if hostname=='linux1' :          # sur ordi linux1  (2eme ordi)
-    basedirnpy          = '/home/jp/static/npy/'
-    basedirGribs025     = '/home/jp/gribslocaux/gribs025/'
-    basedirGribsVR32    = '/home/jp/gribslocaux/gribsvr32/'
-    basedirGribsGfs32   = '/home/jp/gribslocaux/gribsgfs32/'
-    staticbd            = '/home/jp/staticLocal/bd/basededonnees.db'
-    staticCommandes     = '/home/jp/staticLocal/bd/commandes.db'
-
-
-if hostname=='linux3' :          # sur ordi linux1  (2eme ordi)
-    basedirnpy          = '/home/jp/staticLocal/npy/'
-    basedirGribs025     = '/home/jp/gribslocaux/gribs025/'
-    basedirGribsVR32    = '/home/jp/gribslocaux/gribsvr32/'
-    basedirGribsGfs32   = '/home/jp/gribslocaux/gribsgfs32/'
-    staticbd            = '/home/jp/static/bd/basededonnees.db'      # plus d actualite avec mabase postgre 
-    staticCommandes     = '/home/jp/static/bd/commandes.db'         # plus d actualite avec mabase postgre
-
-
-
-if hostname=='portable' :          # sur ordi portable  (3eme ordi)
-    basedirnpy          = '/home/jp/static/npy/'
-    basedirGribs025     = '/home/jp/gribslocaux/gribs025/'
-    basedirGribsVR32    = '/home/jp/gribslocaux/gribsvr32/'
-    basedirGribsGfs32   = '/home/jp/gribslocaux/gribsgfs32/'
-    staticbd            = '/home/jp/staticLocal/bd/basededonnees.db'
-    staticCommandes     = '/home/jp/staticLocal/bd/commandes.db'
 
 
 
@@ -4291,7 +4415,7 @@ class RoutageSession:                                                  # version
 
 
 
-def routageGlobal(course,user_id,isMe,ari,y0,x0,t0,tolerancehvmg,optionroutage):                              # version Vrouteur 1/12/2025
+def routageGlobal(course,user_id,isMe,ari,y0,x0,t0,tolerancehvmg,optionroutage,mode):                              # version Vrouteur 1/12/2025
     ''' Calcule le routage '''
     ''' Recupère les données et parcoure les differents waypoints '''
 
@@ -4508,7 +4632,7 @@ def calculeroutage():
     t0                  = float(request.args.get('t0'))
     optionroutage       = float(request.args.get('optionroutage'))
     ari                 = json.loads(aristr)
-
+    mode                = request.args.get('mode')
    
     username            = findUsername(user_id)
     #username            =  users[user_id]
@@ -4523,14 +4647,14 @@ def calculeroutage():
     print ('tolerancehvmg                           ',tolerancehvmg  )
     print ('retardpeno                              ',retardpeno  )
     print ('optionroutage                           ',optionroutage)                           # si option 0 c'est le routage depuis la position vr  si 1 position y0,x0, heure t0 si 2 position y0,x0, heure depart
-    print()
-   
+    print ('mode                                    ',mode     )
+    
   
 
     tic=time.time()
     #print ('routage  pour {}'.format( username))
     try:
-        waypoints,isoglobal,posStartVR,posStart,nptmini,exclusions,tabvmg10to,dico_isochrones=routageGlobal(course, user_id,isMe,ari,y0,x0,t0,tolerancehvmg,optionroutage)  
+        waypoints,isoglobal,posStartVR,posStart,nptmini,exclusions,tabvmg10to,dico_isochrones=routageGlobal(course, user_id,isMe,ari,y0,x0,t0,tolerancehvmg,optionroutage,mode)  
         chemin            = reconstruire_chemin_rapide(isoglobal, nptmini)
         routage           = cheminToRoutage(chemin,tabvmg10to)
         arrayroutage      = routage.cpu().tolist()

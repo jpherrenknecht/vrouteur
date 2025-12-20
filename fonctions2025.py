@@ -13,7 +13,7 @@ import calendar
 from scipy.signal import savgol_filter
 from scipy.ndimage import label, generate_binary_structure
 from urllib.request import urlretrieve
-from collections import defaultdict, deque     # necessaire pour la carte re
+from collections import OrderedDict,defaultdict, deque     # necessaire pour la carte re
 
 import psycopg2                                # Necessaire pour la table postgre 
 from psycopg2 import pool
@@ -2182,16 +2182,6 @@ def majgrib():
 
 
 # Globals ECMWF
-GRECM         = None   # numpy
-GRECM_cpu     = None   # torch
-GRECM_gpu     = None   # torch
-tig_ecmwf     = None   # int (timestamp Unix du run ECMWF)
-steps_ecmwf   = None   # numpy 1D (heures)
-steps_ecmwf_t = None   # torch 1D
-lats_ecmwf    = None   # numpy 1D/2D
-lons_ecmwf    = None   # numpy 1D/2D
-lats_ecmwf_t  = None   # torch
-lons_ecmwf_t  = None   # torch
 
 
 
@@ -2298,13 +2288,20 @@ def majecmwf_npy(basedirGribsECMWF, device='cuda'):
 
 # # nom du dernier fichier ECMWF
 
+
+steps_3h_ecmwf = list(range(0, 147, 3))      # 0,3,...,144
+steps_6h_ecmwf = list(range(150, 361, 6))    # 150,156,...,360
+iprev_ecmwf_heures = steps_3h_ecmwf + steps_6h_ecmwf
+steps_h= steps_3h_ecmwf + steps_6h_ecmwf
+
+
 def ecmwfFileNamenpy(basedir):
     """
     Cherche le dernier GRIB ECMWF complet disponible en fonction de l'heure UTC.
     Hypothèses :
       - runs 00Z complet vers ~08:00 UTC
       - runs 12Z complet vers ~20:00 UTC
-    Retourne (filename, tig)
+    Retourne (filename, tigECM)
     """
 
     temps_secondes = time.time()
@@ -2334,18 +2331,11 @@ def ecmwfFileNamenpy(basedir):
         basedir,
         f"ecmwf_{date_run}-{heure_run:02d}.npy"
     )
-     # # Récupère tig  
+     # # Récupère tigECM  
     tt = time.strptime(f"{date_run}{heure_run:02d}", "%Y%m%d%H")
-    tig = calendar.timegm(tt)     # secondes unix (UTC)
+    tigECM = calendar.timegm(tt)     # secondes unix (UTC)
    
-    return filename, tig
-
-
-steps_3h_ecmwf = list(range(0, 147, 3))      # 0,3,...,144
-steps_6h_ecmwf = list(range(150, 361, 6))    # 150,156,...,360
-iprev_ecmwf_heures = steps_3h_ecmwf + steps_6h_ecmwf
-steps_h= steps_3h_ecmwf + steps_6h_ecmwf
-
+    return filename, tigECM
 
 
 def charge_ecmwf_npy(fileName):
@@ -2473,8 +2463,8 @@ def prevision_ecmwf_dtig(GR, dtig, lat0, lon0):
     v10=np.imag(res)
 
     tig0 = GR[0, 0, 0, 0] * 100.0
-    print ('Temps de base du grib ',time.strftime("%d %b %H:%M ",time.localtime(float(tig0))))
-    print ('indices dans ECMWF2{} {} {} u10 {} v10 {} '.format(iitemp,   lati,    loni,u10,v10))
+    # print ('Temps de base du grib ',time.strftime("%d %b %H:%M ",time.localtime(float(tig0))))
+    # print ('indices dans ECMWF2{} {} {} u10 {} v10 {} '.format(iitemp,   lati,    loni,u10,v10))
 
     vitesses, angles = vitangle(res)
     return vitesses, angles
@@ -2500,4 +2490,266 @@ def vitangle(res):
         angles = angles[0]
 
     return vitesses, angles   
+
+
+# Calcul meteo pour GFS
+#________________________________
+
+class GFS025InterpGPU_721:
+    """
+    GFS 0.25°: GRGFS (n_steps, 721, 1440, 2), pas temps 3h.
+    Interpolation temps + bilinéaire espace, puis vitesse (kn) + direction FROM (0..360, nord horaire).
+    """
+
+    def __init__(self, GRGFS: torch.Tensor, clamp_min_kn=1.0, clamp_max_kn=70.0, dt_step_h=3.0):
+        assert GRGFS.ndim == 4 and GRGFS.shape[-1] == 2, "GRGFS doit être (n_steps, 721, 1440, 2)"
+        self.GRGFS = GRGFS
+        self.device = GRGFS.device
+        self.dtype = GRGFS.dtype
+
+        self.n_steps, self.ny, self.nx, _ = GRGFS.shape
+        assert self.ny == 721 and self.nx == 1440, f"attendu (721,1440), reçu ({self.ny},{self.nx})"
+
+        self.dt_step_h = float(dt_step_h)
+        self.scale = 4.0  # 0.25° => 4 points/deg
+
+        self.clamp_min = float(clamp_min_kn)
+        self.clamp_max = float(clamp_max_kn)
+
+        self._one = torch.tensor(1.0, device=self.device, dtype=torch.float32)
+        self._rad2deg = 180.0 / math.pi
+
+    @torch.no_grad()
+    def __call__(self, dtig, lat0, lon0, return_uv=False):
+        GRGFS = self.GRGFS
+
+        lat = torch.as_tensor(lat0, dtype=torch.float32, device=self.device).reshape(-1)
+        lon = torch.as_tensor(lon0, dtype=torch.float32, device=self.device).reshape(-1)
+        dt  = torch.as_tensor(dtig, dtype=torch.float32, device=self.device).reshape(-1)
+
+        # broadcast minimal
+        if dt.numel() == 1 and lat.numel() > 1:
+            dt = dt.expand_as(lat)
+        if lat.numel() == 1 and dt.numel() > 1:
+            lat = lat.expand_as(dt)
+            lon = lon.expand_as(dt)
+
+        # ----- indices espace -----
+        # y_f in [0..720] si lat in [90..-90]
+        y_f = (90.0 - lat) * self.scale
+        x_f = torch.remainder(lon, 360.0) * self.scale  # périodique
+
+        iy = torch.floor(y_f).to(torch.long)
+        ix = torch.floor(x_f).to(torch.long)
+
+        # pour accéder iy+1, on clip iy dans [0..ny-2] = [0..719]
+        iy = torch.clamp(iy, 0, self.ny - 2)
+        # pour ix on fait wrap périodique, mais ix doit être dans [0..nx-1]
+        ix = torch.remainder(ix, self.nx)
+
+        iy1 = iy + 1
+        ix1 = torch.remainder(ix + 1, self.nx)
+
+        dy = torch.clamp(y_f - iy.to(torch.float32), 0.0, 1.0)
+        dx = torch.clamp(x_f - ix.to(torch.float32), 0.0, 1.0)
+
+        ax = self._one - dx
+        ay = self._one - dy
+
+        # ----- temps -----
+        t = (dt / 3600.0) / self.dt_step_h  # pas de 3h
+        it = torch.floor(t).to(torch.long)
+        wt = torch.clamp(t - it.to(torch.float32), 0.0, 1.0)
+        it = torch.clamp(it, 0, self.n_steps - 2)
+
+        # ----- 4 coins (temps interpolé), u/v séparés -----
+        u00 = GRGFS[it,   iy,  ix,  0] + wt * (GRGFS[it+1, iy,  ix,  0] - GRGFS[it,   iy,  ix,  0])
+        v00 = GRGFS[it,   iy,  ix,  1] + wt * (GRGFS[it+1, iy,  ix,  1] - GRGFS[it,   iy,  ix,  1])
+
+        u01 = GRGFS[it,   iy,  ix1, 0] + wt * (GRGFS[it+1, iy,  ix1, 0] - GRGFS[it,   iy,  ix1, 0])
+        v01 = GRGFS[it,   iy,  ix1, 1] + wt * (GRGFS[it+1, iy,  ix1, 1] - GRGFS[it,   iy,  ix1, 1])
+
+        u10 = GRGFS[it,   iy1, ix,  0] + wt * (GRGFS[it+1, iy1, ix,  0] - GRGFS[it,   iy1, ix,  0])
+        v10 = GRGFS[it,   iy1, ix,  1] + wt * (GRGFS[it+1, iy1, ix,  1] - GRGFS[it,   iy1, ix,  1])
+
+        u11 = GRGFS[it,   iy1, ix1, 0] + wt * (GRGFS[it+1, iy1, ix1, 0] - GRGFS[it,   iy1, ix1, 0])
+        v11 = GRGFS[it,   iy1, ix1, 1] + wt * (GRGFS[it+1, iy1, ix1, 1] - GRGFS[it,   iy1, ix1, 1])
+
+        # bilinéaire
+        u = u00 * ax * ay + u01 * dx * ay + u10 * ax * dy + u11 * dx * dy
+        v = v00 * ax * ay + v01 * dx * ay + v10 * ax * dy + v11 * dx * dy
+
+        # ----- knots + direction FROM -----
+        vit_kn = torch.sqrt(u*u + v*v) * KNOTS
+        vit_kn = torch.clamp(vit_kn, min=self.clamp_min, max=self.clamp_max)
+
+        ang_math = torch.atan2(v, u) * self._rad2deg
+        ang_from  = torch.remainder(270.0 - ang_math, 360.0)  # towards, nav
+        #ang_tow = torch.remainder(ang_tow + 180.0, 360.0)   # from
+
+        vit_kn = vit_kn.to(self.dtype)
+        ang_from = ang_from.to(self.dtype)
+
+        if return_uv:
+            return vit_kn, ang_from, u.to(self.dtype), v.to(self.dtype)
+        return vit_kn, ang_from
+
+
+
+def build_gfs_interp():
+    global gfs_interp, GRGFS_gpu
+
+    gfs_interp = GFS025InterpGPU_721(GRGFS_gpu)
+    gfs_interp.__call__ = torch.compile(gfs_interp.__call__, mode="reduce-overhead")
+
+    # warmup
+    lat512 = torch.empty(512, device="cuda", dtype=torch.float32)
+    lon512 = torch.empty(512, device="cuda", dtype=torch.float32)
+    dtig   = torch.tensor(3600.0, device="cuda")
+    for _ in range(10):
+        gfs_interp(dtig, lat512, lon512)
+    torch.cuda.synchronize()
+
+
+
+
+
+# Calcul meteo pour ECMWF
+#________________________________
+
+class ECMWFInterpGPU:
+    """
+    Interpolation (temps + bilinéaire) sur GRECM ECMWF (n_steps, ny, nx, 2)
+    + conversion directe en (vitesse_kn, dir_from_deg).
+    steps_h constant: stocké une fois sur GPU.
+    """
+
+    def __init__(self, GRECM: torch.Tensor, steps_h, clamp_min_kn=1.0, clamp_max_kn=70.0):
+        assert GRECM.ndim == 4 and GRECM.shape[-1] == 2, "GRECM doit être (n_steps, ny, nx, 2)"
+        self.GRECM = GRECM
+        self.device = GRECM.device
+        self.dtype = GRECM.dtype
+
+        self.steps = torch.as_tensor(steps_h, dtype=torch.float32, device=self.device)
+        self.clamp_min = float(clamp_min_kn)
+        self.clamp_max = float(clamp_max_kn)
+
+        _, ny, nx, _ = GRECM.shape
+        self.ny = ny
+        self.nx = nx
+
+        # constantes grille
+        self.dlat = 180.0 / (ny - 1)
+        self.dlon = 360.0 / nx
+        self.lat_max = 90.0
+
+        # constantes torch pour éviter recréation
+        self._one = torch.tensor(1.0, device=self.device, dtype=torch.float32)
+        self._rad2deg = 180.0 / math.pi
+
+    @torch.no_grad()
+    def __call__(self, dtig, lat0, lon0, return_uv=False):
+        GRECM = self.GRECM
+        steps = self.steps
+
+        lat = torch.as_tensor(lat0, dtype=torch.float32, device=self.device).reshape(-1)
+        lon = torch.as_tensor(lon0, dtype=torch.float32, device=self.device).reshape(-1)
+        dt  = torch.as_tensor(dtig, dtype=torch.float32, device=self.device).reshape(-1)
+
+        # broadcast minimal (comme ta version numpy)
+        if dt.numel() == 1 and lat.numel() > 1:
+            dt = dt.expand_as(lat)
+        if lat.numel() == 1 and dt.numel() > 1:
+            lat = lat.expand_as(dt)
+            lon = lon.expand_as(dt)
+
+        # --- TEMPS ---
+        t_hours = dt / 3600.0
+        idx = torch.searchsorted(steps, t_hours, right=True) - 1
+        idx = torch.clamp(idx, 0, steps.numel() - 2).to(torch.long)
+
+        step0 = steps[idx]
+        step1 = steps[idx + 1]
+        dt_step = step1 - step0
+        dt_step = torch.where(dt_step == 0, torch.ones_like(dt_step), dt_step)
+        w = torch.clamp((t_hours - step0) / dt_step, 0.0, 1.0)  # poids temporel
+
+        # --- ESPACE ---
+        lat_idx_f = (self.lat_max - lat) / self.dlat
+        lon360 = torch.remainder(lon, 360.0)
+        lon_idx_f = lon360 / self.dlon
+
+        iy = torch.floor(lat_idx_f).to(torch.long)
+        ix = torch.floor(lon_idx_f).to(torch.long)
+
+        iy = torch.clamp(iy, 0, self.ny - 2)
+        ix = torch.clamp(ix, 0, self.nx - 2)
+
+        iy1 = iy + 1
+        ix1 = ix + 1
+
+        dx = lon_idx_f - ix.to(torch.float32)
+        dy = lat_idx_f - iy.to(torch.float32)
+        ax = self._one - dx
+        ay = self._one - dy
+
+        # --- 4 coins (temps interpolé), puis bilinéaire ---
+        # coin (iy,ix)
+        u00 = GRECM[idx,   iy,  ix,  0] + w * (GRECM[idx+1, iy,  ix,  0] - GRECM[idx,   iy,  ix,  0])
+        v00 = GRECM[idx,   iy,  ix,  1] + w * (GRECM[idx+1, iy,  ix,  1] - GRECM[idx,   iy,  ix,  1])
+
+        # coin (iy,ix1)
+        u01 = GRECM[idx,   iy,  ix1, 0] + w * (GRECM[idx+1, iy,  ix1, 0] - GRECM[idx,   iy,  ix1, 0])
+        v01 = GRECM[idx,   iy,  ix1, 1] + w * (GRECM[idx+1, iy,  ix1, 1] - GRECM[idx,   iy,  ix1, 1])
+
+        # coin (iy1,ix)
+        u10 = GRECM[idx,   iy1, ix,  0] + w * (GRECM[idx+1, iy1, ix,  0] - GRECM[idx,   iy1, ix,  0])
+        v10 = GRECM[idx,   iy1, ix,  1] + w * (GRECM[idx+1, iy1, ix,  1] - GRECM[idx,   iy1, ix,  1])
+
+        # coin (iy1,ix1)
+        u11 = GRECM[idx,   iy1, ix1, 0] + w * (GRECM[idx+1, iy1, ix1, 0] - GRECM[idx,   iy1, ix1, 0])
+        v11 = GRECM[idx,   iy1, ix1, 1] + w * (GRECM[idx+1, iy1, ix1, 1] - GRECM[idx,   iy1, ix1, 1])
+
+        # bilinéaire
+        u = u00 * ax * ay + u01 * dx * ay + u10 * ax * dy + u11 * dx * dy
+        v = v00 * ax * ay + v01 * dx * ay + v10 * ax * dy + v11 * dx * dy
+
+        # --- vitesse + direction FROM ---
+        vit_kn = torch.sqrt(u*u + v*v) * KNOTS
+        vit_kn = torch.clamp(vit_kn, min=self.clamp_min, max=self.clamp_max)
+
+
+        
+        # ang_math = torch.atan2(v, u) * self._rad2deg               # 0=Est, CCW
+        # ang_tow  = torch.remainder(270.0 - ang_math, 360.0)        # 0=N, CW (towards)
+        # ang_from = torch.remainder(ang_tow + 180.0, 360.0)         # from
+
+        ang_math = torch.atan2(v, u) * (180.0 / math.pi)
+        ang_from = torch.remainder(270.0 - ang_math, 360.0)
+
+
+        
+        # même dtype que GRECM si tu veux homogénéité
+        vit_kn = vit_kn.to(self.dtype)
+        ang_from = ang_from.to(self.dtype)
+
+        if return_uv:
+            return vit_kn, ang_from, u.to(self.dtype), v.to(self.dtype)
+        return vit_kn, ang_from
+
+
+def build_ecm_interp():
+    global ecm_interp, GRECM_gpu,steps_h
+
+    ecm_interp = ECMWFInterpGPU(GRECM_gpu,steps_h)
+    ecm_interp.__call__ = torch.compile(ecm_interp.__call__, mode="reduce-overhead")
+
+    # warmup
+    lat512 = torch.empty(512, device="cuda", dtype=torch.float32)
+    lon512 = torch.empty(512, device="cuda", dtype=torch.float32)
+    dtigECM   = torch.tensor(3600.0, device="cuda")
+    for _ in range(10):
+        ecm_interp(dtigECM, lat512, lon512)
+    torch.cuda.synchronize()
+
 

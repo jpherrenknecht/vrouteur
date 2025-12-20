@@ -571,7 +571,19 @@
     <span> Hvmg + <input class="classinput2" type="number" id="tolerancehvmg" min="0" max="10" step="1" value="0">°</span>
     <span> RetardPeno <input class="classinput3" type="number" id="retardpeno" min="0" max="7200" step="300" value="0"> </span><br>
 
-    <div   id ='dategrib' class='dategrib' > Grib :  </div><br>
+    <div   id ='dategrib' class='dategrib' > Grib :  </div>
+    <label>
+    <input type="radio" name="routage_mode" id="routage_gfs" value="gfs" checked>
+    GFS
+    </label>
+
+    <label>
+    <input type="radio" name="routage_mode" id="routage_mixte" value="mixte">
+    Mixte
+    </label>
+
+   
+    <br>
     <div align='center'>
     <button  id='lancerRoutage' class='blackwhite11' value='Lancer le routage' > Lancer le Routage </button>
   
@@ -2363,7 +2375,7 @@
 
 
 
-            async function calculeroutage(username,y0, x0, heuredepart, waypoints, ari, cocheexclusions) {
+            async function calculeroutage(username,y0, x0, heuredepart, waypoints, ari, cocheexclusions,mode) {
                 // on va tout transmettre sauf waypoints qui est deja dans personalinfos pour eviter d avoir a faire 2 versions completement differentes 
                 let isMe = 'yes'
                 usernameRoutage=username
@@ -2401,7 +2413,7 @@
                     progressbar(y0, x0, latcible, loncible)
                 }
 
-                url = serveur + `/calculeroutage?course=${course}&user_id=${user_id}&isMe=${isMe}&username=${username}&y0=${y0}&x0=${x0}&t0=${heuredepart}&ari=${strari}&retardpeno=${retardpeno}&tolerancehvmg=${tolerancehvmg}&cocheexclusions=${cocheexclusions}&optionroutage=${optionroutage}`
+                url = serveur + `/calculeroutage?course=${course}&user_id=${user_id}&isMe=${isMe}&username=${username}&y0=${y0}&x0=${x0}&t0=${heuredepart}&ari=${strari}&retardpeno=${retardpeno}&tolerancehvmg=${tolerancehvmg}&cocheexclusions=${cocheexclusions}&optionroutage=${optionroutage}&mode=${mode}`
 
                 //console.log('t0 issu de calculeroutage et transmis par l url  ' + intlhmn.format((heuredepart * 1000)))
 
@@ -6119,10 +6131,9 @@ function recupereRoutes(personalInfosJS) {
 
             var lancerRoutage = document.getElementById('lancerRoutage')
             lancerRoutage.addEventListener("click", function (evt) {   // on va recuperer les donnees du routage  sur l interface
-
-
-                console.log('\n Lancement d\'un routage')
-                console.log('Ligne 5811 user_id ' + user_id)
+                const mode = document.querySelector( 'input[name="routage_mode"]:checked'  ).value;
+                console.log('\n Lancement d\'un routage mode '+mode+' pour user _id'+user_id)
+               
                 var { lat, lng } = recuperecoordsdep();
                 console.log('lat lng' + lat + ' ' + lng)
                 //var trajetsencours = JSON.parse(localStorage.getItem("memoiretrajets"))  // on recupere le tableau des waypoints 
@@ -6135,11 +6146,7 @@ function recupereRoutes(personalInfosJS) {
                 if (ari == []) { ari = ['Arrivee']; }    //Si on a oublié de cocher une case       
 
                 console.log('ligne 4364 ari ' + ari)
-
                 heuredepart = document.getElementById('datetime').value     // on recupere l heure de depart 
-
-
-
                 console.log("Valeurs des WP selectionnés : ari = ", ari);
                 console.log('y0, ' + y0 + ' x0 ' + x0)
                 console.log(waypoints)
@@ -6159,7 +6166,7 @@ function recupereRoutes(personalInfosJS) {
                 x0 = lng
                 // on demande le routage
                 username2=username
-                calculeroutage(username,lat, lng, heuredepart, waypoints, ari, cocheexclusions)
+                calculeroutage(username,lat, lng, heuredepart, waypoints, ari, cocheexclusions,mode)
                 // chercheprogsvr(user_id,course,heuredepart+120)
             });
 
@@ -6797,7 +6804,7 @@ function recupereRoutes(personalInfosJS) {
                 usernameRoutage= name
                 console.log ( name, lat, lon, heuredepart, waypoints, ari, cocheexclusions )
 
-                calculeroutage( name, lat, lon, heuredepart, waypoints, ari, cocheexclusions );
+                calculeroutage( name, lat, lon, heuredepart, waypoints, ari, cocheexclusions,mode );
             }
             catch (err) {
                 console.error("Erreur dans autreroutage :", err);
