@@ -236,7 +236,6 @@
         var retardpeno = 0;
         var eta;
         var dureeroutage;
-        var heuredepart;
 
 
         // Variables generales 
@@ -291,7 +290,6 @@
         var lgMarkers = new L.LayerGroup()
         var lgDashLines = new L.LayerGroup()
         var routageLayer = new L.LayerGroup()
-        var routageECMLayer = new L.LayerGroup()
         var boatMarkers = new L.LayerGroup()
         var fleetMarkers = new L.LayerGroup()
         var layerExclusions = new L.LayerGroup()
@@ -574,12 +572,14 @@
     <span> RetardPeno <input class="classinput3" type="number" id="retardpeno" min="0" max="7200" step="300" value="0"> </span><br>
 
     <div   id ='dategrib' class='dategrib' > Grib :  </div>
-    <label>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
-    GFS<input type="radio" name="routage_mode" id="routage_gfs" value="gfs" checked>    
+    <label>
+    <input type="radio" name="routage_mode" id="routage_gfs" value="gfs" checked>
+    GFS
     </label>
 
     <label>
-    Mixte <input type="radio" name="routage_mode" id="routage_mixte" value="mixte">
+    <input type="radio" name="routage_mode" id="routage_mixte" value="mixte">
+    Mixte
     </label>
 
    
@@ -589,10 +589,7 @@
   
    
     <progress value='0' min='0' max='100' id ='progress'></progress>
-   GFS <input type='checkbox' id='showroutage' name='showroutage'   checked  />
-   Mixte <input type='checkbox' id='showmixte' name='showmixte'   checked  />
-   
-    <br>
+   Trace <input type='checkbox' id='showroutage' name='showroutage'   checked  /> <br>
    <span id='eta' class='eta'></span> 
    <span id='dureeeta'></span>
    <span  id='detailroute2'></span><br>
@@ -2395,7 +2392,7 @@
 
 
                 console.log('On est dans calculeroutage')
-               
+                routageLayer.clearLayers()
                 isochronesLayer.clearLayers()
                 strari = JSON.stringify(ari)
                 const select = document.getElementById('iddepart');
@@ -2438,9 +2435,6 @@
                 console.log('t0routage issu de calculeroutage ' + hmns.format((t0routage * 1000)))
 
                 // affichage de la route avec les tooltips 
-
-                if (mode=='gfs'){
-                     routageLayer.clearLayers()
                 for (var i = 1; i <= tabroutage.length - 1; i++)                // on affiche les nouveaux points mais pas le premier pas necessaire 
                 {
                     couleur = colors[tabroutage[i][10]]
@@ -2463,60 +2457,33 @@
                         .bindTooltip(tooltipprog[i]).bindPopup(tooltipprog[i]).addTo(routageLayer)
                 }
 
+
+
+
+
                 for (var i = 0; i <= tabroutage.length - 2; i++)                // on affiche les nouveaux points mais pas le premier pas necessaire 
                 {
                     couleur = colors[tabroutage[i][10]]
                     polyglobal[i] = L.polyline([[tabroutage[i][2], tabroutage[i][3]], [tabroutage[i + 1][2], tabroutage[i + 1][3]]], { color: couleur, weight: 1 }).addTo(routageLayer);
                 }
 
+
+
+
+
+
                 routageLayer.addTo(map)
 
-                }
-                        // affichage des isochrones 
 
+                // console.log('dicoIsochrones')
+                // console.log(dicoIsochrones[0])
+                // console.log(dicoIsochrones[1])
+                // console.log(dicoIsochrones.length)
 
-if (mode=='mixte'){
-                     routageECMLayer.clearLayers()
-                for (var i = 1; i <= tabroutage.length - 1; i++)                // on affiche les nouveaux points mais pas le premier pas necessaire 
-                {
-                    couleur = colors[tabroutage[i][10]]
-                    voile = tabroutage[i][10]
-                    nomvoile = typeVoilesShort[voile]
-                    twa = tabroutage[i][5].toFixed(2)
-                    tws = tabroutage[i][12].toFixed(2)
-                    twd = tabroutage[i][13].toFixed(2)
-                    cap = tabroutage[i][6].toFixed(2)
-                    date = intlhmn.format((t0routage + tabroutage[i][1]) * 1000)
-                    vmgmin = tabroutage[i][7].toFixed(2)
-                    vmgmax = tabroutage[i][8].toFixed(2)
-                    vmg = twa < 90 ? vmgmin : vmgmax
-
-                    tooltipprog[i] = '<b> Point ' + i + ' le ' + date + ' <br>(Routage du ' + intlhmn.format((heuredepart * 1000)) + ')</b>  <br> Twa ' + twa + '°  Vmg ' + vmg + '°<br>Tws ' + tws + ' Twd ' + twd + ' <br>Cap : ' + cap + '  Voile :' + nomvoile              // le temps est en position 3
-                    tourcol = 'red'; opac = 1; poids = 1; fillopac = 0.5; fillCol = couleur; rayon = 10;       // valeur par defaut  
-                    if (i % 10 == 0) { rayon = 20, tourcol = 'red'; fillopac = 0.5 }              // tous les 10    
-                    if (tabroutage[i][1] % 3600 == 0) { tourcol = 'black'; rayon = 50, fillopac = 0.5 }                    // toutes les heures 
-                    circleprog[i] = L.circle([tabroutage[i][2], tabroutage[i][3]], { fillColor: fillCol, color: tourcol, weight: poids, opacity: opac, fillOpacity: fillopac, radius: rayon, })
-                        .bindTooltip(tooltipprog[i]).bindPopup(tooltipprog[i]).addTo(routageECMLayer)
-                }
-
-                for (var i = 0; i <= tabroutage.length - 2; i++)                // on affiche les nouveaux points mais pas le premier pas necessaire 
-                {
-                    couleur = colors[tabroutage[i][10]]
-                    polyglobal[i] = L.polyline([[tabroutage[i][2], tabroutage[i][3]], [tabroutage[i + 1][2], tabroutage[i + 1][3]]], { color: couleur, weight: 1 }).addTo(routageECMLayer);
-                }
-
-                routageECMLayer.addTo(map)
-
-                }
-
-
-
-
-
-
+                // affichage des isochrones 
 
                 isochronesLayer.clearLayers()
-          
+
                 // if (Array.isArray(dicoIsochrones)) {
                 //     console.log("C'est un tableau, longueur =", dicoIsochrones.length);
                 // } else if (typeof dicoIsochrones === 'object') {
@@ -3143,7 +3110,6 @@ if (mode=='mixte'){
             //**********************************************************************************************************************************
 
             var routageLayer = L.layerGroup().addTo(map);
-            var routageECMLayer= L.layerGroup().addTo(map);
             var polylines = {}; // Objet pour stocker les polylines
             let routes = [];  // Tableau global contenant toutes les routes
 
@@ -4682,10 +4648,7 @@ function recupereRoutes(personalInfosJS) {
                 tsLastAction = posStart.tsLastAction
                 t0 = posStart.t0
                 course = race + '.' + leg
-                // on va recuperer ari dans le dernier trajet dans memoire trajets
-                tableau=trouvetrajet(username, course)
-                ari=tableau[11]
-                console.log ('On aa retrouvé ari '+ari)
+
                 //on initialise un trajet en localstorage
 
 
@@ -4713,8 +4676,6 @@ function recupereRoutes(personalInfosJS) {
 
                 if (sourceinfos != 'dash') { trajet = trouvederniertrajet() }   // trouve le dernier trajet pour le charger
                 else {
-
-                    // il faut recuperer ari 
                     await maindash(posStart)
                     username = posStart.username
                     teamname = posStart.teamname
@@ -4738,7 +4699,7 @@ function recupereRoutes(personalInfosJS) {
                         // on remet à jour les dernières valeurs communiquées  
                         ari = trajet[11]
                         waypoints = trajet[12]                    // liste globale des waypoints 
-                        console.log ('dans main ari '+ari)
+
                         console.log('Heure dernière position ' + intlhmn.format((t0)))
                     }
 
@@ -4822,7 +4783,9 @@ function recupereRoutes(personalInfosJS) {
 
                 affichewaypoints2(personalInfosJS)
                 afficheZonesExclusions(personalInfosJS)
+
                 afficheBarrieres(personalInfosJS)
+
                 recupereRoutes(personalInfosJS)
 
                 waypoints = Object.values(personalInfosJS.wp).sort((a, b) => a[0] - b[0]);
@@ -4832,7 +4795,9 @@ function recupereRoutes(personalInfosJS) {
                 // console.log('ligne 3971 waypoints ' + waypoints + ' ari ' + ari)
                 afficheselectarrivee(waypoints, ari)// on affiche le select arrivee avec les waypoints et ceux selectionnes  contenus dans localstorage
 
-                if (typeof ari === "undefined") { ari = ['Arrivee']; }
+                if (typeof ari === "undefined") {
+                    ari = ['Arrivee'];
+                }
 
 
                 // ici on peut afficher les coordonnees du dernier wp selectionné qui est le dernier element de ari 
@@ -5016,7 +4981,6 @@ function recupereRoutes(personalInfosJS) {
                 console.log('username2 ' + username)
                 course = document.getElementById('idcourse').value
                 routageLayer.clearLayers()
-                routageECMLayer.clearLayers()
                 boatMarkers.clearLayers()
                 fleetMarkers.clearLayers()
                 layerExclusions.clearLayers()
@@ -5194,7 +5158,6 @@ function recupereRoutes(personalInfosJS) {
                 lgMarkers.clearLayers();
                 lgDashLines.clearLayers();
                 routageLayer.clearLayers();
-                routageECMLayer.clearLayers();
                 boatMarkers.clearLayers();
                 layerExclusions.clearLayers();
                 WpCirclesLayer.clearLayers();
@@ -5229,8 +5192,8 @@ function recupereRoutes(personalInfosJS) {
 
 
                 // on affiche le selectcourse   avec la valeur de la course 
-                let tabValeurs  = tabNameCourses.map(subArray => subArray[0]);
-                let tabNoms     = tabNameCourses.map(subArray => subArray[1]);
+                let tabValeurs = tabNameCourses.map(subArray => subArray[0]);
+                let tabNoms = tabNameCourses.map(subArray => subArray[1]);
                 let coursesUser = await cherchecoursesuser(username) // on cherche les courses en cours du username
 
                 console.log('coursesUser issues du serveur :')
@@ -5241,9 +5204,6 @@ function recupereRoutes(personalInfosJS) {
                     course = tabNameCourses[0][0];
                     coursesUser = [course]
                 }
-
-
-
                 var selectcourse = generateSelect('idcourse', tabValeurs, tabNoms, coursesUser, course, 'limited-width-select-200')
                 document.getElementById('idselectcourse').innerHTML = selectcourse
 
@@ -5256,15 +5216,7 @@ function recupereRoutes(personalInfosJS) {
                 affichewaypoints2(personalInfosJS)
                 waypoints = Object.values(personalInfosJS.wp).sort((a, b) => a[0] - b[0]);
                 nomsWaypoints = waypoints.map(item => item[1]);
-                
-                // si ari etait implemente dans personalinfos 
                 ari = personalInfosJS['ari']
-
-                // sinon on va aller cherchertrajet dans lamemoire trajet 
-                // trajet = trouvetrajet(username, course)
-                // ari=trajet[11]
-                // console.log('valeur de ari dans changementcourse'+ari)
-
                 afficheselectarrivee(waypoints, ari)// on affiche le select arrivee avec les waypoints et ceux selectionnes  
                 // ici on peut afficher les coordonnneses du dernier wp selectionné qui est le dernier element de ari 
                 nomdernierwp = ari[ari.length - 1]                                        // nom du dernier wp
@@ -5777,7 +5729,7 @@ function recupereRoutes(personalInfosJS) {
 
             // Ecouteur pour datetime de depart
             const datetimeInput = document.getElementById('datetime');
-            datetimeInput.value = getCurrentLocalDateTime();  // mise a l heure du champ depart routageheuredepart
+            datetimeInput.value = getCurrentLocalDateTime();  // mise a l heure du champ depart routage
             datetimeInput.addEventListener('change', () => {
                 unixTimestamp = datetimeLocalToUnix(datetimeInput.value);
                 console.log(`Nouvelle date sélectionnée : ${datetimeInput.value}`);
@@ -5902,21 +5854,6 @@ function recupereRoutes(personalInfosJS) {
                 if (showroutage.checked) { routageLayer.addTo(map);       }
                 else                     { map.removeLayer(routageLayer); }
             }
-
-
- 
-            const showmixte = document.getElementById('showmixte')
-            showmixte.addEventListener('change', toggleShowMixte)
-
-            function toggleShowMixte() { console.log ('showmixte declenché');
-                if (showmixte.checked) { routageECMLayer.addTo(map);       }
-                else                     { map.removeLayer(routageECMLayer); }
-            }
-
-
-
-
-
 
 
 
@@ -6093,7 +6030,7 @@ function recupereRoutes(personalInfosJS) {
                 }
 
 
-heuredepart
+
             });
 
 
@@ -6864,10 +6801,8 @@ heuredepart
                 const name = decodeURIComponent(encodedName);
                 const waypoints = JSON.parse(decodeURIComponent(encodedWaypoints));
                 const ari = JSON.parse(decodeURIComponent(encodedAri));
-                usernameRoutage= name;
-                heuredepart=t0
-                const mode = document.querySelector('input[name="routage_mode"]:checked').value;
-                console.log ( name, lat, lon, heuredepart, waypoints, ari, cocheexclusions,mode )
+                usernameRoutage= name
+                console.log ( name, lat, lon, heuredepart, waypoints, ari, cocheexclusions )
 
                 calculeroutage( name, lat, lon, heuredepart, waypoints, ari, cocheexclusions,mode );
             }

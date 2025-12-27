@@ -812,19 +812,45 @@ def rechercheTablePersonalInfos(user_id, course):
 
 
 
-def get_last_50(conn):
-    sql = """
-        SELECT *
-        FROM historoutages
-        ORDER BY timestamp ASC
-        LIMIT 50
-    """
-    with conn.cursor() as cur:
-        cur.execute(sql)
-        return cur.fetchall()
+# def get_last_50(conn):
+#     sql = """
+#         SELECT *
+#         FROM historoutages
+#         ORDER BY timestamp ASC
+#         LIMIT 50
+#     """
+#     with conn.cursor() as cur:
+#         cur.execute(sql)
+#         return cur.fetchall()
     
 
 
-print()
-rows=get_last_50(conn)
-print_results_pretty(rows)
+# def safe_str(value):
+#     return "" if value is None else str(value)
+
+# def format_ts(ts):
+#     if ts is None:
+#         return ""
+#     return datetime.fromtimestamp(ts).strftime("%d/%m %H:%M")
+
+# def print_results(rows):
+#     for row in rows:
+#         id_, ts, user, course, user_id, status, hd, lat, lon, eta = row
+#         print(
+#             f"{id_:4} | "
+#             f"{format_ts(ts):12} | "
+#             f"{safe_str(user):25} | "
+#             f"{safe_str(course):8} | "
+#             f"{safe_str(user_id):8} | "
+#             f"Status={safe_str(status):8} | "
+#             f"Depart {format_ts(hd):12} | "
+#             f"lat : {lat:8.4f} | "
+#             f"lon : {lon:9.4f} | "
+#             f"Arrivee={format_ts(eta):12}"
+#         )
+
+
+# print()
+# rows=get_last_50(conn)
+# print (rows)
+# print_results(rows)

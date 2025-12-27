@@ -2,7 +2,7 @@ em {font-weight:600;}
 
 #windy      { width: 100%; height: 100%;}
 #container  {width:1920px; margin:0 auto;font-family : Arial;}
-#progress   { visibility :block; z-index:11;}
+#progress   { visibility :block; z-index:11;width:110px; }
 #capsimul   {color:green;font-weight:600;}
 #twasimul   {color:red;font-weight:600;}
 #divzezo   {color:blue; font-size:12px;font-weight:600;text-decoration: underline;}

@@ -31,8 +31,8 @@ pg_pool = pool.SimpleConnectionPool(
 conn = pg_pool.getconn()
 cursor = conn.cursor()
 
-basedirnpy='/home/jp/static/npy/'
-
+basedirnpy          ='/home/jp/static/npy/'
+basedirGribsECMWF   = "/home/jp/gribslocaux/ecmwf/"
 # from scipy.interpolate import RegularGridInterpolator,interp2d,interpn
 # from shapely.geometry import (LineString, MultiLineString, MultiPoint, Point,Polygon)
 # from shapely.ops import unary_union
@@ -43,6 +43,7 @@ basedirnpy='/home/jp/static/npy/'
 basedir = os.path.abspath(os.path.dirname("__file__"))
 typevoile=['Jib','Spi','Sta','LJ ','C0 ', 'HG ','LG ']
 R = 6371.000    # Rayon moyen de la Terre (en km)
+KNOTS = 1.94384
 
 filename='/home/jp/staticLocal/cumsum/sequenceglobale.pt'
 sequences2 = torch.load(filename,map_location="cuda:0")                     # sequences2 fait 87 Mo imp
@@ -2058,15 +2059,9 @@ def print_results_pretty(rows):
             f"ETA {format_time(eta):12}"
         )
     return None    
-
-
-
-
 #__________________________________________________________________________________
-# Partie GFS
+# Partie gfs
 #_________________________________________________________________________________
-
-
 
 def dateheure(filename):
     '''retourne la date et heure du fichier grib a partir du nom'''
@@ -2085,7 +2080,6 @@ def dateheure(filename):
     tigt=datetime(year,month,day,int(heure),0, 0)
     tig=time.mktime(tigt.timetuple()) +decalage*3600 # en secondes UTC
     return date,heure,tig
-
 
 def gribFileName(basedir):
     ''' cherche le dernier grib complet disponible au temps en secondes '''
@@ -2113,171 +2107,105 @@ def gribFileName(basedir):
     date,heure,tig =dateheure(filename) 
     return filename,tig  
 
-
-def chargement_grib():
-    global GR,tig,heure
-    try:
-        # on essaye de charger sur serveur  A priori plus necessaire sur linux 3
-        fileName,tig=gribFileName(basedirGribs025)
-        heure= datetime.fromtimestamp(tig, tz=timezone.utc).hour
-        with open(fileName, 'rb') as f:
-                GR = np.load(f)           
-        print('Le grib 025  {} h+ {:3.0f}h            {}     a été chargé sur le site distant'.format(heure, GR[0,0,0,1]*3,fileName))
-        print 
-        return GR,tig
-
-    except:        
-        basedirgribs='/home/jp/gribslocaux/gribs025/'
-        fileName,tig=gribFileName(basedirgribs)
-        heure= datetime.fromtimestamp(tig, tz=timezone.utc).hour
-        try:
-            with open(fileName, 'rb') as f:
-                    GR = np.load(f)
-            print('Le grib 025 {} h+ {:3.0f}h            {}      a été chargé sur l ordi local  '.format(heure,GR[0,0,0,1]*3,fileName))
-            return 
-        except:
-            return    
-       
-
-
-
-
-def majgrib():
-    print('\nRecherche majgrib')
-    global GR,GR_cpu,GR_gpu,tig,heure
-    filename,derniertig=gribFileName(basedirGribs025) 
-    print('Dernier Indice chargé ',GR[0,0,0,1]*3,'h\n')
-    heure= datetime.fromtimestamp(derniertig, tz=timezone.utc).hour
-    if os.path.exists(filename) == True:
-
-    #  si pas sur dernier grib ou si moins de  360 h chargées
-   
-        if (derniertig!=GR[0,0,0,0]*100 )   or (int(GR[0,0,0,1]<120) ):
-            print('Rechargement du grib necessaire\n******************************')
-            GR,tig = chargement_grib()
-            print('Indice chargé',GR[0,0,0,1]*3,'h\n')
-            
-            tig=int(GR[0,0,0,0]*100)
-            GR[0,0,0,0]=0
-            GR_cpu = torch.from_numpy(GR)
-            GR_gpu = GR_cpu.to('cuda', non_blocking=True)   
-            GR[0,0,0,0]=int(tig)/100
-            return 
-    else:
-        print('Le fichier {}  n existe pas encore'.format(filename))
-        return
-
-
-
-
-
-
-
-
-
-
 #__________________________________________________________________________________
 # Partie ECMWF
 #_________________________________________________________________________________
 
 
-# Globals ECMWF
 
 
+# def majecmwf_npy(basedirGribsECMWF, device='cuda'):
+#     """
+#     Met à jour le cube ECMWF à partir du dernier fichier .npy disponible.
+#     Recharge si :
+#       - le tig du run a changé, ou
+#       - le fichier contient plus de steps que celui déjà chargé.
 
+#     Remplit les globals :
+#       GRECM, GRECM_cpu, GRECM_gpu,
+#       tig_ecmwf, steps_ecmwf, steps_ecmwf_t,
+#       lats_ecmwf, lons_ecmwf, lats_ecmwf_t, lons_ecmwf_t
+#     """
 
-def majecmwf_npy(basedirGribsECMWF, device='cuda'):
-    """
-    Met à jour le cube ECMWF à partir du dernier fichier .npy disponible.
-    Recharge si :
-      - le tig du run a changé, ou
-      - le fichier contient plus de steps que celui déjà chargé.
+#     global GRECM, GRECM_cpu, GRECM_gpu
+#     global tig_ecmwf, steps_ecmwf, steps_ecmwf_t
+#     global lats_ecmwf, lons_ecmwf, lats_ecmwf_t, lons_ecmwf_t
 
-    Remplit les globals :
-      GRECM, GRECM_cpu, GRECM_gpu,
-      tig_ecmwf, steps_ecmwf, steps_ecmwf_t,
-      lats_ecmwf, lons_ecmwf, lats_ecmwf_t, lons_ecmwf_t
-    """
+#     print("\nRecherche mise à jour ECMWF")
 
-    global GRECM, GRECM_cpu, GRECM_gpu
-    global tig_ecmwf, steps_ecmwf, steps_ecmwf_t
-    global lats_ecmwf, lons_ecmwf, lats_ecmwf_t, lons_ecmwf_t
+#     # Dernier fichier dispo
+#     fileName, derniertig = ecmwfFileNamenpy(basedirGribsECMWF)
 
-    print("\nRecherche mise à jour ECMWF")
+#     if not os.path.exists(fileName):
+#         print(f"Le fichier ECMWF {fileName} n'existe pas encore")
+#         return
 
-    # Dernier fichier dispo
-    fileName, derniertig = ecmwfFileNamenpy(basedirGribsECMWF)
+#     # Si jamais rien n'est encore chargé → on recharge forcément
+#     if GRECM is None or tig_ecmwf is None:
+#         print("Aucun ECMWF en mémoire → chargement initial")
+#         GRECM, tig0, steps_h, lats, lons = charge_ecmwf_npy(fileName)
 
-    if not os.path.exists(fileName):
-        print(f"Le fichier ECMWF {fileName} n'existe pas encore")
-        return
+#         tig_ecmwf   = int(tig0)       # base du run ECMWF (Unix)
+#         steps_ecmwf = steps_h         # numpy
+#         lats_ecmwf  = lats
+#         lons_ecmwf  = lons
 
-    # Si jamais rien n'est encore chargé → on recharge forcément
-    if GRECM is None or tig_ecmwf is None:
-        print("Aucun ECMWF en mémoire → chargement initial")
-        GRECM, tig0, steps_h, lats, lons = charge_ecmwf_npy(fileName)
+#         # Tensors
+#         GRECM_cpu = torch.from_numpy(GRECM)
+#         GRECM_gpu = GRECM_cpu.to(device, non_blocking=True)
 
-        tig_ecmwf   = int(tig0)       # base du run ECMWF (Unix)
-        steps_ecmwf = steps_h         # numpy
-        lats_ecmwf  = lats
-        lons_ecmwf  = lons
+#         steps_ecmwf_t = torch.from_numpy(steps_ecmwf).to(device, dtype=torch.float32)
+#         lats_ecmwf_t  = torch.from_numpy(lats_ecmwf).to(device, dtype=torch.float32)
+#         lons_ecmwf_t  = torch.from_numpy(lons_ecmwf).to(device, dtype=torch.float32)
 
-        # Tensors
-        GRECM_cpu = torch.from_numpy(GRECM)
-        GRECM_gpu = GRECM_cpu.to(device, non_blocking=True)
+#         print(f"ECMWF chargé : tig = {tig_ecmwf}, {len(steps_ecmwf)} steps")
+#         return
 
-        steps_ecmwf_t = torch.from_numpy(steps_ecmwf).to(device, dtype=torch.float32)
-        lats_ecmwf_t  = torch.from_numpy(lats_ecmwf).to(device, dtype=torch.float32)
-        lons_ecmwf_t  = torch.from_numpy(lons_ecmwf).to(device, dtype=torch.float32)
+#     # Sinon, on teste si on a besoin d'un rechargement
 
-        print(f"ECMWF chargé : tig = {tig_ecmwf}, {len(steps_ecmwf)} steps")
-        return
+#     # 1) Run plus récent ?
+#     besoin_rechargement = False
+#     if derniertig != tig_ecmwf:
+#         print("Nouveau run ECMWF détecté")
+#         besoin_rechargement = True
 
-    # Sinon, on teste si on a besoin d'un rechargement
+#     # 2) Ou même fichier, mais plus de steps (fichier réécrit avec steps supplémentaires)
+#     #    -> on recharge pour vérifier
+#     if not besoin_rechargement:
+#         GRECM_tmp, tig0_tmp, steps_h_tmp, lats_tmp, lons_tmp = charge_ecmwf_npy(fileName)
+#         if len(steps_h_tmp) > len(steps_ecmwf):
+#             print("Même run ECMWF mais plus de steps disponibles")
+#             besoin_rechargement = True
+#         else:
+#             print("ECMWF déjà à jour (même run, même nombre de steps)")
+#             return  # Rien à faire
 
-    # 1) Run plus récent ?
-    besoin_rechargement = False
-    if derniertig != tig_ecmwf:
-        print("Nouveau run ECMWF détecté")
-        besoin_rechargement = True
+#         # Si besoin_rechargement, on réutilisera ces données au lieu de relire le fichier
+#         GRECM_new   = GRECM_tmp
+#         tig0_new    = tig0_tmp
+#         steps_h_new = steps_h_tmp
+#         lats_new    = lats_tmp
+#         lons_new    = lons_tmp
+#     else:
+#         # Nouveau run → on relit proprement (tu peux factoriser avec au-dessus si tu veux)
+#         GRECM_new, tig0_new, steps_h_new, lats_new, lons_new = charge_ecmwf_npy(fileName)
 
-    # 2) Ou même fichier, mais plus de steps (fichier réécrit avec steps supplémentaires)
-    #    -> on recharge pour vérifier
-    if not besoin_rechargement:
-        GRECM_tmp, tig0_tmp, steps_h_tmp, lats_tmp, lons_tmp = charge_ecmwf_npy(fileName)
-        if len(steps_h_tmp) > len(steps_ecmwf):
-            print("Même run ECMWF mais plus de steps disponibles")
-            besoin_rechargement = True
-        else:
-            print("ECMWF déjà à jour (même run, même nombre de steps)")
-            return  # Rien à faire
+#     # Mise à jour des globals
+#     GRECM       = GRECM_new
+#     tig_ecmwf   = int(tig0_new)
+#     steps_ecmwf = steps_h_new
+#     lats_ecmwf  = lats_new
+#     lons_ecmwf  = lons_new
 
-        # Si besoin_rechargement, on réutilisera ces données au lieu de relire le fichier
-        GRECM_new   = GRECM_tmp
-        tig0_new    = tig0_tmp
-        steps_h_new = steps_h_tmp
-        lats_new    = lats_tmp
-        lons_new    = lons_tmp
-    else:
-        # Nouveau run → on relit proprement (tu peux factoriser avec au-dessus si tu veux)
-        GRECM_new, tig0_new, steps_h_new, lats_new, lons_new = charge_ecmwf_npy(fileName)
+#     GRECM_cpu = torch.from_numpy(GRECM)
+#     GRECM_gpu = GRECM_cpu.to(device, non_blocking=True)
 
-    # Mise à jour des globals
-    GRECM       = GRECM_new
-    tig_ecmwf   = int(tig0_new)
-    steps_ecmwf = steps_h_new
-    lats_ecmwf  = lats_new
-    lons_ecmwf  = lons_new
+#     steps_ecmwf_t = torch.from_numpy(steps_ecmwf).to(device, dtype=torch.float32)
+#     lats_ecmwf_t  = torch.from_numpy(lats_ecmwf).to(device, dtype=torch.float32)
+#     lons_ecmwf_t  = torch.from_numpy(lons_ecmwf).to(device, dtype=torch.float32)
 
-    GRECM_cpu = torch.from_numpy(GRECM)
-    GRECM_gpu = GRECM_cpu.to(device, non_blocking=True)
-
-    steps_ecmwf_t = torch.from_numpy(steps_ecmwf).to(device, dtype=torch.float32)
-    lats_ecmwf_t  = torch.from_numpy(lats_ecmwf).to(device, dtype=torch.float32)
-    lons_ecmwf_t  = torch.from_numpy(lons_ecmwf).to(device, dtype=torch.float32)
-
-    heure_run = datetime.fromtimestamp(tig_ecmwf, tz=timezone.utc).hour
-    print(f"ECMWF rechargé : run {heure_run:02d}Z, {len(steps_ecmwf)} steps")
+#     heure_run = datetime.fromtimestamp(tig_ecmwf, tz=timezone.utc).hour
+#     print(f"ECMWF rechargé : run {heure_run:02d}Z, {len(steps_ecmwf)} steps")
 
 
 
@@ -2617,139 +2545,6 @@ def build_gfs_interp():
 # Calcul meteo pour ECMWF
 #________________________________
 
-class ECMWFInterpGPU:
-    """
-    Interpolation (temps + bilinéaire) sur GRECM ECMWF (n_steps, ny, nx, 2)
-    + conversion directe en (vitesse_kn, dir_from_deg).
-    steps_h constant: stocké une fois sur GPU.
-    """
 
-    def __init__(self, GRECM: torch.Tensor, steps_h, clamp_min_kn=1.0, clamp_max_kn=70.0):
-        assert GRECM.ndim == 4 and GRECM.shape[-1] == 2, "GRECM doit être (n_steps, ny, nx, 2)"
-        self.GRECM = GRECM
-        self.device = GRECM.device
-        self.dtype = GRECM.dtype
-
-        self.steps = torch.as_tensor(steps_h, dtype=torch.float32, device=self.device)
-        self.clamp_min = float(clamp_min_kn)
-        self.clamp_max = float(clamp_max_kn)
-
-        _, ny, nx, _ = GRECM.shape
-        self.ny = ny
-        self.nx = nx
-
-        # constantes grille
-        self.dlat = 180.0 / (ny - 1)
-        self.dlon = 360.0 / nx
-        self.lat_max = 90.0
-
-        # constantes torch pour éviter recréation
-        self._one = torch.tensor(1.0, device=self.device, dtype=torch.float32)
-        self._rad2deg = 180.0 / math.pi
-
-    @torch.no_grad()
-    def __call__(self, dtig, lat0, lon0, return_uv=False):
-        GRECM = self.GRECM
-        steps = self.steps
-
-        lat = torch.as_tensor(lat0, dtype=torch.float32, device=self.device).reshape(-1)
-        lon = torch.as_tensor(lon0, dtype=torch.float32, device=self.device).reshape(-1)
-        dt  = torch.as_tensor(dtig, dtype=torch.float32, device=self.device).reshape(-1)
-
-        # broadcast minimal (comme ta version numpy)
-        if dt.numel() == 1 and lat.numel() > 1:
-            dt = dt.expand_as(lat)
-        if lat.numel() == 1 and dt.numel() > 1:
-            lat = lat.expand_as(dt)
-            lon = lon.expand_as(dt)
-
-        # --- TEMPS ---
-        t_hours = dt / 3600.0
-        idx = torch.searchsorted(steps, t_hours, right=True) - 1
-        idx = torch.clamp(idx, 0, steps.numel() - 2).to(torch.long)
-
-        step0 = steps[idx]
-        step1 = steps[idx + 1]
-        dt_step = step1 - step0
-        dt_step = torch.where(dt_step == 0, torch.ones_like(dt_step), dt_step)
-        w = torch.clamp((t_hours - step0) / dt_step, 0.0, 1.0)  # poids temporel
-
-        # --- ESPACE ---
-        lat_idx_f = (self.lat_max - lat) / self.dlat
-        lon360 = torch.remainder(lon, 360.0)
-        lon_idx_f = lon360 / self.dlon
-
-        iy = torch.floor(lat_idx_f).to(torch.long)
-        ix = torch.floor(lon_idx_f).to(torch.long)
-
-        iy = torch.clamp(iy, 0, self.ny - 2)
-        ix = torch.clamp(ix, 0, self.nx - 2)
-
-        iy1 = iy + 1
-        ix1 = ix + 1
-
-        dx = lon_idx_f - ix.to(torch.float32)
-        dy = lat_idx_f - iy.to(torch.float32)
-        ax = self._one - dx
-        ay = self._one - dy
-
-        # --- 4 coins (temps interpolé), puis bilinéaire ---
-        # coin (iy,ix)
-        u00 = GRECM[idx,   iy,  ix,  0] + w * (GRECM[idx+1, iy,  ix,  0] - GRECM[idx,   iy,  ix,  0])
-        v00 = GRECM[idx,   iy,  ix,  1] + w * (GRECM[idx+1, iy,  ix,  1] - GRECM[idx,   iy,  ix,  1])
-
-        # coin (iy,ix1)
-        u01 = GRECM[idx,   iy,  ix1, 0] + w * (GRECM[idx+1, iy,  ix1, 0] - GRECM[idx,   iy,  ix1, 0])
-        v01 = GRECM[idx,   iy,  ix1, 1] + w * (GRECM[idx+1, iy,  ix1, 1] - GRECM[idx,   iy,  ix1, 1])
-
-        # coin (iy1,ix)
-        u10 = GRECM[idx,   iy1, ix,  0] + w * (GRECM[idx+1, iy1, ix,  0] - GRECM[idx,   iy1, ix,  0])
-        v10 = GRECM[idx,   iy1, ix,  1] + w * (GRECM[idx+1, iy1, ix,  1] - GRECM[idx,   iy1, ix,  1])
-
-        # coin (iy1,ix1)
-        u11 = GRECM[idx,   iy1, ix1, 0] + w * (GRECM[idx+1, iy1, ix1, 0] - GRECM[idx,   iy1, ix1, 0])
-        v11 = GRECM[idx,   iy1, ix1, 1] + w * (GRECM[idx+1, iy1, ix1, 1] - GRECM[idx,   iy1, ix1, 1])
-
-        # bilinéaire
-        u = u00 * ax * ay + u01 * dx * ay + u10 * ax * dy + u11 * dx * dy
-        v = v00 * ax * ay + v01 * dx * ay + v10 * ax * dy + v11 * dx * dy
-
-        # --- vitesse + direction FROM ---
-        vit_kn = torch.sqrt(u*u + v*v) * KNOTS
-        vit_kn = torch.clamp(vit_kn, min=self.clamp_min, max=self.clamp_max)
-
-
-        
-        # ang_math = torch.atan2(v, u) * self._rad2deg               # 0=Est, CCW
-        # ang_tow  = torch.remainder(270.0 - ang_math, 360.0)        # 0=N, CW (towards)
-        # ang_from = torch.remainder(ang_tow + 180.0, 360.0)         # from
-
-        ang_math = torch.atan2(v, u) * (180.0 / math.pi)
-        ang_from = torch.remainder(270.0 - ang_math, 360.0)
-
-
-        
-        # même dtype que GRECM si tu veux homogénéité
-        vit_kn = vit_kn.to(self.dtype)
-        ang_from = ang_from.to(self.dtype)
-
-        if return_uv:
-            return vit_kn, ang_from, u.to(self.dtype), v.to(self.dtype)
-        return vit_kn, ang_from
-
-
-def build_ecm_interp():
-    global ecm_interp, GRECM_gpu,steps_h
-
-    ecm_interp = ECMWFInterpGPU(GRECM_gpu,steps_h)
-    ecm_interp.__call__ = torch.compile(ecm_interp.__call__, mode="reduce-overhead")
-
-    # warmup
-    lat512 = torch.empty(512, device="cuda", dtype=torch.float32)
-    lon512 = torch.empty(512, device="cuda", dtype=torch.float32)
-    dtigECM   = torch.tensor(3600.0, device="cuda")
-    for _ in range(10):
-        ecm_interp(dtigECM, lat512, lon512)
-    torch.cuda.synchronize()
 
 

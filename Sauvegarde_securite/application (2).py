@@ -61,7 +61,6 @@ if hostname=='linux0' :         # sur ordi linux1  (serveur)
     basedirnpy          = '/home/jp/static/npy/'
     basedirGribs025     = '/home/jp/gribs/gribs025/'
     basedirECMWF        = '/home/jp/gribs/ecmwf/'
-    
     basedirGribsVR32    = '/home/jp/gribs/gribsvr32/'
     basedirGribsGfs32   = '/home/jp/gribs/gribsgfs32/'
     staticbd            = '/home/jp/static/bd/basededonnees.db'
@@ -72,7 +71,6 @@ if hostname=='linux1' :          # sur ordi linux1  (2eme ordi)
     basedirnpy          = '/home/jp/static/npy/'
     basedirGribs025     = '/home/jp/gribslocaux/gribs025/'
     basedirECMWF        = '/home/jp/gribslocaux/ecmwf/'
-    basedirGribsECMWF   = "/home/jp/gribslocaux/ecmwf/"
     basedirGribsVR32    = '/home/jp/gribslocaux/gribsvr32/'
     basedirGribsGfs32   = '/home/jp/gribslocaux/gribsgfs32/'
     staticbd            = '/home/jp/staticLocal/bd/basededonnees.db'
@@ -83,7 +81,6 @@ if hostname=='linux3' :          # sur ordi linux1  (2eme ordi)
     basedirnpy          = '/home/jp/staticLocal/npy/'
     basedirGribs025     = '/home/jp/gribslocaux/gribs025/'
     basedirECMWF        = '/home/jp/gribslocaux/ecmwf/'
-    basedirGribsECMWF   = "/home/jp/gribslocaux/ecmwf/"
     basedirGribsVR32    = '/home/jp/gribslocaux/gribsvr32/'
     basedirGribsGfs32   = '/home/jp/gribslocaux/gribsgfs32/'
     staticbd            = '/home/jp/static/bd/basededonnees.db'      # plus d actualite avec mabase postgre 
@@ -265,249 +262,7 @@ def send_update_to_client(client_id, message):
 #################################################################################################
 ################################################################################################
 
-#________________________________________________________________________
-#  Chargement GFS
-#________________________________________________________________________
 
-
-
-#__________________________________________________________________________________
-# Partie GFS
-#_________________________________________________________________________________
-
-
-
-GRGFS      = None
-GRGFS_cpu  = None
-GRGFS_gpu  = None
-tigGFS     = None
-heure      = None
-gfs_interp = None
-
-
-
-
-def dateheure(filename):
-    '''retourne la date et heure du fichier grib a partir du nom'''
-    ''' necessaire pour charger le NOAA'''
-    tic=time.time()
-    ticstruct = time.localtime()
-    utc = time.gmtime()
-    decalage = ticstruct[3] - utc[3]
-    x     = filename.split('.')[0]
-    x     = x.split('/')[-1]
-    heure = x.split('-')[1]
-    date  = (x.split('-')[0]).split('_')[1]
-    year  = int(date[0:4])
-    month = int(date[4:6])
-    day   = int(date[6:8])
-    tigt=datetime(year,month,day,int(heure),0, 0)
-    tig=time.mktime(tigt.timetuple()) +decalage*3600 # en secondes UTC
-    return date,heure,tig
-
-
-def gribFileName(basedir):
-    ''' cherche le dernier grib complet disponible au temps en secondes '''
-    ''' temps_secondes est par defaut le temps instantané '''
-    ''' Cherche egalement le dernier grib chargeable partiellement'''
-    ''' Change le nom du fichier a 48 '''
-
-    temps_secondes=time.time()
-    date_tuple       = time.gmtime(temps_secondes) 
-    date_formatcourt = time.strftime("%Y%m%d", time.gmtime(temps_secondes))
-    dateveille_tuple = time.gmtime(temps_secondes-86400) 
-    dateveille_formatcourt=time.strftime("%Y%m%d", time.gmtime(temps_secondes-86400))
-    mn_jour_utc =date_tuple[3]*60+date_tuple[4]
-   
-    if (mn_jour_utc <3*60+43):                          #avant 3h 48 UTC le nom de fichier est 18 h de la veille 
-        filename=basedir+"gfs_"+dateveille_formatcourt+"-18.npy"
-    elif (mn_jour_utc<9*60+43):   
-        filename=basedir+"gfs_"+date_formatcourt+"-00.npy"
-    elif (mn_jour_utc<15*60+43): 
-        filename=basedir+"gfs_"+date_formatcourt+"-06.npy"
-    elif (mn_jour_utc<21*60+43):   
-        filename=basedir+"gfs_"+date_formatcourt+"-12.npy"
-    else:                                              # entre 21h 48UTC  et minuit    
-        filename=basedir+"gfs_"+date_formatcourt+"-18.npy" 
-    date,heure,tig =dateheure(filename) 
-    return filename,tig  
-
-
-
-
-
-def chargement_grib():
-    global GRGFS,GRGFS_cpu,GRGFS_gpu,tigGFS,heure,gfs_interp
-    fileName,tigGFS=gribFileName(basedirGribs025)
-    heure= datetime.fromtimestamp(tigGFS, tz=timezone.utc).hour
-    
-    with open(fileName, 'rb') as f:
-            GRGFS = np.load(f)
-    print('Le grib 025 {} h+ {:3.0f}h            {}      a été chargé sur l ordi local  '.format(heure,GRGFS[0,0,0,1]*3,fileName))
-    print ('test sur tigGFS dans Chargement grib ',tigGFS)
-    tig=tigGFS
-    GRGFS_cpu = torch.from_numpy(GRGFS)
-    GRGFS_gpu = GRGFS_cpu.to('cuda', non_blocking=True) 
-    build_gfs_interp()
-
-    return tig
-   
-      
-       
-def majgrib():
-    print("\nRecherche d'une mise à jour du grib")
-    global GRGFS, GRGFS_cpu, GRGFS_gpu, tigGFS, heure, gfs_interp
-
-    filename, derniertig = gribFileName(basedirGribs025)
-    heure = datetime.fromtimestamp(derniertig, tz=timezone.utc).hour
-
-    print("derniertig =", derniertig, " tigGFS =", tigGFS)
-    print("Dernier indice chargé :", GRGFS[0,0,0,1]*3, "h")
-    print("filename:", filename)
-
-    if os.path.exists(filename):
-        # CORRECTION ICI :
-        if (derniertig != tigGFS) or (GRGFS[0,0,0,1] < 120):
-            print("Rechargement du grib necessaire\n******************************")
-            chargement_grib()  # <-- suffit (ça refait cpu/gpu + build_gfs_interp)
-            print("Indice chargé :", GRGFS[0,0,0,1]*3, "h")
-            print("tigGFS apres chargement_grib:", tigGFS)
-        else:
-            print("Pas de rechargement necessaire.")
-    else:
-        print(f"Le nouveau fichier {filename} n'existe pas encore")
-
-    return
-
-
-
-
-class GFS025InterpGPU_721:
-    """
-    GFS 0.25°: GRGFS (n_steps, 721, 1440, 2), pas temps 3h.
-    Interpolation temps + bilinéaire espace, puis vitesse (kn) + direction FROM (0..360, nord horaire).
-    """
-
-    def __init__(self, GRGFS: torch.Tensor, clamp_min_kn=1.0, clamp_max_kn=70.0, dt_step_h=3.0):
-        assert GRGFS.ndim == 4 and GRGFS.shape[-1] == 2, "GRGFS doit être (n_steps, 721, 1440, 2)"
-        self.GRGFS = GRGFS
-        self.device = GRGFS.device
-        self.dtype = GRGFS.dtype
-
-        self.n_steps, self.ny, self.nx, _ = GRGFS.shape
-        assert self.ny == 721 and self.nx == 1440, f"attendu (721,1440), reçu ({self.ny},{self.nx})"
-
-        self.dt_step_h = float(dt_step_h)
-        self.scale = 4.0  # 0.25° => 4 points/deg
-
-        self.clamp_min = float(clamp_min_kn)
-        self.clamp_max = float(clamp_max_kn)
-
-        self._one = torch.tensor(1.0, device=self.device, dtype=torch.float32)
-        self._rad2deg = 180.0 / math.pi
-
-    @torch.no_grad()
-    def __call__(self, dtig, lat0, lon0, return_uv=False):
-        GRGFS = self.GRGFS
-
-        lat = torch.as_tensor(lat0, dtype=torch.float32, device=self.device).reshape(-1)
-        lon = torch.as_tensor(lon0, dtype=torch.float32, device=self.device).reshape(-1)
-        dt  = torch.as_tensor(dtig, dtype=torch.float32, device=self.device).reshape(-1)
-
-        # broadcast minimal
-        if dt.numel() == 1 and lat.numel() > 1:
-            dt = dt.expand_as(lat)
-        if lat.numel() == 1 and dt.numel() > 1:
-            lat = lat.expand_as(dt)
-            lon = lon.expand_as(dt)
-
-        # ----- indices espace -----
-        # y_f in [0..720] si lat in [90..-90]
-        y_f = (90.0 - lat) * self.scale
-        x_f = torch.remainder(lon, 360.0) * self.scale  # périodique
-
-        iy = torch.floor(y_f).to(torch.long)
-        ix = torch.floor(x_f).to(torch.long)
-
-        # pour accéder iy+1, on clip iy dans [0..ny-2] = [0..719]
-        iy = torch.clamp(iy, 0, self.ny - 2)
-        # pour ix on fait wrap périodique, mais ix doit être dans [0..nx-1]
-        ix = torch.remainder(ix, self.nx)
-
-        iy1 = iy + 1
-        ix1 = torch.remainder(ix + 1, self.nx)
-
-        dy = torch.clamp(y_f - iy.to(torch.float32), 0.0, 1.0)
-        dx = torch.clamp(x_f - ix.to(torch.float32), 0.0, 1.0)
-
-        ax = self._one - dx
-        ay = self._one - dy
-
-        # ----- temps -----
-        t = (dt / 3600.0) / self.dt_step_h  # pas de 3h
-        it = torch.floor(t).to(torch.long)
-        wt = torch.clamp(t - it.to(torch.float32), 0.0, 1.0)
-        it = torch.clamp(it, 0, self.n_steps - 2)
-
-        # ----- 4 coins (temps interpolé), u/v séparés -----
-        u00 = GRGFS[it,   iy,  ix,  0] + wt * (GRGFS[it+1, iy,  ix,  0] - GRGFS[it,   iy,  ix,  0])
-        v00 = GRGFS[it,   iy,  ix,  1] + wt * (GRGFS[it+1, iy,  ix,  1] - GRGFS[it,   iy,  ix,  1])
-
-        u01 = GRGFS[it,   iy,  ix1, 0] + wt * (GRGFS[it+1, iy,  ix1, 0] - GRGFS[it,   iy,  ix1, 0])
-        v01 = GRGFS[it,   iy,  ix1, 1] + wt * (GRGFS[it+1, iy,  ix1, 1] - GRGFS[it,   iy,  ix1, 1])
-
-        u10 = GRGFS[it,   iy1, ix,  0] + wt * (GRGFS[it+1, iy1, ix,  0] - GRGFS[it,   iy1, ix,  0])
-        v10 = GRGFS[it,   iy1, ix,  1] + wt * (GRGFS[it+1, iy1, ix,  1] - GRGFS[it,   iy1, ix,  1])
-
-        u11 = GRGFS[it,   iy1, ix1, 0] + wt * (GRGFS[it+1, iy1, ix1, 0] - GRGFS[it,   iy1, ix1, 0])
-        v11 = GRGFS[it,   iy1, ix1, 1] + wt * (GRGFS[it+1, iy1, ix1, 1] - GRGFS[it,   iy1, ix1, 1])
-
-        # bilinéaire
-        u = u00 * ax * ay + u01 * dx * ay + u10 * ax * dy + u11 * dx * dy
-        v = v00 * ax * ay + v01 * dx * ay + v10 * ax * dy + v11 * dx * dy
-
-        # ----- knots + direction FROM -----
-        vit_kn = torch.sqrt(u*u + v*v) * KNOTS
-        vit_kn = torch.clamp(vit_kn, min=self.clamp_min, max=self.clamp_max)
-
-        ang_math = torch.atan2(v, u) * self._rad2deg
-        ang_from  = torch.remainder(270.0 - ang_math, 360.0)  # towards, nav
-        #ang_tow = torch.remainder(ang_tow + 180.0, 360.0)   # from
-
-        vit_kn = vit_kn.to(self.dtype)
-        ang_from = ang_from.to(self.dtype)
-
-        if return_uv:
-            return vit_kn, ang_from, u.to(self.dtype), v.to(self.dtype)
-        return vit_kn, ang_from
-
-
-
-def build_gfs_interp():
-    global gfs_interp, GRGFS_gpu
-
-    gfs_interp = GFS025InterpGPU_721(GRGFS_gpu)
-    gfs_interp.__call__ = torch.compile(gfs_interp.__call__, mode="reduce-overhead")
-
-    # warmup
-    lat512 = torch.empty(512, device="cuda", dtype=torch.float32)
-    lon512 = torch.empty(512, device="cuda", dtype=torch.float32)
-    dtig   = torch.tensor(3600.0, device="cuda")
-    for _ in range(10):
-        gfs_interp(dtig, lat512, lon512)
-    torch.cuda.synchronize()
-
-
-
-tigGFS=chargement_grib()      # Chargement initial
-print ('test1 sur tigGFS',tigGFS)
-majgrib()                         # met a jour egalement les fichiers torch GRGFS_gpu et GRGFS_cpu   
-print ('test2 sur tigGFS',tigGFS)
-
-
-#________________________________________________________________________
-#  Chargement ECMMWF
-#________________________________________________________________________
 
 GRECM      = None
 GRECM_cpu  = None
@@ -517,180 +272,82 @@ heure      = None
 ecm_interp     = None
 
 
-steps_3h_ecmwf = list(range(0, 147, 3))      # 0,3,6,...,144
-steps_6h_ecmwf = list(range(150, 361, 6))    # 150,156,...,360
-steps_h        = steps_3h_ecmwf + steps_6h_ecmwf    # heures de prévision
+def chargement_grib():
+    global GR,tig,heure
+    try:
+        # on essaye de charger sur serveur 
+        fileName,tig=gribFileName(basedirGribs025)
+        heure= datetime.fromtimestamp(tig, tz=timezone.utc).hour
+        with open(fileName, 'rb') as f:
+                GR = np.load(f)           
+        print('Le grib 025  {} h+ {:3.0f}h            {}     a été chargé sur le site distant'.format(heure, GR[0,0,0,1]*3,fileName))
+        print 
+        return GR,tig
 
-def chargement_ECM():
-    global GRECM,GRECM_cpu,GRECM_gpu,tigECM,ecm_interp
-    
-    filename, tigECM  = ecmwfFileNamenpy(basedirGribsECMWF) 
-    GRECM = np.load(filename) 
-    GRECM_cpu = torch.from_numpy(GRECM)
-    GRECM_gpu  = GRECM_cpu.to('cuda', non_blocking=True)  
-    build_ecm_interp()
-    # ecm_interp     = ECMWFInterpGPU(GRECM_gpu, steps_h)   # Une seule fois au chargement du run ECMWF (ou après maj)
-    return GRECM,tigECM 
+    except:
+        
+        basedirgribs='/home/jp/gribslocaux/gribs025/'
+        fileName,tig=gribFileName(basedirgribs)
+        heure= datetime.fromtimestamp(tig, tz=timezone.utc).hour
+        try:
+            with open(fileName, 'rb') as f:
+                    GR = np.load(f)
+            print('Le grib 025GFS {} h+ {:3.0f}h            {}      a été chargé sur l ordi local  '.format(heure,GR[0,0,0,1]*3,fileName))
+            return 
 
-def maj_ecm():
-    print('\nRecherche d\'une mise à jour du grib ECM')
-    global GRECM,GRECM_cpu,GRECM_gpu,tigECM,ecm_interp
-    filename, derniertigECM  = ecmwfFileNamenpy(basedirGribsECMWF)
-    print('Dernier Indice chargé ',GRECM[0,0,0,1]*3,'h\n')
+        except:
+            return    
+       
+
+
+def majgrib():
+    print('\nRecherche majgrib')
+    global GR,GR_cpu,GR_gpu,tig,heure
+    filename,derniertig=gribFileName(basedirGribs025) 
+    print('Dernier Indice chargé GFS',GR[0,0,0,1]*3,'h\n')
+    heure= datetime.fromtimestamp(derniertig, tz=timezone.utc).hour
     if os.path.exists(filename) == True:
-         if (derniertigECM !=tigECM   or int(GRECM[0,0,0,1])<85 ):
-            print('Rechargement du grib ECM necessaire\n******************************')
-            GRECM,tigECM = chargement_ECM()
-            print('Indice chargé',GRECM[0,0,0,1]*3,'h\n')
-            GRECM[0,0,0,0]=0
-            GRECM_cpu = torch.from_numpy(GRECM)
-            GRECM_gpu = GRECM_cpu.to('cuda', non_blocking=True)   
-            GRECM[0,0,0,0]=int(tigECM)/100
-            build_ecm_interp()
-            # ecm_interp     = ECMWFInterpGPU(GRECM_gpu, steps_h)   # Une seule fois au chargement du run ECMWF (ou après maj)
+
+    #  si pas sur dernier grib ou si moins de  360 h chargées
+   
+        if (derniertig!=GR[0,0,0,0]*100 )   or (int(GR[0,0,0,1]<120) ):
+            print('Rechargement du grib necessaire\n******************************')
+            GR,tig = chargement_grib()
+            print('Indice chargé GFS',GR[0,0,0,1]*3,'h\n')
+            
+            tig=int(GR[0,0,0,0]*100)
+            GR[0,0,0,0]=0
+            GR_cpu = torch.from_numpy(GR)
+            GR_gpu = GR_cpu.to('cuda', non_blocking=True)   
+            GR[0,0,0,0]=int(tig)/100
             return 
     else:
-        print('Le nouveau fichier GRECM {}  n existe pas encore'.format(filename))
-    return    
- 
-class ECMWFInterpGPU:
-    """
-    Interpolation (temps + bilinéaire) sur GRECM ECMWF (n_steps, ny, nx, 2)
-    + conversion directe en (vitesse_kn, dir_from_deg).
-    steps_h constant: stocké une fois sur GPU.
-    """
-
-    def __init__(self, GRECM: torch.Tensor, steps_h, clamp_min_kn=1.0, clamp_max_kn=70.0):
-        assert GRECM.ndim == 4 and GRECM.shape[-1] == 2, "GRECM doit être (n_steps, ny, nx, 2)"
-        self.GRECM = GRECM
-        self.device = GRECM.device
-        self.dtype = GRECM.dtype
-
-        self.steps = torch.as_tensor(steps_h, dtype=torch.float32, device=self.device)
-        self.clamp_min = float(clamp_min_kn)
-        self.clamp_max = float(clamp_max_kn)
-
-        _, ny, nx, _ = GRECM.shape
-        self.ny = ny
-        self.nx = nx
-
-        # constantes grille
-        self.dlat = 180.0 / (ny - 1)
-        self.dlon = 360.0 / nx
-        self.lat_max = 90.0
-
-        # constantes torch pour éviter recréation
-        self._one = torch.tensor(1.0, device=self.device, dtype=torch.float32)
-        self._rad2deg = 180.0 / math.pi
-
-    @torch.no_grad()
-    def __call__(self, dtig, lat0, lon0, return_uv=False):
-        GRECM = self.GRECM
-        steps = self.steps
-
-        lat = torch.as_tensor(lat0, dtype=torch.float32, device=self.device).reshape(-1)
-        lon = torch.as_tensor(lon0, dtype=torch.float32, device=self.device).reshape(-1)
-        dt  = torch.as_tensor(dtig, dtype=torch.float32, device=self.device).reshape(-1)
-
-        # broadcast minimal (comme ta version numpy)
-        if dt.numel() == 1 and lat.numel() > 1:
-            dt = dt.expand_as(lat)
-        if lat.numel() == 1 and dt.numel() > 1:
-            lat = lat.expand_as(dt)
-            lon = lon.expand_as(dt)
-
-        # --- TEMPS ---
-        t_hours = dt / 3600.0
-        idx = torch.searchsorted(steps, t_hours, right=True) - 1
-        idx = torch.clamp(idx, 0, steps.numel() - 2).to(torch.long)
-
-        step0 = steps[idx]
-        step1 = steps[idx + 1]
-        dt_step = step1 - step0
-        dt_step = torch.where(dt_step == 0, torch.ones_like(dt_step), dt_step)
-        w = torch.clamp((t_hours - step0) / dt_step, 0.0, 1.0)  # poids temporel
-
-        # --- ESPACE ---
-        lat_idx_f = (self.lat_max - lat) / self.dlat
-        lon360 = torch.remainder(lon, 360.0)
-        lon_idx_f = lon360 / self.dlon
-
-        iy = torch.floor(lat_idx_f).to(torch.long)
-        ix = torch.floor(lon_idx_f).to(torch.long)
-
-        iy = torch.clamp(iy, 0, self.ny - 2)
-        ix = torch.clamp(ix, 0, self.nx - 2)
-
-        iy1 = iy + 1
-        ix1 = ix + 1
-
-        dx = lon_idx_f - ix.to(torch.float32)
-        dy = lat_idx_f - iy.to(torch.float32)
-        ax = self._one - dx
-        ay = self._one - dy
-
-        # --- 4 coins (temps interpolé), puis bilinéaire ---
-        # coin (iy,ix)
-        u00 = GRECM[idx,   iy,  ix,  0] + w * (GRECM[idx+1, iy,  ix,  0] - GRECM[idx,   iy,  ix,  0])
-        v00 = GRECM[idx,   iy,  ix,  1] + w * (GRECM[idx+1, iy,  ix,  1] - GRECM[idx,   iy,  ix,  1])
-
-        # coin (iy,ix1)
-        u01 = GRECM[idx,   iy,  ix1, 0] + w * (GRECM[idx+1, iy,  ix1, 0] - GRECM[idx,   iy,  ix1, 0])
-        v01 = GRECM[idx,   iy,  ix1, 1] + w * (GRECM[idx+1, iy,  ix1, 1] - GRECM[idx,   iy,  ix1, 1])
-
-        # coin (iy1,ix)
-        u10 = GRECM[idx,   iy1, ix,  0] + w * (GRECM[idx+1, iy1, ix,  0] - GRECM[idx,   iy1, ix,  0])
-        v10 = GRECM[idx,   iy1, ix,  1] + w * (GRECM[idx+1, iy1, ix,  1] - GRECM[idx,   iy1, ix,  1])
-
-        # coin (iy1,ix1)
-        u11 = GRECM[idx,   iy1, ix1, 0] + w * (GRECM[idx+1, iy1, ix1, 0] - GRECM[idx,   iy1, ix1, 0])
-        v11 = GRECM[idx,   iy1, ix1, 1] + w * (GRECM[idx+1, iy1, ix1, 1] - GRECM[idx,   iy1, ix1, 1])
-
-        # bilinéaire
-        u = u00 * ax * ay + u01 * dx * ay + u10 * ax * dy + u11 * dx * dy
-        v = v00 * ax * ay + v01 * dx * ay + v10 * ax * dy + v11 * dx * dy
-
-        # --- vitesse + direction FROM ---
-        vit_kn = torch.sqrt(u*u + v*v) * KNOTS
-        vit_kn = torch.clamp(vit_kn, min=self.clamp_min, max=self.clamp_max)
+        print('Le fichier {}  n existe pas encore'.format(filename))
+        return
 
 
-        
-        # ang_math = torch.atan2(v, u) * self._rad2deg               # 0=Est, CCW
-        # ang_tow  = torch.remainder(270.0 - ang_math, 360.0)        # 0=N, CW (towards)
-        # ang_from = torch.remainder(ang_tow + 180.0, 360.0)         # from
 
-        ang_math = torch.atan2(v, u) * (180.0 / math.pi)
-        ang_from = torch.remainder(270.0 - ang_math, 360.0)
+GR,tig= chargement_grib()      # Chargement initial
 
+tig=int(GR[0,0,0,0]*100)
+GR[0,0,0,0]=0
+GR_cpu = torch.from_numpy(GR)
+GR_gpu = GR_cpu.to('cuda', non_blocking=True)    
+GR[0,0,0,0]=int(tig)/100
 
-        
-        # même dtype que GRECM si tu veux homogénéité
-        vit_kn = vit_kn.to(self.dtype)
-        ang_from = ang_from.to(self.dtype)
-
-        if return_uv:
-            return vit_kn, ang_from, u.to(self.dtype), v.to(self.dtype)
-        return vit_kn, ang_from
+# print ('tig : ',time.strftime(" %d %b %H:%M ",time.gmtime(tig)))
+# print 
 
 
-def build_ecm_interp():
-    global ecm_interp, GRECM_gpu,steps_h
-
-    ecm_interp = ECMWFInterpGPU(GRECM_gpu,steps_h)
-    ecm_interp.__call__ = torch.compile(ecm_interp.__call__, mode="reduce-overhead")
-
-    # warmup
-    lat512 = torch.empty(512, device="cuda", dtype=torch.float32)
-    lon512 = torch.empty(512, device="cuda", dtype=torch.float32)
-    dtigECM   = torch.tensor(3600.0, device="cuda")
-    for _ in range(10):
-        ecm_interp(dtigECM, lat512, lon512)
-    torch.cuda.synchronize()
+majgrib()                         # met a jour egalement les fichiers torch GR_gpu et GR_cpu   
 
 
-chargement_ECM()
-maj_ecm()
+#________________________________________________________________________
+#  Chargement ECMMWF
+#________________________________________________________________________
+fileName, tigECM                    = ecmwfFileNamenpy(basedirECMWF)
+GRECM, tigECM, steps_h, lats, lons  = charge_ecmwf_npy(fileName)
+
 
 #--------------------------------------------------------------------------------------------------
 #    Test de quelques échéances
@@ -1493,6 +1150,10 @@ def enregistrerPolaireSiPlusRecent(timestamp, _id, message):
         #ATTENTION IL FAUT AUSSI LES RECALCULER
         #""""""""""""""""""""""""""""""""""""""
         
+
+
+
+        
     finally:
         cursor.close()
         pg_pool.putconn(conn)
@@ -1877,7 +1538,7 @@ def rechercheDonneesCourseUser( user_id,course):
         # si le state est waiting on a seulement un heading et legstartdate     
         lastCalcDate         = boatinfosbs['legStartDate']   # normalement deja recupere en dessus 
         t0=legStartDate/1000
-        twsto,twdto = prevision025to(GRGFS_cpu,t0,y0vr,x0vr)
+        twsto,twdto = prevision025to(GR_cpu,t0,y0vr,x0vr)
         capto=torch.tensor([headingvr])
         twato=ftwato(capto,twdto)
         twsvr=twsto.item()
@@ -2117,12 +1778,12 @@ def calculePosDepart(posStartVR,polairesglobales,carabateau,dt=60):
         y1   = y0   + dlat
         x1   = x0   + dlon
         t1   = t0   + dt  
-        twsf,twdf= prevision025(GRGFS, t0+dt, y1, x1)
+        twsf,twdf= prevision025(GR, t0+dt, y1, x1)
 
         # print ('dans calcul isodepart twsf {},twdf {} t0+dt {} '.format(twsf,twdf ,time.strftime(" %d %b %H:%M %S ",time.localtime(t0+dt)) ))  
-        dtig=   t0+dt-tigGFS
+        dtig=   t0+dt-tig
         # dtig=torch.tensor(dtig, device='cuda') 
-        twsf1,twdf1=  prevision025dtig(GRGFS, dtig, y1, x1)
+        twsf1,twdf1=  prevision025dtig(GR, dtig, y1, x1)
         # print ('dans calcul isodepart twsf1  {},twdf1 {} t0+dt {} '.format(twsf1,twdf1 ,time.strftime(" %d %b %H:%M %S ",time.localtime(t0+dt)) ))  
     
        
@@ -2194,7 +1855,7 @@ def deplacement(dep,polairesglobales10to,carabateau):
     ari[2]=dep[2]            # l intervalle de temps est reconduit pour le prochain
     dep[7]=dep[7]%10
     # on calcule la tws et twd au point initial
-    ari[14],ari[13]= prevision025to(GRGFS_gpu,dep[1],dep[5],dep[6])     # calcul de tws et twd
+    ari[14],ari[13]= prevision025to(GR_gpu,dep[1],dep[5],dep[6])     # calcul de tws et twd
     tws10=torch.round(ari[14]*10).int().item()
 
     if option==1:
@@ -2536,7 +2197,7 @@ def rechercheleginfos():
 
 @app.route('/rechercheboatinfos', methods=["GET", "POST"])
 def frechercheboatinfos():
-    global GRGFS,tigGFS,indicemajgrib,heure
+    global GR,tig,indicemajgrib,heure
   
     username   = request.args.get('username')                # recupere les donnees correspondant a valeur dans le site html
     course     = request.args.get('course')                  # recupere les donnees correspondant a valeur dans le site html
@@ -2558,12 +2219,12 @@ def frechercheboatinfos():
 
 
     majgrib()                                        # on renvoie aussi la date de majgrib
-    #tigGFS= GRGFS[0,0,0,0].astype(np.float64)*100       # permet d afficher la date du grib
-    indicemajgrib=int(GRGFS[0,0,0,1])                # permet d afficher son indice
+    #tig= GR[0,0,0,0].astype(np.float64)*100       # permet d afficher la date du grib
+    indicemajgrib=int(GR[0,0,0,1])                # permet d afficher son indice
     # print ('Dans rechercheboatinfos ligne 3346 indice de mise a jour du grib  ',indicemajgrib) 
-    # tigGFS vient directement de majgrib et chargegrib
+    # tig vient directement de majgrib et chargegrib
    
-    response   = make_response(jsonify({'result':boatinfostr,'tig':tigGFS,'heure':heure,'indicemajgrib':indicemajgrib}))
+    response   = make_response(jsonify({'result':boatinfostr,'tig':tig,'heure':heure,'indicemajgrib':indicemajgrib}))
     response.headers.add('Access-Control-Allow-Origin', '*')  # Autorise toutes les origines
     return response
 
@@ -2776,7 +2437,7 @@ class DeplacementEngine:
         ari[2] = dt
         
         
-        tws, twd = prevision025(GRGFS, dep[1], y0, x0)
+        tws, twd = prevision025(GR, dep[1], y0, x0)
         
         if option == 1:
             twa = valeur
@@ -2884,7 +2545,7 @@ class DeplacementEngine2:
    
 
 
-    # def posplus(self, Position,dt,dt_it,option,valeur,dtig0GFS):
+    # def posplus(self, Position,dt,dt_it,option,valeur,dtig0):
 
     #     ''' dans cette hypothese de deplacement on ne connait que la position 
     #         l intervalle de temps
@@ -2934,7 +2595,7 @@ class DeplacementEngine2:
     #     Positionfin[3] = x1
 
         
-    #     tws,twd =  prevision025dtig(GRGFS, dtig0GFS+dt , y1, x1)                        # Previsions au point de depart  
+    #     tws,twd =  prevision025dtig(GR, dtig0+dt , y1, x1)                        # Previsions au point de depart  
     #     Positionfin[12]=tws
     #     Positionfin[13]=twd
     #     Positionfin[6]=fcap(twa1,twd) 
@@ -3204,7 +2865,7 @@ def recherchevoiles():
     polar_id = int(request.args.get('polar_id'))
     # print('y0vr {}, x0vr {} ,t0vr {} ,twsvr {} polar_id {}'.format(y0vr,x0vr,t0vr,tws,polar_id))
 
-    twscalc,twdcalc=prevision025(GRGFS,t0vr,y0vr,x0vr)
+    twscalc,twdcalc=prevision025(GR,t0vr,y0vr,x0vr)
     filenamelocal2='vmg10_'+str(polar_id)+'.npy'
     filename2=basedirnpy+filenamelocal2
     tabvmg10=get_fichier(filename2)
@@ -3271,7 +2932,7 @@ def recherchevoilessimple():
 
 @app.route("/", methods=["GET", "POST"])
 def index():
-    #global GRGFS 
+    #global GR 
 
     client    = request.remote_addr
     host      = request.host
@@ -3627,11 +3288,13 @@ def ajaxmessage():
                 print('date_obj',date_obj)
                 print (timestamp)
                 print('Derniere date de mise a jour {} pour la polaire  id {} de {}'.format( date_obj,_id,label))
+                print ('polaires actuelles pour verif ',message)
+
                 enregistrerPolaireSiPlusRecent(timestamp, _id, json.dumps(message))
                 # verification de l enregistrement 
                 updated,polar_id,polaires=rechercheTablePolaires(_id)
                 # print () 
-                # print ('Verification de l enregistrement de polaires pour id {} mise a jour le  {} \n {}'.format(polar_id,updated,polaires))
+                print ('Verification de l enregistrement de polaires pour id {} mise a jour le  {} \n {}'.format(polar_id,updated,polaires))
                 # print()
 
 
@@ -3853,9 +3516,8 @@ def lissage(course,routage_np,t0,posStartVR,posStart):
     routagelisse[:,[2,3]]   = tabpointslisses
     routagelisse[:,6]       = caps
     routagelisse[:,8]       = tabtwa
-    dtig0GFS                   = t0-tigGFS
-
-    Tws,Twd                 = prevision025dtig(GRGFS, dtig0GFS+routagelisse[:,1] , routagelisse[:,2],routagelisse[:,3])     # calcul de tws et twd 
+    dtig0                   = t0-tig
+    Tws,Twd                 = prevision025dtig(GR, dtig0+routagelisse[:,1] , routagelisse[:,2],routagelisse[:,3])     # calcul de tws et twd 
     routagelisse[:,12]      = Tws 
     routagelisse[:,13]      = Twd
     Twa                     = np.round(ftwao(routagelisse[:,6],routagelisse[:,13]))                # twa=ftwao(cap,twd
@@ -4220,7 +3882,7 @@ class RoutageSession:                                                  # version
     # def isoplusun(self,iso,tmini,paramRoutage ):
     #     ''' Donnees a charger propres au routage'''
     #     ''' polairesglobales10to, lw, hw, lwtimer, hwtimer,MF, coeffboat, rayonRoutage     '''
-    #     ''' necessite comme donnneees externes  GRGFS_gpu ,polairesglobales10to,range_caps,range_capsR,carabateau,lw,....                                   '''
+    #     ''' necessite comme donnneees externes  GR_gpu ,polairesglobales10to,range_caps,range_capsR,carabateau,lw,....                                   '''
     #     ''' Les penalites sont affichees sur l iteration et ne sont diminuees du temps de l iteration que sur l iteration suivante '''
 
     #     MF          = 0.8
@@ -4228,7 +3890,7 @@ class RoutageSession:                                                  # version
     #     numisom1=int(iso[0,0].item())                                                 # numero de l'iso precedent 
     #     numiso=numisom1+1    
     #     t0          = self.t0
-    #     dtig0GFS       = t0-tigGFS        
+    #     dtig0       = t0-tig        
     #     ecartprecedent=iso[0,12].item()         # c est l ecart de temps de a la fin de l iso precedent par rapport a t0 , c est le temps ou sont les points de depart de calcul de l iso 
   
     #     n3=512
@@ -4452,12 +4114,12 @@ class RoutageSession:                                                  # version
 
     #     # on calcule le vent pour la prochaine iteration 
        
-    #     dtigiso= dtig0GFS+ecart
+    #     dtigiso= dtig0+ecart
           
     #     #print ('ecart grib en h ',ecart/3600)
 
 
-    #     iso[:,9],iso[:,10]= prevision025todtig(GRGFS_gpu,dtigiso, iso[:,3],iso[:,4])    # correction erreur le vent est calcule pour le prochain point avec les nuvelles coordonnees
+    #     iso[:,9],iso[:,10]= prevision025todtig(GR_gpu,dtigiso, iso[:,3],iso[:,4])    # correction erreur le vent est calcule pour le prochain point avec les nuvelles coordonnees
       
     #     iso[:,11]=torch.rad2deg(iso[:,13])            # on remet le cap initial en 11 a partir du cap en radian que l on a toujours   
     #     iso[:,14] = iso[:,16]/(iso[:,15]+0.0001)      # on va remettre le boost en colonne 14 a la place de la twa   
@@ -4489,10 +4151,10 @@ class RoutageSession:                                                  # version
     # ****************
 
 
-    def isoplusun(self,iso,tmini,paramRoutage,mode ):
+    def isoplusun(self,iso,tmini,paramRoutage ):
         ''' Donnees a charger propres au routage'''
         ''' polairesglobales10to, lw, hw, lwtimer, hwtimer,MF, coeffboat, rayonRoutage     '''
-        ''' necessite comme donnneees externes  GRGFS_gpu ,polairesglobales10to,range_caps,range_capsR,carabateau,lw,....                                   '''
+        ''' necessite comme donnneees externes  GR_gpu ,polairesglobales10to,range_caps,range_capsR,carabateau,lw,....                                   '''
         ''' Les penalites sont affichees sur l iteration et ne sont diminuees du temps de l iteration que sur l iteration suivante '''
 
         MF          = 0.8
@@ -4501,11 +4163,10 @@ class RoutageSession:                                                  # version
         numiso=numisom1+1    
         t0          = self.t0
 
-        dtig0GFS       = t0-tigGFS
-        dtig0ECM       = t0-tigECM
+        dtig0       = t0-tig
         # print('t0 ',time.strftime(" %d %b %H:%M %S",time.localtime(t0)))
-        # print('tigGFS ',time.strftime(" %d %b %H:%M %S",time.localtime(tigGFS)))
-        # print ('dtig0GFS en h ',dtig0GFS/3600)
+        # print('tig ',time.strftime(" %d %b %H:%M %S",time.localtime(tig)))
+        # print ('dtig0 en h ',dtig0/3600)
         
         ecartprecedent=iso[0,12].item()         # c est l ecart de temps de a la fin de l iso precedent par rapport a t0 , c est le temps ou sont les points de depart de calcul de l iso 
        
@@ -4656,7 +4317,7 @@ class RoutageSession:                                                  # version
         
         iso[:,18]=iso[:,3]                                                                                      # on copie la latitude initiale en 18 pour les barrieres 
         iso[:,19]=iso[:,4]                                                                                      # on copie la longitude initiale en 19 pour calculer les barrieres 
-        # nouvelles coordonnees 
+        # nouvelles cvoordonnees 
         iso[:,3]= iso[:,18] + iso[:,17] * iso[:,16] / 3600 / 60 * torch.cos(iso[:,13])                                         #  
         iso[:,4]= iso[:,19] + iso[:,17] * iso[:,16] / 3600 / 60 * torch.sin(iso[:,13])/torch.cos(iso[:,3].deg2rad())                      #    (le cos utilise pour la lat est avec la latitude deja calculee ?)
         iso[:,11]= iso[:,3].deg2rad()                                # on stocke la lat en rad pour le calcul de distance a l arrivee
@@ -4698,22 +4359,8 @@ class RoutageSession:                                                  # version
         iso    = iso[mask]                                                       # on elimine les points pour lesquels l ecart est egal a zero   
         #  on recalcule le boost sur 512 points pour l avoir a la fin 
         iso[:,14]= iso[:,16]/(iso[:,15]+0.0001)
-    ## Calcul de la meteo
-
-        dtigGFS = dtig0GFS + ecart
-        dtigECM = dtig0ECM + ecart
-        #iso[:,9],iso[:,10]   = prevision025todtig(GRGFS_gpu,dtigGFS, iso[:,3],iso[:,4])    # correction erreur le vent est calcule pour le prochain point avec les nuvelles coordonnees
+    
         
-        if mode=='mixte':
-            if ecart<9*3600 :
-                iso[:,9],iso[:,10]   = gfs_interp(dtigGFS,iso[:,3],iso[:,4] )    
-            else :
-                iso[:,9],iso[:,10]   = ecm_interp(dtigECM,iso[:,3],iso[:,4] ) 
-                
-        else:  
-            iso[:,9],iso[:,10]   = gfs_interp(dtigGFS,iso[:,3],iso[:,4] )    
-
-        #iso[:,9],iso[:,10]   = gfs_interp(dtigGFS,iso[:,3],iso[:,4] ) 
         # elimination des points terre 
         iso[:,12]=terremer(iso[:,3],iso[:,4])                                   #on stocke le resultat terre mer en 12   
         mask   = iso[:,12]!=0
@@ -4736,8 +4383,12 @@ class RoutageSession:                                                  # version
 
         # on calcule le vent pour la prochaine iteration 
        
-      
-        #iso[:,9],iso[:,10]= prevision025todtig(GRGFS_gpu,dtigiso, iso[:,3],iso[:,4])    # correction erreur le vent est calcule pour le prochain point avec les nuvelles coordonnees
+        dtigiso= dtig0+ecart
+          
+        #print ('ecart grib en h ',ecart/3600)
+
+
+        iso[:,9],iso[:,10]= prevision025todtig(GR_gpu,dtigiso, iso[:,3],iso[:,4])    # correction erreur le vent est calcule pour le prochain point avec les nuvelles coordonnees
       
         iso[:,11]=torch.rad2deg(iso[:,13])            # on remet le cap initial en 11 a partir du cap en radian que l on a toujours   
         iso[:,14] = iso[:,16]/(iso[:,15]+0.0001)      # on va remettre le boost en colonne 14 a la place de la twa   
@@ -4854,11 +4505,11 @@ def routageGlobal(course,user_id,isMe,ari,y0,x0,t0,tolerancehvmg,optionroutage,m
         # print ('numisoini',numisoini)
       
         while distmini > rwp:
-            iso, tmini, distmini, nptmini = session.isoplusun(iso, tmini,paramRoutage,mode)
+            iso, tmini, distmini, nptmini = session.isoplusun(iso, tmini,paramRoutage)
                    
         # Dernière itération pour rentrer dans le cercle 
         try:
-            iso, tmini, distmini, nptmini     = session.isoplusun(iso, tmini,paramRoutage,mode)
+            iso, tmini, distmini, nptmini     = session.isoplusun(iso, tmini,paramRoutage)
         except:
             print ('Limite grib atteinte 2 ')
             distmini, idx_min = torch.min(iso[:, 9], dim=0)                # idx_min est l’indice de la ligne où la distance est minimale   
