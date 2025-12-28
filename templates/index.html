@@ -4775,9 +4775,10 @@ function recupereRoutes(personalInfosJS) {
                 map.panTo([y0vr, x0vr])               // on centre la carte normalement on a les coordonnees par trouvederniertrajet                             
 
                 leginfos = await chercheleginfos(course)
+                //console.log ('leginfos'+leginfos)
                 afficheleginfos(leginfos)
-                console.log(`leginfos recuperees pour la course par chercheleginfos ${course} \n*******************\n `)    //${leginfos}`)
-
+                //console.log(`leginfos recuperees pour la course par chercheleginfos ${course} \n*******************\n     ${leginfos}`)
+                
                 carte = await chargecartemaps2(y0vr, x0vr)
                 affichecarte(carte)                                       // affiche la carte locale pas forcement necessaire 
 
@@ -5644,9 +5645,11 @@ function recupereRoutes(personalInfosJS) {
                 let voileActuelle=typeVoiles[(sail % 10)]
                 console.log ('Dans tabrecou ',voileActuelle)
                 tableau = tabrecouvrements
+                leginfosjs = JSON.parse(leginfos)
+                labelbateau=leginfosjs['boat']['label']
+                console.log ('bateau '+labelbateau)
 
-
-                texte = '<div class="recou">Recouvrements </div>';
+                texte = `<div class="recou">Recouvrements  ${labelbateau}</div>`;
 
                 let voile0 = typeVoiles[tableau[0][0]];
                 let class0 = (voile0 === voileActuelle) ? 'voile-active' : '';
