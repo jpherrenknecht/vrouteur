@@ -5258,12 +5258,16 @@ function recupereRoutes(personalInfosJS) {
                 nomsWaypoints = waypoints.map(item => item[1]);
                 
                 // si ari etait implemente dans personalinfos 
-                ari = personalInfosJS['ari']
+                //ari = personalInfosJS['ari']
 
                 // sinon on va aller cherchertrajet dans lamemoire trajet 
-                // trajet = trouvetrajet(username, course)
-                // ari=trajet[11]
-                // console.log('valeur de ari dans changementcourse'+ari)
+                
+                trajet = trouvetrajet(username, course)
+                console.log ('trajet dans changement course')
+                console.log(trajet)
+                ari=trajet[11]
+                console.log('valeur de ari dans changementcourse : '+ari)
+
 
                 afficheselectarrivee(waypoints, ari)// on affiche le select arrivee avec les waypoints et ceux selectionnes  
                 // ici on peut afficher les coordonnneses du dernier wp selectionné qui est le dernier element de ari 
