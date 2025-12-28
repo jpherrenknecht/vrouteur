@@ -1180,7 +1180,7 @@
                 urlPolaires = `http://blacksailingpolars.vrzen.org/?race_id=${course}&tws=${twsvr}&twa=${Math.abs(twavr)}&stam=${stamina}&hull=true&winch=true&foil=true&light=true&heavy=true&reach=true&magicFurler=true&comfortLoungePug=true&vrtexJacket=true&voile=${sail % 10}`
 
 
-                document.getElementById('dategrib').innerHTML = 'Grib du ' + intldhmn.format(arrondirALHeure(tig * 1000 + decalageUTC * 60000)) + ' + ' + indicemajgrib * 3 + 'h' //+ decalageUTC * 60000
+                document.getElementById('dategrib').innerHTML = 'GFS du ' + intldhmn.format(arrondirALHeure(tig * 1000 + decalageUTC * 60000)) + ' + ' + indicemajgrib * 3 + 'h' //+ decalageUTC * 60000
                 document.getElementById('voilesautovr').checked = autosail
 
                 //Positionnement du bateau    
@@ -5639,14 +5639,74 @@ function recupereRoutes(personalInfosJS) {
             function affichagerecou(tabrecouvrements) {
                 // console.log (' fonction affichagerecou')
                 // console.log (tabrecouvrements)
+
+
+                let voileActuelle=typeVoiles[(sail % 10)]
+                console.log ('Dans tabrecou ',voileActuelle)
                 tableau = tabrecouvrements
+
+
+                texte = '<div class="recou">Recouvrements </div>';
+
+                let voile0 = typeVoiles[tableau[0][0]];
+                let class0 = (voile0 === voileActuelle) ? 'voile-active' : '';
+
+                texte += `<tr>
+                    <td>----</td>
+                    <td>----</td>
+                    <td class="${class0}">${voile0}</td>
+                    <td>${tableau[0][2].toFixed(1)}</td>
+                    <td>${tableau[0][4].toFixed(1)}</td>
+                </tr>`;
+
+                for (var i = 1; i < tableau.length - 1; i++) {
+
+                    let voile = typeVoiles[tableau[i][0]];
+                    let classe = (voile === voileActuelle) ? 'voile-active' : '';
+
+                    texte += `<tr>
+                        <td>${tableau[i][3].toFixed(1)}</td>
+                        <td>${tableau[i][1].toFixed(1)}</td>
+                        <td class="${classe}">${voile}</td>
+                        <td>${tableau[i][2].toFixed(1)}</td>
+                        <td>${tableau[i][4].toFixed(1)}</td>
+                    </tr>`;
+                }
+
+                let voileLast = typeVoiles[tableau[i][0]];
+                let classLast = (voileLast === voileActuelle) ? 'voile-active' : '';
+
+                texte += `<tr>
+                    <td>${tableau[i][3].toFixed(1)}</td>
+                    <td>${tableau[i][1].toFixed(1)}</td>
+                    <td class="${classLast}">${voileLast}</td>
+                    <td>----</td>
+                    <td>----</td>
+                </tr>`;
+
+                document.getElementById('tabrecou').innerHTML = texte;
+
+
+
+
+
+
+/*
                 texte = '<div class="recou">Recouvrements </div>';
                 texte += "<tr><td>----</td><td>----</td><td>" + typeVoiles[tableau[0][0]] + "</td><td>" + tableau[0][2].toFixed(1) + "</td><td>" + tableau[0][4].toFixed(1) + "</td></tr>"
                 for (var i = 1; i < tableau.length - 1; i++) {
                     texte += "<tr><td>" + tableau[i][3].toFixed(1) + "</td><td>" + tableau[i][1].toFixed(1) + "</td><td>" + typeVoiles[tableau[i][0]] + "</td><td>" + tableau[i][2].toFixed(1) + "</td><td>" + tableau[i][4].toFixed(1) + "</td></tr>"
                 }
                 texte += "<tr><td>" + tableau[i][3].toFixed(1) + "</td><td>" + tableau[i][1].toFixed(1) + "</td><td>" + typeVoiles[tableau[i][0]] + "</td><td>----</td><td>----</td></tr>"
-                document.getElementById('tabrecou').innerHTML = texte
+                
+ */               
+                
+                
+                
+                //document.getElementById('tabrecou').innerHTML = texte
+
+
+
             }
 
 
