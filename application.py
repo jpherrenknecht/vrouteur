@@ -689,6 +689,7 @@ def build_ecm_interp():
     torch.cuda.synchronize()
 
 
+# pas initie en local pour les tests car sature la memoire 
 chargement_ECM()
 maj_ecm()
 
@@ -3405,8 +3406,8 @@ def ajaxmessage():
         reponse ='Données bien reçues par le serveur '  # reponse envoyee au dash pour test
         print ("\nMessage reçu : {}".format(typeinfos) )
        # print ('Type du Message : {} \n*********************************************************'.format(typeinfos))
-        #print(' message ' , )
-        #print ('Message         : {} \n***********************************'.format( message))
+        print(' message ' , )
+        print ('Message         : {} \n***********************************'.format( message))
 
 
         if typeinfos=='AccountDetailsRequest':
@@ -4502,7 +4503,8 @@ class RoutageSession:                                                  # version
         t0          = self.t0
 
         dtig0GFS       = t0-tigGFS
-        dtig0ECM       = t0-tigECM
+        if mode=='mixte':
+            dtig0ECM       = t0-tigECM
         # print('t0 ',time.strftime(" %d %b %H:%M %S",time.localtime(t0)))
         # print('tigGFS ',time.strftime(" %d %b %H:%M %S",time.localtime(tigGFS)))
         # print ('dtig0GFS en h ',dtig0GFS/3600)
@@ -4701,10 +4703,12 @@ class RoutageSession:                                                  # version
     ## Calcul de la meteo
 
         dtigGFS = dtig0GFS + ecart
-        dtigECM = dtig0ECM + ecart
+       
+           
         #iso[:,9],iso[:,10]   = prevision025todtig(GRGFS_gpu,dtigGFS, iso[:,3],iso[:,4])    # correction erreur le vent est calcule pour le prochain point avec les nuvelles coordonnees
         
         if mode=='mixte':
+            dtigECM = dtig0ECM + ecart
             if ecart<9*3600 :
                 iso[:,9],iso[:,10]   = gfs_interp(dtigGFS,iso[:,3],iso[:,4] )    
             else :
