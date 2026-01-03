@@ -106,9 +106,7 @@ if hostname=='portable' :          # sur ordi portable  (3eme ordi)
 # print(torch.version.git_version)
 # print(torch.cuda.is_available())
 from scheduler_cleaner import start_scheduler
-
-# Lancer le scheduler une seule fois au démarrage
-start_scheduler()
+start_scheduler()   # Lancer le scheduler une seule fois au démarrage
 
 
 
@@ -148,15 +146,13 @@ IS_PRODUCTION = os.environ.get("FLASK_ENV") == "production"
 hostname = socket.gethostname()
 
 
-
+ECM_actif=True
 
 
 
 ################################################################################################
 ################      Gestion du websocket     #################################################
 ################################################################################################
-
-
 
 
 pg_pool = pool.SimpleConnectionPool(
@@ -690,8 +686,9 @@ def build_ecm_interp():
 
 
 # pas initie en local pour les tests car sature la memoire 
-chargement_ECM()
-maj_ecm()
+# ECM_Actif
+# chargement_ECM()
+# maj_ecm()
 
 #--------------------------------------------------------------------------------------------------
 #    Test de quelques échéances
@@ -1711,7 +1708,7 @@ def charger_donnees(course):
     #**************************************
     try:
         zones=leginfos['restrictedZones']
-        # print ('exclusions1 l 1179 ************\n',zones)
+        print ('exclusions1 l 1179 ************\n',zones)
         # print()
         tabexclusions={}
         # for zone in zones:
@@ -1720,18 +1717,23 @@ def charger_donnees(course):
         #     vertices = [[pt["lat"], pt["lon"]] for pt in zone["vertices"]]
         #     print (vertices)
         #     tabexclusions[name] = vertices    
+        for i, zone in enumerate(zones, start=1):
+            base = zone.get("name", "zone")
+            name = f"{base}_{i}"
 
-        try:
-            for zone in zones:
-                try :
-                    name = zone["name"]
-                except:
-                    name=time.time()
-                vertices = [[pt["lat"], pt["lon"]] for pt in zone["vertices"]]
-                tabexclusions[name] = vertices
+            vertices = [[pt["lat"], pt["lon"]] for pt in zone["vertices"]]
+            tabexclusions[name] = vertices
+        # try:
+        #     for zone in zones:
+        #         try :
+        #             name = zone["name"]
+        #         except:
+        #             name=time.time()
+        #         vertices = [[pt["lat"], pt["lon"]] for pt in zone["vertices"]]
+        #         tabexclusions[name] = vertices
 
-        except KeyError as e:
-            print(f"Clé manquante dans la zone {zone}: {e}")    
+        # except KeyError as e:
+        #     print(f"Clé manquante dans la zone {zone}: {e}")    
 
         # print ('tabexclusions l 1203 ************\n',tabexclusions)        
   
@@ -3593,7 +3595,7 @@ def ajaxmessage():
 
 
         if typeinfos=='leginfos':
-                # print ('\nLigne 2548 leginfos ',message)
+                print ('\nLigne 2548 leginfos ',message)
                         
                 timestamp = time.time()
                 race    = message['_id']['race_id']
