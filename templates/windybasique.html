@@ -27,161 +27,10 @@
     
     windyInit(options, windyAPI => { const {map, picker, utils, broadcast,store } = windyAPI;
 var popup = L.popup(); 
-// lignes=
-// [
-// [[45.602,-3.4060],[46.723,-3.7100],[46.627,-3.0791],[45.500,-2.3000],[44.500,-4.3000],],
-// [[41.500,-8.150],[41.400,-8.93],[41.581,-8.417],[41.538,-8.995],[42.24,-8.09],]
-// ]
 
-// var polyligne=L.polyline(lignes).setStyle({ color: 'red', weight:2, opacity:0.3, }).addTo(map); 
-
-
-// tabexclusions=[[[-48,148],[-48,180],[-67,180],[-67,148],[-48,148]],[[-48,-180],[-48,-75],[-67,-110],[-67,-180],[-48,-180]]]
-
-// 1) Assure-toi que le LayerGroup est bien sur la carte
-//if (!window.layerExclusions) window.layerExclusions = new L.LayerGroup();
-
- var layerExclusions = new L.LayerGroup()
+var layerExclusions = new L.LayerGroup()
    layerExclusions.addTo(map);
 
-
-// function shiftLonMulti(coords, deltaLon) {
-//   return coords.map(ring => ring.map(([lat, lon]) => [lat, lon + deltaLon]));
-// }
-
-// function xRangeInPixels(coords) {
-//   let minX = Infinity, maxX = -Infinity;
-//   const ring = coords[0];
-//   for (const [lat, lon] of ring) {
-//     const p = map.project(L.latLng(lat, lon)); // zoom courant
-//     if (p.x < minX) minX = p.x;
-//     if (p.x > maxX) maxX = p.x;
-//   }
-//   return [minX, maxX];
-// }
-
-
-// function intersectsViewportXRng([minX, maxX], pb) {
-//   return !(maxX < pb.min.x || minX > pb.max.x);
-// }
-
-// // Calcule les shifts lon (k*360) nécessaires pour couvrir le viewport actuel
-// function visibleWorldShiftsLon() {
-//   const pb = map.getPixelBounds();
-//   const zoom = map.getZoom();
-//   const worldSize = 256 * Math.pow(2, zoom);    // Taille du monde en pixels au zoom courant (Leaflet standard)
-//   const kMin = Math.floor(pb.min.x / worldSize); // Indices de "monde" visibles en X
-//   const kMax = Math.floor(pb.max.x / worldSize);
-//   const shifts = [];// On prend un peu de marge
-//   for (let k = kMin - 1; k <= kMax + 1; k++) {
-//     shifts.push(k * 360);
-//       }
-//   return shifts;
-// }
-
-
-
-// function makeWrappedPolylineInfinite(coords0, style) {
-//   return { coords0, style, layersByShift: new Map() }; // shiftLon -> polyline
-// }
-
-
-
-
-// function refreshWrappedInfinite(obj) {
-//         const pb = map.getPixelBounds();
-//         const neededShifts = visibleWorldShiftsLon();
-//         const neededSet = new Set(neededShifts);
-
-//         // 1) Enlever les copies qui ne sont plus nécessaires
-//         for (const [shift, layer] of obj.layersByShift.entries()) {
-//             if (!neededSet.has(shift)) {
-//             if (layerExclusions.hasLayer(layer)) layerExclusions.removeLayer(layer);
-//             obj.layersByShift.delete(shift);
-//             }
-//         }
-
-//         // 2) Mettre à jour / créer les copies nécessaires, et n'afficher que celles qui intersectent
-//         let anyVisible = false;
-
-//         for (const shift of neededShifts) {
-//             let layer = obj.layersByShift.get(shift);
-//             const coords = shiftLonMulti(obj.coords0, shift);
-
-//             if (!layer) {
-//             layer = L.polyline(coords).setStyle(obj.style);
-//             obj.layersByShift.set(shift, layer);
-//             } else {
-//             layer.setLatLngs(coords);
-//             }
-
-//             const xrng = xRangeInPixels(coords);
-//             const visible = intersectsViewportXRng(xrng, pb);
-
-//             if (visible) {
-//             anyVisible = true;
-//             if (!layerExclusions.hasLayer(layer)) layer.addTo(layerExclusions);
-//             } else {
-//             if (layerExclusions.hasLayer(layer)) layerExclusions.removeLayer(layer);
-//             }
-//         }
-
-        
-//         if (!anyVisible) {         // Fallback: si notre test se trompe (rare), on affiche au moins une copie
-//             const firstShift = neededShifts[0];
-//             const layer = obj.layersByShift.get(firstShift);
-//             if (layer && !layerExclusions.hasLayer(layer)) layer.addTo(layerExclusions);
-//         }
-//     }
-
-
-
-// function afficheExclusions(tabexclusions, styles) {
-//   layerExclusions.clearLayers();
-
-//   // styles optionnel: soit un tableau de styles, soit un style unique
-//   const defaultStyles = (tabexclusions || []).map((_, i) => ({
-//     color: (i % 2 === 0) ? "red" : "green",
-//     weight: 4,
-//     opacity: 1
-//   }));
-
-//   const sty = Array.isArray(styles)
-//     ? styles
-//     : (styles ? (tabexclusions || []).map(() => styles) : defaultStyles);
-
-//   // 1) On crée une liste d'objets "wrapped" (un par polyligne)
-//   window._wrappedExclusions = (tabexclusions || []).map((poly, i) => {
-//     // poly est un ring: [[lat,lon],...]
-//     // makeWrappedPolylineInfinite attend une structure "coords0" au format Leaflet latlngs:
-//     // - polyline: [ [lat,lon], ... ]  OU  multi: [ [ [lat,lon],... ] ]
-//     // Ici on garde ton format multi : [ [ ... ] ]
-//     const coords0 = [poly];
-//     return makeWrappedPolylineInfinite(coords0, sty[i] || defaultStyles[i]);
-//   });
-
-//   // 2) refresh global
-//   function refresh() {
-//     for (const obj of window._wrappedExclusions) {
-//       refreshWrappedInfinite(obj);
-//     }
-//   }
-
-//   // 3) RAF pendant le pan + après zoom
-//   let raf = 0;
-//   function refreshRaf() {
-//     if (raf) return;
-//     raf = requestAnimationFrame(() => { raf = 0; refresh(); });
-//   }
-
-//   // 4) (re)bind events
-//   map.off("move zoom resize", window._refreshWrappedRects3);
-//   window._refreshWrappedRects3 = refreshRaf;
-//   map.on("move zoom resize", window._refreshWrappedRects3);
-
-//   // 5) premier affichage
-//   refresh();
-// }
 
 // Exemple d'appel
 const tabexclusions = [ [[-48,120],[-48,148],[-67,148],[-67,120],[-48,120]],
@@ -190,6 +39,55 @@ const tabexclusions = [ [[-48,120],[-48,148],[-67,148],[-67,120],[-48,120]],
 ];
 
 afficheExclusions(tabexclusions,map,layerExclusions,{ color:"red", weight:2, opacity:1 });
+
+
+var routageLayer = new L.LayerGroup()
+var tooltipprog = new Array();
+var circleprog = new Array();
+var polyglobal = new Array();
+
+//test avec niso,dt,lat,lon,twa,cap,voile
+tabroutage=[[1,0,-44,159,135,118,6],[1,0,-45,165,135,118,6],[1,0,-47,175,135,118,5],[1,0,-41,179,135,118,5],[1,0,-43,181,135,118,4],
+[1,0,-44,185,185,118,4],[1,0,-42,195,135,118,5],[1,0,-40,200,135,118,6],[1,0,-41,205,135,118,6],[1,0,-44,210,135,118,6],[1,0,-43,222,135,118,6],]
+//on va l afficher comme un routage
+var colors = ['red', 'lime', 'blue', 'orange', 'darkgreen', '#b00000', '#d77900'];
+
+
+// affichage routage qui marche 
+// routageLayer.clearLayers()
+//                 for (var i = 1; i <= tabroutage.length - 1; i++)                // on affiche les nouveaux points mais pas le premier pas necessaire 
+//                 {
+//                     couleur = colors[tabroutage[i][6]]
+//                     voile = tabroutage[i][6]
+//                     tooltipprog[i] = '<b> Point ' + i  + '  Voile :' + voile             // le temps est en position 3
+//                     tourcol = 'red'; opac = 1; poids = 1; fillopac = 0.5; fillCol = couleur; rayon = 10;       // valeur par defaut  
+//                     if (i % 10 == 0) { rayon = 20, tourcol = 'red'; fillopac = 0.5 }              // tous les 10    
+//                     if (tabroutage[i][1] % 3600 == 0) { tourcol = 'white'; rayon = 50, fillopac = 0.5 }                    // toutes les heures 
+//                     circleprog[i] = L.circle([tabroutage[i][2], tabroutage[i][3]], { fillColor: fillCol, color: tourcol, weight: poids, opacity: opac, fillOpacity: fillopac, radius: rayon, })
+//                         .bindTooltip(tooltipprog[i]).bindPopup(tooltipprog[i]).addTo(routageLayer)
+//                 }
+
+//                for (var i = 0; i <= tabroutage.length - 2; i++)                // on affiche les nouveaux points mais pas le premier pas necessaire 
+//                 {
+//                     couleur = colors[tabroutage[i][6]]
+//                     polyglobal[i] = L.polyline([[tabroutage[i][2], tabroutage[i][3]], [tabroutage[i + 1][2], tabroutage[i + 1][3]]], { color: couleur, weight: 3 }).addTo(routageLayer);
+//                 }
+
+//                 routageLayer.addTo(map)
+
+
+
+
+afficheRoutageWrapped(tabroutage, map, routageLayer, colors, {
+  idxLat: 2,
+  idxLon: 3,
+  idxVoile: 6
+});
+
+
+
+
+
 
 map.on('contextmenu', function(e)
         {  

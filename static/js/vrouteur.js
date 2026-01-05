@@ -2173,9 +2173,9 @@ function toDMSString(lat, lon) {
   return `${convert(lat, true)} ${convert(lon, false)}`;
 }
 
-
+//-----------------------------------------------------------------------------------------------
 // Fonctions pour affichage des polygones
-
+//-----------------------------------------------------------------------------------------------
 
 function shiftLonMulti(coords, deltaLon) {
   return coords.map(ring => ring.map(([lat, lon]) => [lat, lon + deltaLon]));
@@ -2307,11 +2307,401 @@ function afficheExclusions(tabexclusions,map,layerExclusions, styles) {
   }
 
   // 4) (re)bind events
-  map.off("move zoom resize", window._refreshWrappedRects3);
-  window._refreshWrappedRects3 = refreshRaf;
-  map.on("move zoom resize", window._refreshWrappedRects3);
+  bindWrappedRefresh(map, "exclusions", refreshRaf);
+//   map.off("move zoom resize", window._refreshWrappedRects3);
+//   window._refreshWrappedRects3 = refreshRaf;
+//   map.on("move zoom resize", window._refreshWrappedRects3);
 
   // 5) premier affichage
   refresh();
 }
 
+
+
+function bindWrappedRefresh(map, key, fn) {
+  // key = string unique (ex: "exclusions", "routage")
+  const store = (window._wrappedRefreshStore ||= {});
+  const prev = store[key];
+
+  if (prev) {
+    map.off("move", prev);
+    map.off("zoom", prev);
+    map.off("resize", prev);
+  }
+
+  store[key] = fn;
+  map.on("move", fn);
+  map.on("zoom", fn);
+  map.on("resize", fn);
+}
+
+
+
+
+
+
+
+// =======================
+// Helpers réutilisés
+// (tu les as déjà, je les remets pas)
+// - shiftLonMulti(coords, deltaLon)
+// - xRangeInPixels(map, coords)
+// - intersectsViewportXRng([minX,maxX], pb)
+// - visibleWorldShiftsLon(map)
+// - makeWrappedPolylineInfinite(coords0, style)
+// - refreshWrappedInfinite(map, layerGroup, obj)
+// =======================
+
+
+// =======================
+// NOUVEAU : wrapped circle
+// // =======================
+// function makeWrappedCircleInfinite(latlng0, style, tooltipHtml) {
+//   return { latlng0, style, tooltipHtml, layersByShift: new Map() }; // shiftLon -> circle
+// }
+
+// function xInPixels(map, latlng) {
+//   return map.project(L.latLng(latlng[0], latlng[1])).x;
+// }
+
+// function refreshWrappedCircleInfinite(map, layerGroup, obj) {
+//   const pb = map.getPixelBounds();
+//   const neededShifts = visibleWorldShiftsLon(map);
+//   const neededSet = new Set(neededShifts);
+
+//   // marge en pixels (approx) : rayon du cercle en pixels + un peu
+//   // Leaflet: circle radius est en mètres -> pas direct en pixels.
+//   // On prend une marge fixe raisonnable + on considère que ton rayon est petit.
+//   // Si tu veux mieux: calcule pxRadius via distance latlng->latlng décalé.
+//   const marginPx = 80;
+
+//   // 1) enlever copies inutiles
+//   for (const [shift, layer] of obj.layersByShift.entries()) {
+//     if (!neededSet.has(shift)) {
+//       if (layerGroup.hasLayer(layer)) layerGroup.removeLayer(layer);
+//       obj.layersByShift.delete(shift);
+//     }
+//   }
+
+//   // 2) update / create + show/hide selon visibilité X
+//   let anyVisible = false;
+
+//   for (const shift of neededShifts) {
+//     let layer = obj.layersByShift.get(shift);
+//     const latlng = [obj.latlng0[0], obj.latlng0[1] + shift];
+
+//     if (!layer) {
+//       layer = L.circle(latlng, obj.style);
+//       if (obj.tooltipHtml) layer.bindTooltip(obj.tooltipHtml).bindPopup(obj.tooltipHtml);
+//       obj.layersByShift.set(shift, layer);
+//     } else {
+//       layer.setLatLng(latlng);
+//       // style peut changer (optionnel)
+//       // layer.setStyle(obj.style);
+//     }
+
+//     const x = xInPixels(map, latlng);
+//     const visible = !(x < pb.min.x - marginPx || x > pb.max.x + marginPx);
+
+//     if (visible) {
+//       anyVisible = true;
+//       if (!layerGroup.hasLayer(layer)) layer.addTo(layerGroup);
+//     } else {
+//       if (layerGroup.hasLayer(layer)) layerGroup.removeLayer(layer);
+//     }
+//   }
+
+//   // fallback
+//   if (!anyVisible) {
+//     const firstShift = neededShifts[0];
+//     const layer = obj.layersByShift.get(firstShift);
+//     if (layer && !layerGroup.hasLayer(layer)) layer.addTo(layerGroup);
+//   }
+// }
+
+
+// // =======================
+// // Affichage routage "wrapped"
+// // =======================
+// function afficheRoutageWrapped(tabroutage, map, routageLayer, colors, options = {}) {
+//   routageLayer.clearLayers();
+
+//   const idxLat = options.idxLat ?? 2;
+//   const idxLon = options.idxLon ?? 3;
+//   const idxVoile = options.idxVoile ?? 6; // IMPORTANT: dans ton exemple, voile est [6]
+
+//   // stock global (comme tes exclusions)
+//   window._wrappedRoutage = { points: [], segments: [] };
+
+//   // ---------- 1) Points (cercles) ----------
+//   for (let i = 1; i <= tabroutage.length - 1; i++) {
+//     const lat = tabroutage[i][idxLat];
+//     const lon = tabroutage[i][idxLon];
+//     const voile = tabroutage[i][idxVoile];
+//     const couleur = colors?.[voile] ?? "red";
+
+//     let tourcol = "red", opac = 1, poids = 1, fillopac = 0.5, rayon = 10;
+
+//     if (i % 10 === 0) { rayon = 20; tourcol = "red"; fillopac = 0.5; }
+//     // ton test "toutes les heures" utilisait tabroutage[i][1]
+//     if ((tabroutage[i][1] % 3600) === 0) { tourcol = "white"; rayon = 50; fillopac = 0.5; }
+
+//     const tooltip = `<b>Point ${i}</b> Voile: ${voile}`;
+
+//     const circleStyle = {
+//       fillColor: couleur,
+//       color: tourcol,
+//       weight: poids,
+//       opacity: opac,
+//       fillOpacity: fillopac,
+//       radius: rayon
+//     };
+
+//     window._wrappedRoutage.points.push(
+//       makeWrappedCircleInfinite([lat, lon], circleStyle, tooltip)
+//     );
+//   }
+
+//   // ---------- 2) Segments (polylines) ----------
+//   for (let i = 0; i <= tabroutage.length - 2; i++) {
+//     const lat1 = tabroutage[i][idxLat], lon1 = tabroutage[i][idxLon];
+//     const lat2 = tabroutage[i + 1][idxLat], lon2 = tabroutage[i + 1][idxLon];
+
+//     const voile = tabroutage[i][idxVoile];               // ou i+1 si tu préfères
+//     const couleur = colors?.[voile] ?? "red";
+
+//     // coords0 au format MULTI (comme exclusions) : [ [ [lat,lon], [lat,lon] ] ]
+//     const coords0 = [[[lat1, lon1], [lat2, lon2]]];
+
+//     const style = { color: couleur, weight: 1, opacity: 1 };
+
+//     window._wrappedRoutage.segments.push(
+//       makeWrappedPolylineInfinite(coords0, style)
+//     );
+//   }
+
+//   // ---------- 3) Refresh global ----------
+//   function refresh() {
+//     // segments: réutilise TA fonction
+//     for (const obj of window._wrappedRoutage.segments) {
+//       refreshWrappedInfinite(map, routageLayer, obj);
+//     }
+//     // points: nouvelle fonction
+//     for (const obj of window._wrappedRoutage.points) {
+//       refreshWrappedCircleInfinite(map, routageLayer, obj);
+//     }
+//   }
+
+//   // RAF pendant pan + zoom/resize
+//   let raf = 0;
+//   function refreshRaf() {
+//     if (raf) return;
+//     raf = requestAnimationFrame(() => { raf = 0; refresh(); });
+//   }
+
+//   // (re)bind events
+// //   map.off("move zoom resize", window._refreshWrappedRoutage);
+// //   window._refreshWrappedRoutage = refreshRaf;
+// //   map.on("move zoom resize", window._refreshWrappedRoutage);
+
+// bindWrappedRefresh(map, "routage", refreshRaf);
+
+
+//   // premier affichage
+//   refresh();
+
+//   // assure layer sur la map (si tu veux)
+//   if (!map.hasLayer(routageLayer)) routageLayer.addTo(map);
+// }
+
+
+// =======================
+// (1) Helper commun (si tu ne l'as pas déjà)
+// function bindWrappedRefresh(map, key, fn) {
+//   const store = (window._wrappedRefreshStore ||= {});
+//   const prev = store[key];
+//   if (prev) {
+//     map.off("move", prev);
+//     map.off("zoom", prev);
+//     map.off("resize", prev);
+//   }
+//   store[key] = fn;
+//   map.on("move", fn);
+//   map.on("zoom", fn);
+//   map.on("resize", fn);
+// }
+
+// =======================
+// (2) Wrapped circle
+function makeWrappedCircleInfinite(latlng0, style, tooltipHtml) {
+  return { latlng0, style, tooltipHtml, layersByShift: new Map() };
+}
+
+function xInPixels(map, latlng) {
+  return map.project(L.latLng(latlng[0], latlng[1])).x;
+}
+
+function refreshWrappedCircleInfinite(map, layerGroup, obj) {
+  const pb = map.getPixelBounds();
+  const neededShifts = visibleWorldShiftsLon(map);
+  const neededSet = new Set(neededShifts);
+
+  // marge pixels (fallback simple)
+  const marginPx = 100;
+
+  // remove not needed
+  for (const [shift, layer] of obj.layersByShift.entries()) {
+    if (!neededSet.has(shift)) {
+      if (layerGroup.hasLayer(layer)) layerGroup.removeLayer(layer);
+      obj.layersByShift.delete(shift);
+    }
+  }
+
+  let anyVisible = false;
+
+  for (const shift of neededShifts) {
+    let layer = obj.layersByShift.get(shift);
+    const latlng = [obj.latlng0[0], obj.latlng0[1] + shift];
+
+    if (!layer) {
+      layer = L.circle(latlng, obj.style);
+      if (obj.tooltipHtml) layer.bindTooltip(obj.tooltipHtml).bindPopup(obj.tooltipHtml);
+      obj.layersByShift.set(shift, layer);
+    } else {
+      layer.setLatLng(latlng);
+      // Si tu veux autoriser les updates de style:
+      // layer.setStyle(obj.style);
+    }
+
+    const x = xInPixels(map, latlng);
+    const visible = !(x < pb.min.x - marginPx || x > pb.max.x + marginPx);
+
+    if (visible) {
+      anyVisible = true;
+      if (!layerGroup.hasLayer(layer)) layer.addTo(layerGroup);
+    } else {
+      if (layerGroup.hasLayer(layer)) layerGroup.removeLayer(layer);
+    }
+  }
+
+  if (!anyVisible) {
+    const firstShift = neededShifts[0];
+    const layer = obj.layersByShift.get(firstShift);
+    if (layer && !layerGroup.hasLayer(layer)) layer.addTo(layerGroup);
+  }
+}
+
+// =======================
+// (3) Affichage routage wrapped (adapté à TON tableau complet)
+function afficheRoutageWrapped(tabroutage, map, routageLayer, colors, options = {}) {
+  routageLayer.clearLayers();
+
+  // indices (par défaut = ton format)
+  const idxTime = options.idxTime ?? 1;
+  const idxLat  = options.idxLat  ?? 2;
+  const idxLon  = options.idxLon  ?? 3;
+
+  const idxTwa  = options.idxTwa  ?? 5;
+  const idxCap  = options.idxCap  ?? 6;
+
+  const idxVmgMin = options.idxVmgMin ?? 7;
+  const idxVmgMax = options.idxVmgMax ?? 8;
+
+  const idxVoile = options.idxVoile ?? 10;
+
+  const idxTws  = options.idxTws  ?? 12;
+  const idxTwd  = options.idxTwd  ?? 13;
+
+  // dépendances externes de ton code (on les prend via options pour éviter les globals si tu veux)
+  const typeVoilesShort = options.typeVoilesShort ?? window.typeVoilesShort ?? {};
+  const intlhmn         = options.intlhmn ?? window.intlhmn;
+  const t0routage       = options.t0routage ?? window.t0routage ?? 0;
+  const heuredepart     = options.heuredepart ?? window.heuredepart ?? 0;
+
+  // stockage global
+  window._wrappedRoutage = { points: [], segments: [] };
+
+  // -------- Points ----------
+  for (let i = 1; i <= tabroutage.length - 1; i++) {
+    const row = tabroutage[i];
+
+    const voile = row[idxVoile];
+    const couleur = (colors && colors[voile]) ? colors[voile] : "red";
+    const nomvoile = typeVoilesShort[voile] ?? String(voile);
+
+    const twa = Number(row[idxTwa]).toFixed(2);
+    const tws = Number(row[idxTws]).toFixed(2);
+    const twd = Number(row[idxTwd]).toFixed(2);
+    const cap = Number(row[idxCap]).toFixed(2);
+
+    const date = intlhmn
+      ? intlhmn.format((t0routage + row[idxTime]) * 1000)
+      : String((t0routage + row[idxTime]));
+
+    const vmgmin = Number(row[idxVmgMin]).toFixed(2);
+    const vmgmax = Number(row[idxVmgMax]).toFixed(2);
+    const vmg = (parseFloat(twa) < 90) ? vmgmin : vmgmax;
+
+    const dateRoutage = intlhmn
+      ? intlhmn.format(heuredepart * 1000)
+      : String(heuredepart);
+
+    const tooltip = `<b> Point ${i} le ${date} <br>(Routage du ${dateRoutage})</b>` +
+      `<br> Twa ${twa}°  Vmg ${vmg}°<br>Tws ${tws} Twd ${twd} <br>Cap : ${cap}  Voile :${nomvoile}`;
+
+    let tourcol = "red", opac = 1, poids = 1, fillopac = 0.5, rayon = 10;
+
+    if (i % 10 === 0) { rayon = 20; tourcol = "red"; fillopac = 0.5; }
+    if ((row[idxTime] % 3600) === 0) { tourcol = "white"; rayon = 50; fillopac = 0.5; }
+
+    const circleStyle = {
+      fillColor: couleur,
+      color: tourcol,
+      weight: poids,
+      opacity: opac,
+      fillOpacity: fillopac,
+      radius: rayon
+    };
+
+    window._wrappedRoutage.points.push(
+      makeWrappedCircleInfinite([row[idxLat], row[idxLon]], circleStyle, tooltip)
+    );
+  }
+
+  // -------- Segments ----------
+  for (let i = 0; i <= tabroutage.length - 2; i++) {
+    const r1 = tabroutage[i];
+    const r2 = tabroutage[i + 1];
+
+    const voile = r1[idxVoile];
+    const couleur = (colors && colors[voile]) ? colors[voile] : "red";
+
+    const coords0 = [[[r1[idxLat], r1[idxLon]], [r2[idxLat], r2[idxLon]]]];
+    const style = { color: couleur, weight: 1, opacity: 1 };
+
+    window._wrappedRoutage.segments.push(
+      makeWrappedPolylineInfinite(coords0, style) // <- réutilise ta mécanique existante
+    );
+  }
+
+  // -------- Refresh ----------
+  function refresh() {
+    for (const seg of window._wrappedRoutage.segments) {
+      refreshWrappedInfinite(map, routageLayer, seg);
+    }
+    for (const pt of window._wrappedRoutage.points) {
+      refreshWrappedCircleInfinite(map, routageLayer, pt);
+    }
+  }
+
+  let raf = 0;
+  function refreshRaf() {
+    if (raf) return;
+    raf = requestAnimationFrame(() => { raf = 0; refresh(); });
+  }
+
+  bindWrappedRefresh(map, "routage", refreshRaf);
+
+  refresh();
+  if (!map.hasLayer(routageLayer)) routageLayer.addTo(map);
+}
