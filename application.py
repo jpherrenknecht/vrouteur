@@ -42,8 +42,6 @@ from websocket import create_connection
 from scipy.signal import savgol_filter
 from cachetools import TTLCache
 from threading import Lock
-
-
 from collections import defaultdict, OrderedDict, deque     # necessaire pour la carte 
 
 
@@ -61,7 +59,6 @@ if hostname=='linux0' :         # sur ordi linux1  (serveur)
     basedirnpy          = '/home/jp/static/npy/'
     basedirGribs025     = '/home/jp/gribs/gribs025/'
     basedirECMWF        = '/home/jp/gribs/ecmwf/'
-    
     basedirGribsVR32    = '/home/jp/gribs/gribsvr32/'
     basedirGribsGfs32   = '/home/jp/gribs/gribsgfs32/'
     staticbd            = '/home/jp/static/bd/basededonnees.db'
@@ -148,8 +145,8 @@ hostname = socket.gethostname()
 
 ECM_actif=True
 
-
-
+print ('is PRODUCTION',IS_PRODUCTION)
+print("ENV =", os.getenv("VROUTEUR_ENV"))
 ################################################################################################
 ################      Gestion du websocket     #################################################
 ################################################################################################
@@ -687,8 +684,9 @@ def build_ecm_interp():
 
 # pas initie en local pour les tests car sature la memoire 
 # ECM_Actif
-# chargement_ECM()
-# maj_ecm()
+#if (IS_PRODUCTION):
+#chargement_ECM()
+#maj_ecm()
 
 #--------------------------------------------------------------------------------------------------
 #    Test de quelques échéances
@@ -1708,7 +1706,7 @@ def charger_donnees(course):
     #**************************************
     try:
         zones=leginfos['restrictedZones']
-        print ('exclusions1 l 1179 ************\n',zones)
+        #print ('exclusions1 l 1179 ************\n',zones)
         # print()
         tabexclusions={}
         # for zone in zones:
@@ -1720,8 +1718,7 @@ def charger_donnees(course):
         for i, zone in enumerate(zones, start=1):
             base = zone.get("name", "zone")
             name = f"{base}_{i}"
-
-            vertices = [[pt["lat"], pt["lon"]] for pt in zone["vertices"]]
+            vertices = [[pt["lat"], lon_to_360( pt["lon"])] for pt in zone["vertices"]]
             tabexclusions[name] = vertices
         # try:
         #     for zone in zones:
@@ -1759,20 +1756,20 @@ def charger_donnees(course):
     voile=typeVoiles[int(polairesglobales10[8,int(tws*10),int(twa*10)])]
 
 
-    print ('\n********************************************************************************************')   
+    print ('\n*************************************************************************************************')   
     print ('Resultats calculés pour {:25} twa= {} tws= {} voile {} vitessemax = {:6.3f} '.format(label,twa,tws,voile,polairesglobales10[7,int(tws*10),int(twa*10)]))
-    print ('\n********************************************************************************************')
+    print ('\n*************************************************************************************************')
     print ('Resultats attendus pour Ocean 50            twa= 55 tws= 12.1 voile LightJib vitessemax = 11.956 ')
     print ('Resultats attendus pour Imoca               twa= 55 tws= 12.1 voile LightJib vitessemax = 13.450 ')
     print ('Resultats attendus pour Figaro3             twa= 55 tws= 12.1 voile LightJib vitessemax =  6.7101 ')
     print ('Resultats attendus pour Ultim BP XI         twa= 55 tws= 12.1 voile Jib      vitessemax = 16.202 ')
-    print ('Resultats attendus pour Class40             twa= 55 tws= 12.1 voile Jib      vitessemax =  8.5368 ')
+    print ('Resultats attendus pour Class40             twa= 55 tws= 12.1 voile LightJib vitessemax =  8.656 ')
     print ('Resultats attendus pour CruiserRacer        twa= 55 tws= 12.1 voile Jib      vitessemax =  8.197 ')
     print ('Resultats attendus pour Volvo65             twa= 55 tws= 12.1 voile Jib      vitessemax = 10.402')
     print ('Resultats attendus pour Mini6.5             twa= 55 tws= 12.1 voile Jib      vitessemax =  6.1')
     print ('Resultats attendus pour Super Maxi 100      twa= 55 tws= 12.1 voile LightJib vitessemax = 15.457')
     print ('Resultats attendus pour OffshoreRacer       twa= 55 tws= 12.1 voile LightJib vitessemax =  8.730')
-    print ('*********************************************************************************************\n')
+    print ('**************************************************************************************************\n')
 
 
     # polairesglobales10to = torch.from_numpy(polairesglobales10).to('cuda')
@@ -3299,6 +3296,13 @@ def index():
 
 
 
+@app.route("/windybase")
+def windybase():
+     return render_template("windybasique.html")
+
+
+
+
 
 
 
@@ -3939,17 +3943,6 @@ def lissage(course,routage_np,t0,posStartVR,posStart):
 
 
 
-
-
-
-
-
-
-
-
-
-
-
 def reconstruire_chemin_rapide(isoglobal: torch.Tensor, nptmini: int) -> torch.Tensor:
     """
     Reconstruit le chemin depuis le point d’ID nptmini jusqu’au point d’ID 0 (inclus).
@@ -4102,7 +4095,7 @@ class RoutageSession:                                                  # version
         
 
     
-    def initialiseRoutagePartiel(self, posStartPartiel,ari, indiceroutage , ouverture=200, pas=1, cocheexclusions=1):
+    def initialiseRoutagePartiel(self, posStartPartiel,ari, indiceroutage , ouverture=220, pas=1, cocheexclusions=1):
         '''Initialisation des données nécessaires au routage pour chaque waypoint'''
         
         isoglobal   = self.isoglobal 
@@ -4786,6 +4779,9 @@ def routageGlobal(course,user_id,isMe,ari,y0,x0,t0,tolerancehvmg,optionroutage,m
     iso             = session.isodepart            # la on est systematiquement sur ma pposition 
     posStartVR      = session.posStartVR
     posStart        = session.posStart
+
+    for wp in waypoints:
+        wp[3] = lon_to_360(wp[3])
 
     # print ('\n Demande de routage global ')
     # print ('course',course)

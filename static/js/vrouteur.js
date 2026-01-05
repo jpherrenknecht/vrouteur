@@ -2172,3 +2172,146 @@ function toDMSString(lat, lon) {
 
   return `${convert(lat, true)} ${convert(lon, false)}`;
 }
+
+
+// Fonctions pour affichage des polygones
+
+
+function shiftLonMulti(coords, deltaLon) {
+  return coords.map(ring => ring.map(([lat, lon]) => [lat, lon + deltaLon]));
+}
+
+function xRangeInPixels(map,coords) {
+  let minX = Infinity, maxX = -Infinity;
+  const ring = coords[0];
+  for (const [lat, lon] of ring) {
+    const p = map.project(L.latLng(lat, lon)); // zoom courant
+    if (p.x < minX) minX = p.x;
+    if (p.x > maxX) maxX = p.x;
+  }
+  return [minX, maxX];
+}
+
+
+function intersectsViewportXRng([minX, maxX], pb) {
+  return !(maxX < pb.min.x || minX > pb.max.x);
+}
+
+// Calcule les shifts lon (k*360) nécessaires pour couvrir le viewport actuel
+function visibleWorldShiftsLon(map) {
+  const pb = map.getPixelBounds();
+  const zoom = map.getZoom();
+  const worldSize = 256 * Math.pow(2, zoom);    // Taille du monde en pixels au zoom courant (Leaflet standard)
+  const kMin = Math.floor(pb.min.x / worldSize); // Indices de "monde" visibles en X
+  const kMax = Math.floor(pb.max.x / worldSize);
+  const shifts = [];// On prend un peu de marge
+  for (let k = kMin - 1; k <= kMax + 1; k++) {
+    shifts.push(k * 360);
+      }
+  return shifts;
+}
+
+
+
+function makeWrappedPolylineInfinite(coords0, style) {
+  return { coords0, style, layersByShift: new Map() }; // shiftLon -> polyline
+}
+
+
+
+
+function refreshWrappedInfinite(map,layerExclusions,obj) {
+        const pb = map.getPixelBounds();
+        const neededShifts = visibleWorldShiftsLon(map);
+        const neededSet = new Set(neededShifts);
+
+        // 1) Enlever les copies qui ne sont plus nécessaires
+        for (const [shift, layer] of obj.layersByShift.entries()) {
+            if (!neededSet.has(shift)) {
+            if (layerExclusions.hasLayer(layer)) layerExclusions.removeLayer(layer);
+            obj.layersByShift.delete(shift);
+            }
+        }
+
+        // 2) Mettre à jour / créer les copies nécessaires, et n'afficher que celles qui intersectent
+        let anyVisible = false;
+
+        for (const shift of neededShifts) {
+            let layer = obj.layersByShift.get(shift);
+            const coords = shiftLonMulti(obj.coords0, shift);
+
+            if (!layer) {
+            layer = L.polyline(coords).setStyle(obj.style);
+            obj.layersByShift.set(shift, layer);
+            } else {
+            layer.setLatLngs(coords);
+            }
+
+            const xrng = xRangeInPixels(map,coords);
+            const visible = intersectsViewportXRng(xrng, pb);
+
+            if (visible) {
+            anyVisible = true;
+            if (!layerExclusions.hasLayer(layer)) layer.addTo(layerExclusions);
+            } else {
+            if (layerExclusions.hasLayer(layer)) layerExclusions.removeLayer(layer);
+            }
+        }
+
+        
+        if (!anyVisible) {         // Fallback: si notre test se trompe (rare), on affiche au moins une copie
+            const firstShift = neededShifts[0];
+            const layer = obj.layersByShift.get(firstShift);
+            if (layer && !layerExclusions.hasLayer(layer)) layer.addTo(layerExclusions);
+        }
+    }
+
+
+
+function afficheExclusions(tabexclusions,map,layerExclusions, styles) {
+  layerExclusions.clearLayers();
+
+  // styles optionnel: soit un tableau de styles, soit un style unique
+  const defaultStyles = (tabexclusions || []).map((_, i) => ({
+    color: (i % 2 === 0) ? "red" : "green",
+    weight: 4,
+    opacity: 1
+  }));
+
+  const sty = Array.isArray(styles)
+    ? styles
+    : (styles ? (tabexclusions || []).map(() => styles) : defaultStyles);
+
+  // 1) On crée une liste d'objets "wrapped" (un par polyligne)
+  window._wrappedExclusions = (tabexclusions || []).map((poly, i) => {
+    // poly est un ring: [[lat,lon],...]
+    // makeWrappedPolylineInfinite attend une structure "coords0" au format Leaflet latlngs:
+    // - polyline: [ [lat,lon], ... ]  OU  multi: [ [ [lat,lon],... ] ]
+    // Ici on garde ton format multi : [ [ ... ] ]
+    const coords0 = [poly];
+    return makeWrappedPolylineInfinite(coords0, sty[i] || defaultStyles[i]);
+  });
+
+  // 2) refresh global
+  function refresh() {
+    for (const obj of window._wrappedExclusions) {
+      refreshWrappedInfinite(map,layerExclusions,obj);
+    }
+  }
+
+  // 3) RAF pendant le pan + après zoom
+  let raf = 0;
+  function refreshRaf() {
+    if (raf) return;
+    raf = requestAnimationFrame(() => { raf = 0; refresh(); });
+  }
+
+  // 4) (re)bind events
+  map.off("move zoom resize", window._refreshWrappedRects3);
+  window._refreshWrappedRects3 = refreshRaf;
+  map.on("move zoom resize", window._refreshWrappedRects3);
+
+  // 5) premier affichage
+  refresh();
+}
+

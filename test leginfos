@@ -1,16 +1,4 @@
 
-Ligne 2548 leginfos  {'_id': {'race_id': 757, 'num': 5}, '_updatedAt': '2025-12-31T12:04:14.381Z',
-'boat': {'assetBundle': 'class40', 'defaultSkin': 'class40_VR_grey', 'idx': 1, 'label': 'Class 40', 'name': 'Class 40', 'polar_id': 3, 'sailSponsor': 'Incidence', 
-'stats': {'length': 12.19, 'width': 4.5, 'airDraught': 19, 'draught': 3, 'weight': 4500, 'upwindSails': 115, 'downwindSails': 115}, 'type': 'class40'}, 
-'checkpoints': [{'id': 1, 'group': 1, 'name': 'Valparaiso', 'start': {'lat': -33.031271876729, 'lon': -71.624487674199}, 'end': {'lat': -33.03474864259, 'lon': -71.601726735136},
- 'engine': True, 'display': 'gate', 'ranking': False, 'side': 'stbd'}],
-  'close': {'date': 1771110000000}, 'course': [{'lat': -34.0146, 'lon': 151.254}, {'lat': -36.6494, 'lon': 161.678}, {'lat': -28.8615, 'lon': -179.566}, {'lat': -25.7763, 'lon': -173.666}, {'lat': -22.9108, 'lon': -161.136}, {'lat': -13.6308, 'lon': -112.871}, {'lat': -30.5424, 'lon': -76.5522}, {'lat': -32.5686, 'lon': -71.8162}, {'lat': -32.908, 'lon': -71.5932}, {'lat': -32.9551, 'lon': -71.5608}, {'lat': -33.0337, 'lon': -71.6143}],
-   'defaultMapPreset': 'default', 'displayOrder': 30, 'end': {'date': 1770764400000, 'lat': -33.03646, 'lon': -71.61463, 'name': 'Valparaiso', 'radius': 0, 'countryCode': 'CHI', 'countryFlag': 'CL'}, 'estimatedLength': 7700, 'estimatedTime': 30, 'freeCredits': 1800,
- 'ice_limits': {'maxLat': 90, 'minLat': -90, 'north': [], 'south': [{'lat': -90, 'lon': -180}, {'lat': -90, 'lon': -90}, {'lat': -90, 'lon': 0}, {'lat': -90, 'lon': 90}, {'lat': -90, 'lon': 180}]},
-  'lastUpdate': 1766395646056, 'mapPresets': ['default', 'satellite', 'vro1', 'old', 'imray', 'navionics'], 'name': 'Globe40 - Etape 4', 'open': {'date': 1766394004523}, 
-  'optionPrices': {'foil': 1660, 'winch': 750, 'radio': 170, 'skin': 1250, 'hull': 490, 'reach': 1190, 'heavy': 840, 'light': 1050, 'comfortLoungePug': 650, 'magicFurler': 950, 'vrtexJacket': 850},
-   'pilotBoatCredits': 1000, 'priceLevel': 2, 'race': {'name': 'Globe40', 'type': 'leg', 'realRaceTag': 'gv:globe40/2025'}, 
-   'restrictedZones': [{'name': 'Restricted Zone', 'vertices': [{'lat': -48, 'lon': 148}, {'lat': -48, 'lon': 180}, {'lat': -67, 'lon': 180}, {'lat': -67, 'lon': 148}], 'bbox': [-67, 148, -48, 180]},
-                       {'name': 'Restricted Zone', 'vertices': [{'lat': -48, 'lon': -180}, {'lat': -48, 'lon': -75}, {'lat': -67, 'lon': -110}, {'lat': -67, 'lon': -180}], 'bbox': [-67, -180, -48, -75]}],
-                        'schedule': 'validated', 'stamina': True, 'start': {'date': 1767268800000, 'heading': 107, 'lat': -34.01458, 'lon': 151.2536, 'name': 'Sydney', 'countryCode': 'AUS', 'countryFlag': 'AU'}, 'status': 'started', 'syncAWS': 'Yes', 'vsrLevel': 1, 'fineWinds': True, 'overrideLoadingScreen': {}, 'raceOfTheMoment': {'enabled': True, 'img': 'https://static.virtualregatta.com/offshore/images/race-of-the-moment/race-of-moment_jnvt.png'}, 'hasCode': True, 'realId': 4, 'loadingScreenLogo': 'https://static.virtualregatta.com/offshore/sponsor/hopla-3.png?t=1756296147', 'sponsorLogo': 'https://static.virtualregatta.com/offshore/sponsor/3d/LOGOCM_2018_RVB.jpg?t=1756211912', 'sponsorURL': 'https://www.skippercreditmutuel.fr/', 'specialIcons': {'raceLogo': True}}
-127.0.0.1 - - [02/Jan/2026 18:35:22] "POST /api/ajaxmessage HTTP/1.1" 200 294 0.029834
+'restrictedZones':
+ [{'name': 'Restricted Zone', 'vertices': [{'lat': -48, 'lon': 148}, {'lat': -48, 'lon': 180}, {'lat': -67, 'lon': 180}, {'lat': -67, 'lon': 148}], 'bbox': [-67, 148, -48, 180]},
+ {'name': 'Restricted Zone', 'vertices': [{'lat': -48, 'lon': -180}, {'lat': -48, 'lon': -75}, {'lat': -67, 'lon': -110}, {'lat': -67, 'lon': -180}], 'bbox': [-67, -180, -48, -75]}]

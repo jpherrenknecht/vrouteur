@@ -1784,7 +1784,7 @@
                     return ligneCible;
                 }
 
-                console.log('ligne 836' + tableau[0])
+               // console.log('ligne 836' + tableau[0])
                 return tableau[0];  // L'élément est déjà en première position
             }
 
@@ -3076,7 +3076,7 @@ if (mode=='mixte'){
                 if (personalInfosJS.wp) {
                     Object.values(personalInfosJS.wp).forEach(cercleData => {
 
-                        console.log(cercleData);
+                        //console.log(cercleData);
 
                         let numero = cercleData[0];
                         let nom = cercleData[1];
@@ -4815,11 +4815,11 @@ function recupereRoutes(personalInfosJS) {
                 //****************************************************************************
                 // ********** On recherche les personalinfos 
                 //****************************************************************************
-                console.log(`Recherche de PersonalInfos  pour ${username}  ${user_id} sur  course ${course}`)
+               // console.log(`Recherche de PersonalInfos  pour ${username}  ${user_id} sur  course ${course}`)
                 personalInfosStr = await recherchepersonalinfos(username, user_id, course)
                 personalInfosJS = JSON.parse(personalInfosStr);
 
-                console.log('personalinfos  issues du serveur ')// + personalInfosStr)
+                console.log('personalinfos  issues du serveur \n' + personalInfosStr)
 
                 affichewaypoints2(personalInfosJS)
                 afficheZonesExclusions(personalInfosJS)
@@ -5505,12 +5505,8 @@ function recupereRoutes(personalInfosJS) {
                 if (leginfos != null) {
                     leginfos = JSON.parse(leginfos)
                     lgMarkers.clearLayers();  // Contient les lignes de checkpoints   
-                    lgDashLines.clearLayers();
-
-                    //console.log  ('checkpoints '+leginfos['checkpoints'])
-
-                    // on recupere les lignes de checkpoint 
-                    var nombreLignes = leginfos['checkpoints'].length
+                    lgDashLines.clearLayers();                   
+                    var nombreLignes = leginfos['checkpoints'].length // on recupere les lignes de checkpoint 
 
                     tabLignesCheckPoints.length = nombreLignes
                     for (var i = 0; i < nombreLignes; i++) {
@@ -5562,7 +5558,11 @@ function recupereRoutes(personalInfosJS) {
                             zonesExclusions[i] = pointsvertice
                         }
                         console.log("Zones d'Exclusions Récupérées ")
-                        console.log(zonesExclusions)
+                        console.log(JSON.stringify(zonesExclusions))
+                       afficheExclusions(zonesExclusions,map,layerExclusions,{ color:"black", weight:2, opacity:1 });
+
+
+                        
                     }
                     catch { zonesExclusions = []; console.log('Pas de zones d exclusion pour la course') }
 
@@ -5609,6 +5609,8 @@ function recupereRoutes(personalInfosJS) {
                         catch { console.log('Le trace a echoué') }
                     });
 
+
+                    console.log ('zonesExclusions VR \n' +zonesExclusions)
                     // lignes exclusions si elles existent 
                     try { L.polyline(zonesExclusions).setStyle({ color: 'red', weight: 1, opacity: 1, }).addTo(lgDashLines); }
                     catch { 'console.log pas de zones d exclusion' }
@@ -6615,13 +6617,13 @@ heuredepart
                             coords.push([lat, lon]);
 
                             const popup = `
-                    <b>Dorado           </b><br>
-                    <b>${row.time || ''}</b><br>
-                    SOG: ${row.sog || ''} kn<br>
-                    COG: ${row.cog || ''}°<br>
-                    TWS: ${row.TWS || ''} kn<br>
-                    TWD: ${row.TWD || ''}°
-                `;
+                        <b>Dorado           </b><br>
+                        <b>${row.time || ''}</b><br>
+                        SOG: ${row.sog || ''} kn<br>
+                        COG: ${row.cog || ''}°<br>
+                        TWS: ${row.TWS || ''} kn<br>
+                        TWD: ${row.TWD || ''}°
+                    `;
 
                             L.circleMarker([lat, lon], {
                                 radius: 0.5,

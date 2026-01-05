@@ -120,7 +120,8 @@ if hostname=='portable' :          # sur ordi portable  (3eme ordi)
     staticCommandes     = '/home/jp/staticLocal/bd/commandes.db'
 
 
-
+def lon_to_360(lon):
+    return lon % 360
 
 def ftwao(HDG, TWD):
     """
