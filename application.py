@@ -685,8 +685,8 @@ def build_ecm_interp():
 # pas initie en local pour les tests car sature la memoire 
 # ECM_Actif
 #if (IS_PRODUCTION):
-#chargement_ECM()
-#maj_ecm()
+chargement_ECM()
+maj_ecm()
 
 #--------------------------------------------------------------------------------------------------
 #    Test de quelques échéances
