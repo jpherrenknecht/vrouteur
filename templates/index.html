@@ -1170,39 +1170,16 @@
 
 
                 if (twaAuto == twavr) { document.getElementById('twaauto').checked = true }
-                else { document.getElementById('twaauto').checked = false }
-
-
-
-
-                //document.getElementById('lienpolaires').innerHTML= "<a href=javascript:popupbasique('http://blacksailingpolars.vrzen.org/?race_id="+course+"&tws="+twsvr+"&twa="+Math.abs(twavr)+"&stam="+stamina+"&hull=true&winch=true&foil=true&light=true&heavy=true&reach=true&magicFurler=true&comfortLoungePug=true&vrtexJacket=true&voile="+sail%10+"')>Polaires </a></span>"
-
+                else { document.getElementById('twaauto').checked = false }           
                 urlPolaires = `http://blacksailingpolars.vrzen.org/?race_id=${course}&tws=${twsvr}&twa=${Math.abs(twavr)}&stam=${stamina}&hull=true&winch=true&foil=true&light=true&heavy=true&reach=true&magicFurler=true&comfortLoungePug=true&vrtexJacket=true&voile=${sail % 10}`
-
-
                 document.getElementById('dategrib').innerHTML = 'GFS du ' + intldhmn.format(arrondirALHeure(tig * 1000 + decalageUTC * 60000)) + ' + ' + indicemajgrib * 3 + 'h' //+ decalageUTC * 60000
                 document.getElementById('voilesautovr').checked = autosail
 
-                //Positionnement du bateau    
-                // t0=lastCalcDate/1000
-                //console.log(' ligne 3582 '+lastCalcDate/1000)
-                //afficheBoat(y0vr, x0vr, t0, twsvr, twdvr, heading, username)
                 afficheBoat2(y0vr, x0vr, t0, twsvr, twdvr, heading, twavr, speed, sail, username, 'blue')
 
-
-                //map.panTo([y0vr,x0vr])     La positionnement se fait a chaque update ce qui est genant 
-                //document.getElementById('lienpolaires').innerHTML= "<a href=javascript:popupbasique('http://blacksailingpolars.vrzen.org/?race_id="+course+"&tws="+twsvr+"&twa="+Math.abs(twavr)+"&stam="+stamina+"&hull=true&winch=true&foil=true&light=true&heavy=true&reach=true&magicFurler=true&comfortLoungePug=true&vrtexJacket=true&voile="+sail%10+"')>Polaires </a></span>"
-                // urlPolaires=`http://blacksailingpolars.vrzen.org/?race_id=${course}&tws=${twsvr}&twa=${Math.abs(twavr)}&stam=${stamina}&hull=true&winch=true&foil=true&light=true&heavy=true&reach=true&magicFurler=true&comfortLoungePug=true&vrtexJacket=true&voile=${sail%10}`
-
-                // On va chercher les valeurs pour les voiles et le vent 
-
-                // on remet a jour le trajet avec les dernieres donnees boatinfos
+                // on remet a jour le trajet en memoire locale avec les dernieres donnees boatinfos
                 trajet = [username, course, y0vr, x0vr, y0vr, x0vr, t0vr, y1, x1, -1, user_id, ari, waypoints, 'maj par main']
                 updateTrajet(username, course, trajet)
-
-
-
-                //console.log ('ligne2743 '+intlhmn.format(t0vr*1000))
                 t0routage = Math.ceil(t0 / 60) * 60;
                 try { await chercheprogsvr(user_id, course, t0routage) }  // se charge de l affichage
                 catch { console.log('Probleme dans la recuperation de progsvr') }
@@ -1799,8 +1776,6 @@
 
 
                 let tableau = JSON.parse(localStorage.getItem(nomlocalstorage))
-
-
                 // Trouver l'index du trajet
                 let index = tableau.findIndex(ligne => ligne[0] === username && ligne[1] === course);
                 if (index === -1) {
@@ -1828,8 +1803,7 @@
                     return trajet;
                 }
 
-                //console.log('ligne 836' + tableau[0])
-
+              
             }
 
 
@@ -1890,50 +1864,6 @@
 
 
 
-            //   function trouvederniertrajetcourse( course) {
-            //                 //trouve le trajet et le reinstalle en première position et initialise les variables  
-            //                 // On commence par rechercher s il existe dans la base boatinfos
-
-
-            //                 let tableau = JSON.parse(localStorage.getItem(nomlocalstorage))
-
-
-            //                 // Trouver l'index du trajet
-            //                 let index = tableau.findIndex(ligne => ligne[1] === course);
-            //                 if (index === -1) 
-            //                 {
-            //                     return []; // Retourner un tableau vide si rien n'est trouvé
-            //                 }
-
-            //                 if (index > 0) { // L'élément est trouvé mais pas en premier
-            //                     let trajet = tableau.splice(index, 1)[0]; // Extraire la ligne ciblée
-            //                     tableau.unshift(trajet); // Réinsérer en première position
-            //                     localStorage.setItem('memoiretrajets', JSON.stringify(tableau)); // Mettre à jour localStorage
-
-            //                     username = trajet[0]
-            //                     course = trajet[1]
-            //                     ycoord = trajet[2]                 // Derniers coordonnees rentres
-            //                     xcoord = trajet[3]
-            //                     y0vr = trajet[4]                 // Dernière position VR 
-            //                     x0vr = trajet[5]
-            //                     t0 = trajet[6]                 // dernier temps de calcul
-            //                     y1 = trajet[7]                 // derniers coordonnés de l 'arrivee 
-            //                     x1 = trajet[8]
-            //                     dep = trajet[9]                 // valeur de depart
-            //                     user_id = trajet[10]                // c 'est un tableau ordre des waypoints
-            //                     ari = trajet[11]
-            //                     waypoints = trajet[12]
-            //                     Source = trajet[13]
-            //                     return trajet;
-            //                 }
-            //  return tableau[0];  // c est la valeur de trajet qui a deja ete remis en première position par unshift
-            //             }
-
-
-
-
-
-
 
             function updateTrajet(username, course, trajet) {
                 const KEY = 'memoiretrajets';
@@ -1974,19 +1904,9 @@
                 // Supprime l’éventuelle ligne existante (quelle que soit sa forme)
                 const index = memoiretrajets.findIndex(isSameTrajet);
                 if (index !== -1) memoiretrajets.splice(index, 1);
-
-                // Ajoute la nouvelle ligne en tête
-                memoiretrajets.unshift(trajet);
-
-                // Sauvegarde
-                localStorage.setItem(KEY, JSON.stringify(memoiretrajets));
+                memoiretrajets.unshift(trajet);   // Ajoute la nouvelle ligne en tête                
+                localStorage.setItem(KEY, JSON.stringify(memoiretrajets));// Sauvegarde
             }
-
-
-
-
-
-
 
 
 
@@ -2031,10 +1951,6 @@
                 const reponse = await response.json();
 
                 infos = reponse['infos']
-                // console.log ('infos '+infos )        
-
-                // waypoints=infos['wp']
-                // console.log ('Test de recuperation waypoints'+waypoints)
                 return infos
             }
 
@@ -2063,10 +1979,7 @@
 
             // requete en post base personalinfos sur serveur 
             async function modifpersonalinfos(username, user_id, course, typeinfo, typeaction, nom, valeur) {
-                //  valeur = encodeURIComponent(valeur);
-
                 const url = serveur + "/modifpersonalinfos";
-
                 const data = {
                     username: username,
                     course: course,
@@ -2077,7 +1990,7 @@
                     valeur: valeur
                 };
 
-                console.log("Données envoyées :", data);
+               // console.log("Données envoyées :", data);
 
                 const response = await fetch(url, {
                     method: "POST",
@@ -2093,7 +2006,7 @@
 
                 const reponse = await response.json();
                 message = reponse['message'];
-                console.log("Message reçu :", message);
+               // console.log("Message reçu :", message);
 
                 return message;
             }
@@ -2129,18 +2042,9 @@
                     let response = await fetch(url,);
                     if (!response.ok) { throw new Error('La liste des coursesuser  n a pas ete trouvee ' + response.statusText); }
                     let data = await response.json();
-                    coursesUser = data.result
-
-                    // console.log('coursesUser  recuperees sur le serveur ')
-                    // console.log (coursesUser)
+                    coursesUser = data.result   // console.log (coursesUser)                    
                     user_id = coursesUser[0]
-
-                    //console.log('User, Courses User :  ' + coursesUser)
-                    // console.log('ligne 2119 User_id :  ' + user_id)
-                    // console.log ('ligne 1422 Courses User :  '+coursesUser[1])
-
                     if (user_id) { registerClientId(user_id); }
-
                     if (coursesUser == null) { //alert ('Ce bateau n est inscrit sur aucune course, il n\'est pas possible d utiliser la position VR   ') ;
                         course = tabNameCourses[0][0];
                         coursesUser = [course]
@@ -2149,7 +2053,6 @@
                         coursesUser = JSON.parse(coursesUser[1])// on transforme le tableau de json en tableau simle
                         coursesUser = coursesUser.map(item => `${item.raceId}.${item.legNum}`)
                     }
-
                     return coursesUser
                 }
 
@@ -2213,10 +2116,6 @@
                     t0routage = nowSecArrondi
                 }
 
-
-                // console.log (' ligne 1282 '+t0routage)
-                // console.log (' ligne 1365 user_id'+user_id)
-
                 const url = serveur + "/rechercheprogsvr?user_id=" + user_id + "&course=" + course + "&t0routage=" + t0routage
                 //console.log('ligne 1833  demande de rechercheprogsvr url \n' + url)
 
@@ -2257,13 +2156,9 @@
 
 
             function affichedatawaypoints(data) {   // affiche les programmations dans la case Programmationsvr   
-
-
                 textebutton = " <button  id='affichedatawaypoints' class='blackwhite11' value='Afficher' > Afficher les donnees WayPointsVR </button>"
                 document.getElementById('idprogrammationsvr').innerHTML = textebutton
                 document.getElementById("idprogrammationsvr").onclick = function () {
-
-
                     testPopup = window.open("", "_blank", "width=800,height=800");
                     sections = data.sections
                     let texte2 = "<table border='1' cellpadding='4' cellspacing='0'><thead><td>Clé</td>";
@@ -2284,9 +2179,6 @@
 
                     texte2 += "</table>";
                     testPopup.document.write(texte2);
-
-
-
                 }
             }
 
@@ -2322,8 +2214,7 @@
                 try {
                     if (!response.ok) { throw new Error('Problème avec cherchevoiles ' + response.statusText); }
                     resvoiles = await response.json();
-                    // console.log('resvoiles'+resvoiles)
-                    // on lance ici directement l affichage pour pouvoir utiliser la fonction dans les mises a jour 
+                     // on lance ici directement l affichage pour pouvoir utiliser la fonction dans les mises a jour 
                     twscalc = resvoiles.twscalc
                     twdcalc = resvoiles.twdcalc
                     tabvmg = resvoiles.tabvmg
@@ -2335,7 +2226,7 @@
                     document.getElementById('vmgmax2').innerHTML = tabvmg[4].toFixed(1)
                     document.getElementById('vmax2').innerHTML = tabvmg[6].toFixed(1)
                     affichagerecou(tabrecouvrements)
-                    // on en profite pour mettre ajour le lien sur les polaires avec tws et twa 
+                    // on en profite pour mettre a jour le lien sur les polaires avec tws et twa 
                     return resvoiles
                 }
                 catch (error) {
@@ -2349,13 +2240,10 @@
             async function calculeroute(user_id, course, programmations, voilesauto) {
                 // avant d envoyer la demande de calcul au serveur on uniformise la premiere date jaune avec les programmations rouges
 
-                console.log(' ligne 706 heure de la premiere programmation jaune ' + hmns.format(programmations[0][0] * 1000))
-                console.log(' ligne 706 heure de la premiere programmation rouge ' + hmns.format(heurePremiereProg * 1000))
+                // console.log(' ligne 706 heure de la premiere programmation jaune ' + hmns.format(programmations[0][0] * 1000))
+                // console.log(' ligne 706 heure de la premiere programmation rouge ' + hmns.format(heurePremiereProg * 1000))
                 programmations[0][0] = heurePremiereProg
                 const progs5 = JSON.stringify(programmations);        // pour envoi par url 
-
-                //console.log('ligne 1332 '+progs5)
-
                 url = serveur + "/calculeroute?username=" + username + "&user_id=" + user_id + "&course=" + course + "&programmations=" + progs5 + "&voilesauto=" + voilesauto
                 let response = await fetch(url);
                 if (!response.ok) { throw new Error('Probleme dans calculroute ' + response.statusText); }
@@ -2368,7 +2256,6 @@
 
 
             async function majgrib() {
-
                 url = serveur + `/majgrib`
                 let response = await fetch(url);
                 if (!response.ok) { throw new Error('Probleme dans majgrib ' + response.statusText); }
@@ -2440,101 +2327,22 @@
                  console.log (tabroutage)
                 // affichage de la route avec les tooltips suivant dernière methode 
 
-                 if (mode=='gfs'){afficheRoutageWrapped(tabroutage, map, routageLayer, colors, {
+                 if (mode=='gfs'){afficheRoutageWrapped(tabroutage, map, routageLayer, colors, {hourBorderColor: "white",
                     typeVoilesShort, intlhmn, t0routage, heuredepart });
                  }
-                //      routageLayer.clearLayers()
-                // for (var i = 1; i <= tabroutage.length - 1; i++)                // on affiche les nouveaux points mais pas le premier pas necessaire 
-                // {
-                //     couleur = colors[tabroutage[i][10]]
-                //     voile = tabroutage[i][10]
-                //     nomvoile = typeVoilesShort[voile]
-                //     twa = tabroutage[i][5].toFixed(2)
-                //     tws = tabroutage[i][12].toFixed(2)
-                //     twd = tabroutage[i][13].toFixed(2)
-                //     cap = tabroutage[i][6].toFixed(2)
-                //     date = intlhmn.format((t0routage + tabroutage[i][1]) * 1000)
-                //     vmgmin = tabroutage[i][7].toFixed(2)
-                //     vmgmax = tabroutage[i][8].toFixed(2)
-                //     vmg = twa < 90 ? vmgmin : vmgmax
-
-                //     tooltipprog[i] = '<b> Point ' + i + ' le ' + date + ' <br>(Routage du ' + intlhmn.format((heuredepart * 1000)) + ')</b>  <br> Twa ' + twa + '°  Vmg ' + vmg + '°<br>Tws ' + tws + ' Twd ' + twd + ' <br>Cap : ' + cap + '  Voile :' + nomvoile              // le temps est en position 3
-                //     tourcol = 'red'; opac = 1; poids = 1; fillopac = 0.5; fillCol = couleur; rayon = 10;       // valeur par defaut  
-                //     if (i % 10 == 0) { rayon = 20, tourcol = 'red'; fillopac = 0.5 }              // tous les 10    
-                //     if (tabroutage[i][1] % 3600 == 0) { tourcol = 'white'; rayon = 50, fillopac = 0.5 }                    // toutes les heures 
-                //     circleprog[i] = L.circle([tabroutage[i][2], tabroutage[i][3]], { fillColor: fillCol, color: tourcol, weight: poids, opacity: opac, fillOpacity: fillopac, radius: rayon, })
-                //         .bindTooltip(tooltipprog[i]).bindPopup(tooltipprog[i]).addTo(routageLayer)
-                // }
-
-                // for (var i = 0; i <= tabroutage.length - 2; i++)                // on affiche les nouveaux points mais pas le premier pas necessaire 
-                // {
-                //     couleur = colors[tabroutage[i][10]]
-                //     polyglobal[i] = L.polyline([[tabroutage[i][2], tabroutage[i][3]], [tabroutage[i + 1][2], tabroutage[i + 1][3]]], { color: couleur, weight: 1 }).addTo(routageLayer);
-                // }
-
-                // routageLayer.addTo(map)
-
-                // }
-                        // affichage des isochrones 
-
-
-if (mode=='mixte'){afficheRoutageWrapped(tabroutage, map, routageECMLayer, colors, {
+               
+if (mode=='mixte'){afficheRoutageWrapped(tabroutage, map, routageECMLayer, colors, {hourBorderColor: "black",
                     typeVoilesShort, intlhmn, t0routage, heuredepart });
  
  
                     }
  
-    // routageECMLayer.clearLayers()
-    //             for (var i = 1; i <= tabroutage.length - 1; i++)                // on affiche les nouveaux points mais pas le premier pas necessaire 
-    //             {
-    //                 couleur = colors[tabroutage[i][10]]
-    //                 voile = tabroutage[i][10]
-    //                 nomvoile = typeVoilesShort[voile]
-    //                 twa = tabroutage[i][5].toFixed(2)
-    //                 tws = tabroutage[i][12].toFixed(2)
-    //                 twd = tabroutage[i][13].toFixed(2)
-    //                 cap = tabroutage[i][6].toFixed(2)
-    //                 date = intlhmn.format((t0routage + tabroutage[i][1]) * 1000)
-    //                 vmgmin = tabroutage[i][7].toFixed(2)
-    //                 vmgmax = tabroutage[i][8].toFixed(2)
-    //                 vmg = twa < 90 ? vmgmin : vmgmax
-
-    //                 tooltipprog[i] = '<b> Point ' + i + ' le ' + date + ' <br>(Routage du ' + intlhmn.format((heuredepart * 1000)) + ')</b>  <br> Twa ' + twa + '°  Vmg ' + vmg + '°<br>Tws ' + tws + ' Twd ' + twd + ' <br>Cap : ' + cap + '  Voile :' + nomvoile              // le temps est en position 3
-    //                 tourcol = 'red'; opac = 1; poids = 1; fillopac = 0.5; fillCol = couleur; rayon = 10;       // valeur par defaut  
-    //                 if (i % 10 == 0) { rayon = 20, tourcol = 'red'; fillopac = 0.5 }              // tous les 10    
-    //                 if (tabroutage[i][1] % 3600 == 0) { tourcol = 'black'; rayon = 50, fillopac = 0.5 }                    // toutes les heures 
-    //                 circleprog[i] = L.circle([tabroutage[i][2], tabroutage[i][3]], { fillColor: fillCol, color: tourcol, weight: poids, opacity: opac, fillOpacity: fillopac, radius: rayon, })
-    //                     .bindTooltip(tooltipprog[i]).bindPopup(tooltipprog[i]).addTo(routageECMLayer)
-    //             }
-
-    //             for (var i = 0; i <= tabroutage.length - 2; i++)                // on affiche les nouveaux points mais pas le premier pas necessaire 
-    //             {
-    //                 couleur = colors[tabroutage[i][10]]
-    //                 polyglobal[i] = L.polyline([[tabroutage[i][2], tabroutage[i][3]], [tabroutage[i + 1][2], tabroutage[i + 1][3]]], { color: couleur, weight: 1 }).addTo(routageECMLayer);
-    //             }
-
-    //             routageECMLayer.addTo(map)
-
-    //             }
-
-
-
-
 
 
 
                 isochronesLayer.clearLayers()
           
-                // if (Array.isArray(dicoIsochrones)) {
-                //     console.log("C'est un tableau, longueur =", dicoIsochrones.length);
-                // } else if (typeof dicoIsochrones === 'object') {
-                //     console.log("C'est un objet avec", Object.keys(dicoIsochrones).length, "clés");
-                // } else if (typeof dicoIsochrones === 'string') {
-                //     console.log("C'est une chaîne JSON ?");
-                // }
-
-
-
+      
                 // On transforme l'objet en tableau
                 let arrIso = Object.values(dicoIsochrones);
                 console.log("Nombre d'isochrones :", arrIso.length);
@@ -3234,95 +3042,39 @@ if (mode=='mixte'){afficheRoutageWrapped(tabroutage, map, routageECMLayer, color
             };
 
 
-window.afficherRoute = function (i) {
+        window.afficherRoute = function (i) {
+            console.log('indice i ' + i);
+            if (i < 0 || i >= routes.length) {
+                console.error("Index invalide :", i);
+                return;
+            }
 
-    console.log('indice i ' + i);
-    if (i < 0 || i >= routes.length) {
-        console.error("Index invalide :", i);
-        return;
-    }
+            const route = routes[i];
+            if (!route) {
+                console.error("Route inexistante à l'indice", i, "routes[i] =", route);
+                return;
+            }
 
-    const route = routes[i];
-    if (!route) {
-        console.error("Route inexistante à l'indice", i, "routes[i] =", route);
-        return;
-    }
+            if (!route.layer) {
+                route.layer = L.layerGroup();
+                route.visible = false;
+            }
 
-    if (!route.layer) {
-        route.layer = L.layerGroup();
-        route.visible = false;
-    }
+            route.layer.clearLayers();
 
-    route.layer.clearLayers();
+            if (!route.coords || !route.coords.length) {
+                console.error("Pas de coords pour la route", route);
+                return;
+            }
 
-    if (!route.coords || !route.coords.length) {
-        console.error("Pas de coords pour la route", route);
-        return;
-    }
+            const poly = L.polyline(route.coords, { color: route.couleur, weight: 2 });
+            poly.addTo(route.layer);
 
-    const poly = L.polyline(route.coords, { color: route.couleur, weight: 2 });
-    poly.addTo(route.layer);
-
-    if (!route.visible) {
-        route.layer.addTo(map);
-        route.visible = true;
-    }
-};
-
-
-        // window.afficherRoute = function (i) {
-
-        //     console.log('indice i ' + i);
-        //     if (i < 0 || i >= routes.length) {
-        //         console.error("Index invalide :", i);
-        //         return;
-        //     }
-
-        //     let route = routes[i];
-        //     if (!route) {
-        //         console.error("Route inexistante à l'indice", i, "routes[i] =", route);
-        //         return;
-        //     }
-
-        //     // Si le layer n'existe pas encore, on le crée
-        //     if (!route.layer) {
-        //         route.layer = L.layerGroup();
-        //         route.visible = false;
-        //     }
-
-        //     route.layer.clearLayers();
-
-        //     // ✅ On essaie d'abord route.coords (format [lat, lon])
-        //     let coords = route.coords;
-
-        //     // Si pas de coords, on tente de les reconstruire à partir de polyline
-        //     if ((!coords || !coords.length) && Array.isArray(route.polyline)) {
-        //         // Si polyline est du type [idx, x, lat, lon, ...]
-        //         if (Array.isArray(route.polyline[0]) && route.polyline[0].length >= 4) {
-        //             coords = route.polyline.map(row => [row[2], row[3]]);
-        //         } else {
-        //             // Sinon on suppose que polyline est déjà un tableau de [lat, lon]
-        //             coords = route.polyline;
-        //         }
-        //     }
-
-        //     if (!coords || !coords.length) {
-        //         console.error("Pas de coordonnées valides pour la route", route);
-        //         return;
-        //     }
-
-        //     const poly = L.polyline(coords, { color: route.couleur, weight: 2 });
-        //     poly.addTo(route.layer);
-
-        //     if (!route.visible) {
-        //         route.layer.addTo(map);
-        //         route.visible = true;
-        //     }
-        // };
-
-
-
-
+            if (!route.visible) {
+                route.layer.addTo(map);
+                route.visible = true;
+            }
+        };
 
 
         window.masquerRoute = function (i) {
@@ -3333,8 +3085,6 @@ window.afficherRoute = function (i) {
                     route.visible = false;
                 }
             };
-
-
 
 
         window.exporterRoute = function (i) {
@@ -3351,86 +3101,97 @@ window.afficherRoute = function (i) {
             };
 
 
-function genererNomRoutage() {
+        function genererNomRoutage() {
 
-    if (usernameRoutage === undefined) {
-        usernameRoutage = 'Routage non calculé';
-    }
-    console.log('usernameRoutage ' + usernameRoutage);
+            if (usernameRoutage === undefined) {
+                usernameRoutage = 'Routage non calculé';
+            }
+            console.log('usernameRoutage ' + usernameRoutage);
 
-    let now = new Date();
-    let jour = String(now.getDate()).padStart(2, '0');
-    let mois = String(now.getMonth() + 1).padStart(2, '0'); // mois 0–11
-    let heure = String(now.getHours()).padStart(2, '0');
-    let minute = String(now.getMinutes()).padStart(2, '0');
+            let now = new Date();
+            let jour = String(now.getDate()).padStart(2, '0');
+            let mois = String(now.getMonth() + 1).padStart(2, '0'); // mois 0–11
+            let heure = String(now.getHours()).padStart(2, '0');
+            let minute = String(now.getMinutes()).padStart(2, '0');
 
-    // Nom "propre" (une seule ligne) : ex. "Routage JP 16/11 11:32"
-    return `${usernameRoutage} ${jour}/${mois} ${heure}:${minute}`;
-}
+            // Nom "propre" (une seule ligne) : ex. "Routage JP 16/11 11:32"
+                window.afficherRoute = function (i) {
+            console.log('indice i ' + i);
+            if (i < 0 || i >= routes.length) {
+                console.error("Index invalide :", i);
+                return;
+            }
 
-            // function genererNomRoutage() {
+            const route = routes[i];
+            if (!route) {
+                console.error("Route inexistante à l'indice", i, "routes[i] =", route);
+                return;
+            }
 
-            //     if (usernameRoutage === undefined) {usernameRoutage='Routage non calculé'}
-            //     console.log ('usernameRoutage '+usernameRoutage)
-            //     let now = new Date();
-            //     let jour = String(now.getDate()).padStart(2, '0');
-            //     let mois = String(now.getMonth() + 1).padStart(2, '0'); // Les mois commencent à 0
-            //     let heure = String(now.getHours()).padStart(2, '0');
-            //     let minute = String(now.getMinutes()).padStart(2, '0');
-            //    // document.getElementById('nomRoutage').value=  `${username}  ${jour}/${mois} ${heure}:${minute}`
-            //     return `${usernameRoutage}     <br>  ${jour}/${mois} ${heure}:${minute}`;
-            // }
+            if (!route.layer) {
+                route.layer = L.layerGroup();
+                route.visible = false;
+            }
+
+            route.layer.clearLayers();
+
+            if (!route.coords || !route.coords.length) {
+                console.error("Pas de coords pour la route", route);
+                return;
+            }
+
+            const poly = L.polyline(route.coords, { color: route.couleur, weight: 2 });
+            poly.addTo(route.layer);
+
+            if (!route.visible) {
+                route.layer.addTo(map);
+                route.visible = true;
+            }
+        };
 
 
+        window.masquerRoute = function (i) {
+                if (i < 0 || i >= routes.length) return;
+                const route = routes[i];
+                if (route.visible) {
+                    map.removeLayer(route.layer);
+                    route.visible = false;
+                }
+            };
 
 
+        window.exporterRoute = function (i) {
+                exporterRoute(i)
+            }
 
-            // async function sauveRouteServeur2() {
 
-            //     console.log ('la route est sauvee')
-            //     typeinfo = 'routage';
-            //     typeaction = 'insert';
-            //     console.log('Sauvegarde de la route sur le serveur dans personalinfos2');
-            //     nbRoutes = routes.length
-            //     let color = colorhex[nbRoutes % colorhex.length];
-            //     console.log(color)
+        window.supprimerRoute = function (i) {
+                let nom = routes[i].nom;
+                console.log('Username:', username);
+                console.log('Course:', course);
+                console.log('Nom du routage à supprimer:', nom);
+                supprimerRoute(i);
+            };
 
-            //     let nomRoutage = document.getElementById('nomRoutage').value;
 
-            //     // Vérification des valeurs avant de sauvegarder
-            //     if (!nomRoutage || !eta || !dureeparcours || !polyglobal) {
-            //         alert("Données incomplètes pour sauvegarder la route.");
-            //         return;
-            //     }
+        function genererNomRoutage() {
 
-            //     // Création de l'objet JSON pour la nouvelle route
-            //     let nouvelleRoute = {
-            //         nom: nomRoutage,
-            //         eta: eta,
-            //         duree: dureeparcours,
-            //         couleur: color,
-            //         polyline: tabroutage,
-            //         coords: tabroutage    // pour affichage immédiat
+            if (usernameRoutage === undefined) {
+                usernameRoutage = 'Routage non calculé';
+            }
+            console.log('usernameRoutage ' + usernameRoutage);
 
-            //     };
+            let now = new Date();
+            let jour = String(now.getDate()).padStart(2, '0');
+            let mois = String(now.getMonth() + 1).padStart(2, '0'); // mois 0–11
+            let heure = String(now.getHours()).padStart(2, '0');
+            let minute = String(now.getMinutes()).padStart(2, '0');
 
-            //     // ⚠️ important pour l’affichage
-            //     nouvelleRoute.layer = L.layerGroup();  // layer dédié à cette route
-            //     nouvelleRoute.visible = false;        // pas encore affichée
-                
-            //     routes.push(nouvelleRoute);
-            //     mettreAJourTableau();
+            // Nom "propre" (une seule ligne) : ex. "Routage JP 16/11 11:32"
+            return `${usernameRoutage} ${jour}/${mois} ${heure}:${minute}`;
+        }           return `${usernameRoutage} ${jour}/${mois} ${heure}:${minute}`;
+        }
 
-            //     try {
-            //         let message = await modifpersonalinfos(username, user_id, course, typeinfo, typeaction, nomRoutage, JSON.stringify(nouvelleRoute));
-            //         console.log('Sauvegarde réussie : ', message);
-            //         alert('Route sauvegardée avec succès !');
-
-            //     } catch (error) {
-            //         console.error('Erreur lors de la sauvegarde : ', error);
-            //         alert('Échec de la sauvegarde : ' + error.message);
-            //     }
-            // }
 
 async function sauveRouteServeur2() {
 
@@ -3450,7 +3211,7 @@ async function sauveRouteServeur2() {
         return;
     }
 
-    // polyline "riche" = ton tabroutage
+    
     const polyline = tabroutage;
 
     // ✅ Route pour l’UI, normalisée comme celles rechargées
@@ -3504,79 +3265,8 @@ function formaterNomRoutagePourTableau(nom) {
 }
 
 
-// async function sauveRouteServeur2() {
-
-//     console.log('la route est sauvee');
-//     typeinfo = 'routage';
-//     typeaction = 'insert';
-//     console.log('Sauvegarde de la route sur le serveur dans personalinfos2');
-
-//     nbRoutes = routes.length;
-//     let color = colorhex[nbRoutes % colorhex.length];
-//     console.log(color);
-
-//     let nomRoutage = document.getElementById('nomRoutage').value;
-
-//     // Vérification des valeurs avant de sauvegarder
-//     if (!nomRoutage || !eta || !dureeparcours || !polyglobal) {
-//         alert("Données incomplètes pour sauvegarder la route.");
-//         return;
-//     }
-
-//     // ✅ Construire coords exactement comme au chargement
-//     const coords = Array.isArray(tabroutage)
-//         ? tabroutage.map(row => [row[2], row[3]])
-//         : [];
-
-//     let nouvelleRoute = {
-//         nom: nomRoutage,
-//         eta: eta,
-//         duree: dureeparcours,
-//         couleur: color,
-//         polyline: tabroutage,  // tableau complet (avec les autres infos)
-//         coords: coords         // juste [lat, lon] pour Leaflet
-//     };
-
-//     // Layer dédié à cette route
-//     nouvelleRoute.layer = L.layerGroup();
-//     nouvelleRoute.visible = false;
-
-//     // Ajout local + mise à jour de l’UI
-//     routes.push(nouvelleRoute);
-//     mettreAJourTableau();
-
-//     try {
-//         let message = await modifpersonalinfos(
-//             username,
-//             user_id,
-//             course,
-//             typeinfo,
-//             typeaction,
-//             nomRoutage,
-//             JSON.stringify(nouvelleRoute)
-//         );
-//         console.log('Sauvegarde réussie : ', message);
-//         alert('Route sauvegardée avec succès !');
-
-//     } catch (error) {
-//         console.error('Erreur lors de la sauvegarde : ', error);
-//         alert('Échec de la sauvegarde : ' + error.message);
-//     }
-// }
-
-
-
-
-
-
-
-
-
-            function mettreAJourTableau() {
-                console.log('Mise à jour du tableau des routes');
-
-
-
+function mettreAJourTableau() {
+    //console.log('Mise à jour du tableau des routes');
 
                 let texte = `<table id="tableRoutes">
                     <tr>
@@ -3593,15 +3283,11 @@ function formaterNomRoutagePourTableau(nom) {
 
                     texte += `
         <tr>
-            
             <td class="colDouble">${formaterNomRoutagePourTableau(route.nom)}</td>
-
             <td>${intlhmn.format(route.eta * 1000)}</td>
-            <td>${formatSeconds(route.duree)}</td>      
-
+            <td>${formatSeconds(route.duree)}</td>   
             <td><input type="color" value="${route.couleur}" oninput="changerCouleurRoute(${i}, this.value)"></td>  
             <td><button onclick="afficherRoute(${i})">Afficher</button></td>
-
             <td><button onclick="masquerRoute(${i})">Masquer</button></td>
             <td><button onclick="supprimerRoute(${i})">Supprimer</button></td>
             <td><button onclick="exportRouteAsGPX(${i})">Export GPX</button></td>
@@ -3618,39 +3304,39 @@ function formaterNomRoutagePourTableau(nom) {
 
 
 
-            window.changerCouleurRoute = async function (i, nouvelleCouleur) {
-                console.log(`Changement de couleur pour la route ${routes[i].nom} -> ${nouvelleCouleur}`);
+window.changerCouleurRoute = async function (i, nouvelleCouleur) {
+    console.log(`Changement de couleur pour la route ${routes[i].nom} -> ${nouvelleCouleur}`);
 
-                // Mise à jour de la couleur dans `routes`
-                routes[i].couleur = nouvelleCouleur;
+    // Mise à jour de la couleur dans `routes`
+    routes[i].couleur = nouvelleCouleur;
 
-                // 🟢 Vérifier si la polyline est affichée et mettre à jour immédiatement
-                if (routes[i].layer && map.hasLayer(routes[i].layer)) {
-                    routes[i].layer.setStyle({ color: nouvelleCouleur });
-                    console.log(`Couleur de la route ${routes[i].nom} mise à jour sur la carte.`);
-                }
+    // 🟢 Vérifier si la polyline est affichée et mettre à jour immédiatement
+    if (routes[i].layer && map.hasLayer(routes[i].layer)) {
+        routes[i].layer.setStyle({ color: nouvelleCouleur });
+        console.log(`Couleur de la route ${routes[i].nom} mise à jour sur la carte.`);
+    }
 
-                // 🟢 Sauvegarde de la modification sur le serveur
-                try {
-                    let typeinfo = 'routage';
-                    let typeaction = 'modify';
-                    let nomRoutage = routes[i].nom;
+    // 🟢 Sauvegarde de la modification sur le serveur
+    try {
+        let typeinfo = 'routage';
+        let typeaction = 'modify';
+        let nomRoutage = routes[i].nom;
 
-                    let nouvelleRoute = {
-                        nom: nomRoutage,
-                        eta: routes[i].eta,
-                        duree: routes[i].duree,
-                        couleur: nouvelleCouleur,
-                        polyline: routes[i].polyline
-                    };
+        let nouvelleRoute = {
+            nom: nomRoutage,
+            eta: routes[i].eta,
+            duree: routes[i].duree,
+            couleur: nouvelleCouleur,
+            polyline: routes[i].polyline
+        };
 
-                    let message = await modifpersonalinfos(username, user_id, course, typeinfo, typeaction, nomRoutage, JSON.stringify(nouvelleRoute));
-                    console.log(`Mise à jour réussie : ${message}`);
-                } catch (error) {
-                    console.error('Erreur lors de la mise à jour de la couleur : ', error);
-                    alert('Échec de la mise à jour de la couleur.');
-                }
-            };
+        let message = await modifpersonalinfos(username, user_id, course, typeinfo, typeaction, nomRoutage, JSON.stringify(nouvelleRoute));
+        console.log(`Mise à jour réussie : ${message}`);
+    } catch (error) {
+        console.error('Erreur lors de la mise à jour de la couleur : ', error);
+        alert('Échec de la mise à jour de la couleur.');
+    }
+};
 
 
 
@@ -3700,88 +3386,6 @@ function recupereRoutes(personalInfosJS) {
 
     mettreAJourTableau();
 }
-
-
-
-
-
-            // function recupereRoutes(personalInfosJS) {
-            //     routes = [];  // Réinitialisation avant de charger de nouvelles routes
-            //     console.log('**************************************')
-            //     console.log('on est dans recupereRoutes')
-            //     console.log('**************************************')
-
-
-
-
-            //     if (!personalInfosJS || !personalInfosJS.routage) return;
-
-            //     let raw = personalInfosJS.routage;
-
-            //     // 1) Si routage est lui-même une chaîne JSON globale, parse-la
-            //     if (typeof raw === 'string') {
-            //         try {
-            //             raw = JSON.parse(raw);
-            //         } catch (e) {
-            //             console.error('routage global invalide:', e);
-            //             return;
-            //         }
-            //     }
-
-            //     // 2) Parcours des entrées. Chaque valeur peut être soit un objet, soit une chaîne JSON.
-            //     for (const [key, val] of Object.entries(raw)) {
-            //         let obj = val;
-            //         if (typeof obj === 'string') {
-            //             try {
-            //                 obj = JSON.parse(obj); // <-- ICI le double parse
-            //             } catch (e) {
-            //                 console.warn('Entrée routage non parsable pour', key, e);
-            //                 continue;
-            //             }
-            //         }
-
-            //         // Sécurise les champs
-            //         const nom = obj.nom ?? key;
-            //         const eta = obj.eta ?? null;
-            //         const duree = obj.duree ?? null;
-            //         const couleur = obj.couleur ?? '#3388ff';
-
-            //         // Ta "polyline" actuelle est un tableau de lignes riches.
-            //         // Si tu veux dessiner, on extrait [lat, lon] depuis indices 2 et 3.
-            //         const coords = Array.isArray(obj.polyline) ? obj.polyline.map(row => [row[2], row[3]]) : [];
-
-            //         // chaque route a son propre layer
-
-            //         const layer = L.layerGroup();
-
-            //         routes.push({
-            //             nom,
-            //             eta,
-            //             duree,
-            //             couleur,
-            //             coords,           // prêt pour Leaflet
-            //             layer,
-            //             visible: false
-            //             // polylineRaw: obj.polyline, // si tu veux garder les colonnes complètes
-            //         });
-            //     }
-
-
-
-            //     //console.log("Routes chargées :", routes);
-            //     mettreAJourTableau(); // ✅ Mise à jour de l'affichage avec les données chargées
-            // }
-
-
-
-
-
-
-
-
-
-
-
 
 
             async function supprimerRoute(i) {
@@ -3893,9 +3497,9 @@ function recupereRoutes(personalInfosJS) {
 
 
 
-            //**********************************************************************************************************************************
-            //**********    Affichage de la Flotte                                                  ********************************************
-            //**********************************************************************************************************************************
+//**********************************************************************************************************************************
+//**********    Affichage de la Flotte                                                  ********************************************
+//**********************************************************************************************************************************
 
 
 

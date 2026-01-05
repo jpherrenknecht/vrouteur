@@ -2595,7 +2595,8 @@ function refreshWrappedCircleInfinite(map, layerGroup, obj) {
 // (3) Affichage routage wrapped (adapté à TON tableau complet)
 function afficheRoutageWrapped(tabroutage, map, routageLayer, colors, options = {}) {
   routageLayer.clearLayers();
-
+  const color2 = options.hourBorderColor ?? "white"; 
+ 
   // indices (par défaut = ton format)
   const idxTime = options.idxTime ?? 1;
   const idxLat  = options.idxLat  ?? 2;
@@ -2652,7 +2653,7 @@ function afficheRoutageWrapped(tabroutage, map, routageLayer, colors, options = 
     let tourcol = "red", opac = 1, poids = 1, fillopac = 0.5, rayon = 10;
 
     if (i % 10 === 0) { rayon = 20; tourcol = "red"; fillopac = 0.5; }
-    if ((row[idxTime] % 3600) === 0) { tourcol = "white"; rayon = 50; fillopac = 0.5; }
+    if ((row[idxTime] % 3600) === 0) { tourcol = color2; rayon = 50; fillopac = 0.5; }
 
     const circleStyle = {
       fillColor: couleur,
