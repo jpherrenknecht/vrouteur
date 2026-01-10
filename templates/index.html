@@ -313,6 +313,8 @@
         var gpx1LayerGroup = new L.layerGroup();  // groupe dédié aux CSV
         var gpx2LayerGroup = new L.layerGroup();  // groupe dédié aux CSV
         var gpx3LayerGroup = new L.layerGroup();  // groupe dédié aux CSV
+        var VRZENLayerGroup = new L.layerGroup();  // groupe dédié aux CSV
+        var avalonLayerGroup = new L.layerGroup();  // groupe dédié aux CSV Avalon
         var csvLayerGroup = new L.layerGroup();  // groupe dédié aux CSV
 
         let windyLayers = []; // stockage des couches Windy internes
@@ -595,8 +597,7 @@
     <br>
    <span id='eta' class='eta'></span> 
    <span id='dureeeta'></span>
-   <span  id='detailroute2'></span><br>
-   
+    <span  id='detailroute2'></span><br>
    Isos  <input type='checkbox' id='showisochrones' name='showisochrones'  />   
     Boat  <input type='checkbox' id='showboat' name='showboat' checked  />
     Route <input type='checkbox' id='showprogsvr' name='showprogsvr'  checked    />
@@ -683,22 +684,25 @@
        <button onclick='EditeurRoutes()' class="blackwhite11">Routes</button>
        <button id="btnPolaires" class="blackwhite11">Polaires</button>
 
-       <input type="file" id="gpx-input" accept=".gpx" style="margin: 10px;" />
-       <label for="gpx-input" class="chargergpx">📂 GPX Zezo</label>
+        <input type="file" id="gpx-input" accept=".gpx" style="margin: 10px;" />
+        <label for="gpx-input" class="chargergpx">📂 GPX Zezo</label>
 
-        <input type="file" id="gpx-input2" accept=".gpx" style="margin: 10px;" />
-         <label for="gpx-input2" class="chargergpx">📂 GPX Avalon</label>
+        <input type="file" id="csv-avalon" accept=".csv" style="margin: 10px;" />
+        <label for="csv-avalon" class="chargergpx">📂 CSV Avalon</label>
         
-        
-        <input type="file" id="gpx-input3" accept=".gpx" style="margin: 10px;" />
-        <label for="gpx-input3" class="chargergpx">📂 GPX VRZen</label>
+        <input type="file" id="csv-vrzen" accept=".csv" style="margin: 10px;" />
+        <label for="csv-vrzen" class="chargergpx">📂 CSV VRZen</label>
 
         <input type="file" id="csv-input3" accept=".csv" style="margin: 10px;" />
         <label for="csv-input3" class="chargergpx">📂 CSV Dorado </label>
+
+
+
+        
        <div class='checkbox'>
         Zezo  <input type='checkbox' id='showgpx1' name='showgpx1' checked />   
-        Avalon<input type='checkbox' id='showgpx2' name='showgpx2'  checked />   
-        VRZen  <input type='checkbox' id='showgpx3' name='showgpx3'  checked />
+        Avalon<input type='checkbox' id='showAvalon' name='showAvalon'  checked />   
+        VRZen  <input type='checkbox' id='showVRZEN' name='showVRZEN'  checked />
         Dorado   <input type='checkbox' id='showcsv'  name='showcsv'  checked />   
       </div>
         
@@ -706,9 +710,11 @@
        </div>`;
 
 
+// sauvegarde pour entree gpx avalon
 
-
-
+//    <input type="file" id="gpx-input2" accept=".gpx" style="margin: 10px;" />
+//          <label for="gpx-input2" class="chargergpx">📂 GPX Avalon</label>
+        
 
 
             var texteboite44 =
@@ -2376,7 +2382,7 @@
 
 
 
-            async function calculeroutage(username,y0, x0, heuredepart, waypoints, ari, cocheexclusions,mode) {
+    async function calculeroutage(username,y0, x0, heuredepart, waypoints, ari, cocheexclusions,mode) {
                 // on va tout transmettre sauf waypoints qui est deja dans personalinfos pour eviter d avoir a faire 2 versions completement differentes 
                 let isMe = 'yes'
                 usernameRoutage=username
@@ -2438,50 +2444,27 @@
                  console.log (tabroutage)
                 // affichage de la route avec les tooltips suivant dernière methode 
 
-                 if (mode=='gfs'){afficheRoutageWrapped(tabroutage, map, routageLayer, colors, {hourBorderColor: "white",
-                    typeVoilesShort, intlhmn, t0routage, heuredepart });
-                 }
-                //      routageLayer.clearLayers()
-                // for (var i = 1; i <= tabroutage.length - 1; i++)                // on affiche les nouveaux points mais pas le premier pas necessaire 
-                // {
-                //     couleur = colors[tabroutage[i][10]]
-                //     voile = tabroutage[i][10]
-                //     nomvoile = typeVoilesShort[voile]
-                //     twa = tabroutage[i][5].toFixed(2)
-                //     tws = tabroutage[i][12].toFixed(2)
-                //     twd = tabroutage[i][13].toFixed(2)
-                //     cap = tabroutage[i][6].toFixed(2)
-                //     date = intlhmn.format((t0routage + tabroutage[i][1]) * 1000)
-                //     vmgmin = tabroutage[i][7].toFixed(2)
-                //     vmgmax = tabroutage[i][8].toFixed(2)
-                //     vmg = twa < 90 ? vmgmin : vmgmax
+if (mode=='gfs')
+{
+//afficheRoutageStandard(tabroutage, map, routageLayer, colors, {  hourBorderColor: "white",  typeVoilesShort,  intlhmn,  t0routage,  heuredepart});
+  // variante resistante antemeridien 
+    afficheRoutageWrapped(tabroutage, map, routageECMLayer, colors, {hourBorderColor: "black", typeVoilesShort, intlhmn, t0routage, heuredepart });
 
-                //     tooltipprog[i] = '<b> Point ' + i + ' le ' + date + ' <br>(Routage du ' + intlhmn.format((heuredepart * 1000)) + ')</b>  <br> Twa ' + twa + '°  Vmg ' + vmg + '°<br>Tws ' + tws + ' Twd ' + twd + ' <br>Cap : ' + cap + '  Voile :' + nomvoile              // le temps est en position 3
-                //     tourcol = 'red'; opac = 1; poids = 1; fillopac = 0.5; fillCol = couleur; rayon = 10;       // valeur par defaut  
-                //     if (i % 10 == 0) { rayon = 20, tourcol = 'red'; fillopac = 0.5 }              // tous les 10    
-                //     if (tabroutage[i][1] % 3600 == 0) { tourcol = 'white'; rayon = 50, fillopac = 0.5 }                    // toutes les heures 
-                //     circleprog[i] = L.circle([tabroutage[i][2], tabroutage[i][3]], { fillColor: fillCol, color: tourcol, weight: poids, opacity: opac, fillOpacity: fillopac, radius: rayon, })
-                //         .bindTooltip(tooltipprog[i]).bindPopup(tooltipprog[i]).addTo(routageLayer)
-                // }
-
-                // for (var i = 0; i <= tabroutage.length - 2; i++)                // on affiche les nouveaux points mais pas le premier pas necessaire 
-                // {
-                //     couleur = colors[tabroutage[i][10]]
-                //     polyglobal[i] = L.polyline([[tabroutage[i][2], tabroutage[i][3]], [tabroutage[i + 1][2], tabroutage[i + 1][3]]], { color: couleur, weight: 1 }).addTo(routageLayer);
-                // }
-
-                // routageLayer.addTo(map)
-
-                // }
-                        // affichage des isochrones 
+}
+               
 
 
-if (mode=='mixte'){afficheRoutageWrapped(tabroutage, map, routageECMLayer, colors, {hourBorderColor: "black",
-                    typeVoilesShort, intlhmn, t0routage, heuredepart });
+if (mode=='mixte'){
+afficheRoutageStandard(tabroutage, map, routageECMLayer, colors, {  hourBorderColor: "black",  typeVoilesShort,  intlhmn,  t0routage,  heuredepart});    
+    // variante resistante antemeridien 
+    //afficheRoutageWrapped(tabroutage, map, routageECMLayer, colors, {hourBorderColor: "black", typeVoilesShort, intlhmn, t0routage, heuredepart });
+    }
  
- 
-                    }
- 
+
+
+
+
+
     // routageECMLayer.clearLayers()
     //             for (var i = 1; i <= tabroutage.length - 1; i++)                // on affiche les nouveaux points mais pas le premier pas necessaire 
     //             {
@@ -2581,10 +2564,11 @@ if (mode=='mixte'){afficheRoutageWrapped(tabroutage, map, routageECMLayer, color
                 username2=username
                 texteroute = createTexteRoute()
                 // console.log ('texteroute '+texteroute)
-                document.getElementById('detailroute2').innerHTML = " <button  class='blackwhite11' >Detail Route </button>"
-
-
-
+                
+                document.getElementById('detailroute2').innerHTML = `
+                <button data-action="detailroute" class="blackwhite11">Detail Route</button>
+                <button data-action="genereCSV" class="blackwhite11">CSV</button>
+                `;
 
                 // on va egalement afficcher l ETA 
                 let dernier = arrayroutage.length - 1
@@ -3603,12 +3587,148 @@ function formaterNomRoutagePourTableau(nom) {
             <td><button onclick="masquerRoute(${i})">Masquer</button></td>
             <td><button onclick="supprimerRoute(${i})">Supprimer</button></td>
             <td><button onclick="exportRouteAsGPX(${i})">Export GPX</button></td>
+           
+
         </tr>`;
                 }
 
                 texte += `</table>`;
                 document.getElementById('tableroutages').innerHTML = texte;
             }
+
+
+
+//<td><button onclick="exportRouteAsCSV(${i})">Export CSV</button></td>
+
+
+
+
+
+
+
+
+
+// Format "06/01 12:34" (UTC). Si tu veux heure locale, dis-le et je te mets la version locale.
+function formatDateDDMM_HHMM_UTC(ms) {
+  const d = new Date(ms);
+  const dd = String(d.getUTCDate()).padStart(2, "0");
+  const mm = String(d.getUTCMonth() + 1).padStart(2, "0");
+  const HH = String(d.getUTCHours()).padStart(2, "0");
+  const MM = String(d.getUTCMinutes()).padStart(2, "0");
+  return `${dd}/${mm} ${HH}:${MM}`;
+}
+
+// CSV escape minimal (si un champ contient virgule/guillemet/retour ligne)
+function csvEscape(value) {
+  const s = String(value ?? "");
+  return /[",\n\r]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
+}
+
+/**
+ * Exporte tabroutage en CSV avec colonnes:
+ * Date, Latitude, Longitude, Heading, Speed, SailSet, TWA, TWD, TWS, STAMINA, BOOST
+ *
+ * Indices (0-based) d'après ton message :
+ * Date delta sec -> col 1
+ * Lat -> col 2
+ * Lon -> col 3
+ * TWA -> col 5
+ * Heading -> col 6
+ * Speed -> col 9
+ * SailSet -> col 10
+ * BOOST -> col 11
+ * TWS -> col 12
+ * TWD -> col 13
+ * STAMINA -> col 14
+ *
+ * t0: timestamp de départ (en secondes unix ou ms, géré ci-dessous)
+ * race: int 3 digits
+ * v: préfixe string (ex "vr_" ou "v")
+ */
+window.exportRoutageAsCSV = function (tabroutage, t0, race, v = "v") {
+  if (!Array.isArray(tabroutage) || tabroutage.length === 0) {
+    console.warn("tabroutage vide");
+    return;
+  }
+
+  // t0 peut être en secondes unix (10 chiffres) ou en ms (13 chiffres)
+  const t0Num = Number(t0);
+  if (!Number.isFinite(t0Num)) {
+    console.error("t0 invalide:", t0);
+    return;
+  }
+  const t0ms = (t0Num < 1e12) ? (t0Num * 1000) : t0Num; // heuristique
+
+  const raceStr = String(race).padStart(3, "0");
+  const filename = `${v}${raceStr}.csv`;
+
+  let csv = "";
+  csv += "Date,Latitude,Longitude,Heading,Speed,SailSet,TWA,TWD,TWS,STAMINA,BOOST\n";
+
+  for (let i = 0; i < tabroutage.length; i++) {
+    const row = tabroutage[i];
+    if (!row || !Array.isArray(row)) continue;
+
+    const dtSec = Number(row[1]);
+    const lat   = Number(row[2]);
+    const lon   = Number(row[3]);
+    const twa   = Number(row[5]);
+    const head  = Number(row[6]);
+    const speed = Number(row[9]);
+    const sailCode = row[10];
+
+    const boost = Number(row[11]);
+    const tws   = Number(row[12]);
+    const twd   = Number(row[13]);
+    const stamina = Number(row[14]);
+
+    if (!Number.isFinite(dtSec) || !Number.isFinite(lat) || !Number.isFinite(lon)) continue;
+
+    const dateStr = formatDateDDMM_HHMM_UTC(t0ms + dtSec * 1000);
+
+    const sailIdx = parseInt((Number(sailCode) % 10), 10);
+    const sailSet = (Number.isFinite(sailIdx) && sailIdx >= 0 && sailIdx < typeVoiles.length)
+      ? typeVoiles[sailIdx]
+      : "";
+
+    const line = [
+      csvEscape(dateStr),
+      csvEscape(lat),
+      csvEscape(lon),
+      csvEscape(head),
+      csvEscape(speed),
+      csvEscape(sailSet),
+      csvEscape(twa),
+      csvEscape(twd),
+      csvEscape(tws),
+      csvEscape(stamina),
+      csvEscape(boost),
+    ].join(",") + "\n";
+
+    csv += line;
+  }
+
+  const blob = new Blob([csv], { type: "text/csv;charset=utf-8" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = filename;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+};
+
+
+
+
+
+
+
+
+
+
+
 
 
 
@@ -3833,6 +3953,13 @@ function recupereRoutes(personalInfosJS) {
                     .replace(/"/g, "&quot;")
                     .replace(/'/g, "&apos;");
             }
+
+
+            
+
+
+            
+
 
             // Export GPX d'une route index i (coords = [[lat, lon], ...])
             window.exportRouteAsGPX = function (i) {
@@ -6229,6 +6356,113 @@ heuredepart
 
 
 
+
+
+
+
+
+
+
+window.exportCSV = function (tabroutage, t0, race, v = "v") {
+  if (!Array.isArray(tabroutage) || tabroutage.length === 0) {
+    console.warn("tabroutage vide");
+    return;
+  }
+
+//   // t0 peut être en secondes unix (10 chiffres) ou en ms (13 chiffres)
+//   const t0Num = Number(t0);
+//   if (!Number.isFinite(t0Num)) {
+//     console.error("t0 invalide:", t0);
+//     return;
+//   }
+//   const t0ms = (t0Num < 1e12) ? (t0Num * 1000) : t0Num; // heuristique
+
+const t0ms = toMsEpoch(t0);
+if (!Number.isFinite(t0ms)) {
+  console.error("t0 invalide (non numérique):", t0);
+  return;
+}
+
+
+
+  const raceStr = String(race).padStart(3, "0");
+  const filename = `${v}${raceStr}.csv`;
+
+  let csv = "";
+  csv += "Date,Latitude,Longitude,Heading,Speed,SailSet,TWA,TWD,TWS,STAMINA,BOOST\n";
+
+  for (let i = 0; i < tabroutage.length; i++) {
+    const row = tabroutage[i];
+    if (!row || !Array.isArray(row)) continue;
+
+    const dtSec = Number(row[1]);
+    
+    const lat   = Number(row[2]);
+    const lon   = Number(row[3]);
+    const twa   = Number(row[5]);
+    const head  = Number(row[6]);
+    const speed = Number(row[9]);
+    const sailCode = row[10];
+
+    const boost = Number(row[11]);
+    const tws   = Number(row[12]);
+    const twd   = Number(row[13]);
+    const stamina = Number(row[14]);
+
+    if (!Number.isFinite(dtSec) || !Number.isFinite(lat) || !Number.isFinite(lon)) continue;
+
+    const dateStr = formatDateYYYYMMDD_HHMM(t0ms + dtSec * 1000);
+
+
+
+    const sailIdx = parseInt((Number(sailCode) % 10), 10);
+    const sailSet = (Number.isFinite(sailIdx) && sailIdx >= 0 && sailIdx < typeVoiles.length)
+      ? typeVoiles[sailIdx]
+      : "";
+const line = [
+  dateStr,
+  fmt(lat, 6),
+  fmt(lon, 6),
+  fmt(head, 2),
+  fmt(speed, 2),
+  sailSet,          // string
+  fmt(twa, 2),
+  fmt(twd, 2),
+  fmt(tws, 2),
+  fmt(stamina, 2),
+  fmt(boost, 2),
+].join(",") + "\n";
+   
+
+    csv += line;
+  }
+
+  const blob = new Blob([csv], { type: "text/csv;charset=utf-8" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = filename;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+};
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
             // bouton dupliquer dans jaune 
             var dupliquerprogsvr = document.getElementById('dupliquerprogsvr')
             dupliquerprogsvr.addEventListener("click", function (evt) {
@@ -6252,6 +6486,27 @@ heuredepart
             // n existe pas encore 
             // const showprogsvrjaunes=document.getElementById('showprogsvrjaunes')
             // showprogsvrjaunes.addEventListener('change', toggleshowprogsLayerJaune)
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
             //affichage de la programmation jaune 
@@ -6309,11 +6564,28 @@ heuredepart
             });
 
 
+           const container = document.getElementById("detailroute2");
+
+           container.addEventListener("click", (e) => {
+            const btn = e.target.closest("button[data-action]");
+            if (!btn || !container.contains(btn)) return;
+
+            const action = btn.dataset.action;
+
+            if (action === "genereCSV") {
+                console.log("generation CSV");
+                // exportRoutageCSV(...)
+                console.log ('test pour export ')
+                console.log (tabroutage)
+                console.log (t0routage)
+                console.log(race)
+                exportCSV(tabroutage, t0routage, race);
 
 
+            } 
 
-
-            document.getElementById("detailroute2").addEventListener("click", function () {
+            else if (action === "detailroute") {
+                console.log ('bouton detailroute ')
                 var popupBlocked = false;
                 var testPopup = null;
 
@@ -6339,13 +6611,55 @@ heuredepart
                 } else {
                     openPopupDiv();
                 }
+
+
+
+
+
+                // openPopupDiv(...)
+            }
             });
+
+
+
+        //    document.getElementById("genereCSV").addEventListener("click", function () { console.log ('generation CSV')});
+
+
+        //     document.getElementById("detailroute").addEventListener("click", function () {
+        //         console.log ('bouton detailroute ')
+        //         var popupBlocked = false;
+        //         var testPopup = null;
+
+        //         try {
+        //             testPopup = window.open("", "_blank", "width=100,height=100");
+        //             if (!testPopup || testPopup.closed || typeof testPopup.closed === "undefined") {
+        //                 popupBlocked = true;
+        //             } else {
+        //                 // Vérifier l'accès au document (bloqueur de popup empêche cela)
+        //                 testPopup.document.write("<p>Test</p>");
+        //                 testPopup.document.close();
+        //             }
+        //         } catch (e) {
+        //             popupBlocked = true;
+        //         }
+
+        //         if (testPopup) {
+        //             testPopup.close();
+        //         }
+
+        //         if (!popupBlocked) {
+        //             openPopupWindow();
+        //         } else {
+        //             openPopupDiv();
+        //         }
+        //     });
+
+
+
 
 
             document.getElementById('tolerancehvmg').addEventListener('change', function (e) {
                 tolerancehvmg = document.getElementById('tolerancehvmg').value;
-
-
                 console.log('tolerancehvmg  = ' + tolerancehvmg)
                 console.log('username ' + username)
                 // on va ajouter tolerancehvmg dans les personalinfos
@@ -6374,7 +6688,10 @@ heuredepart
             });
 
 
-            document.getElementById('gpx-input').addEventListener('change', function (e) {
+//1 ) ZEZO------------------------------------------------------------------------------------------
+
+
+    document.getElementById('gpx-input').addEventListener('change', function (e) {
 
                 //trace des lignes vertes (zezo)  
                 const file = e.target.files[0];
@@ -6456,149 +6773,348 @@ heuredepart
             });
 
 
+//VRZEN-----------------------------------------------------------------------------------------
+
+// document.getElementById('csv-vrzen').addEventListener('change', function (event) {
+//   console.log('chargement csv (Avalon) lancé');
+//   const file = event.target.files[0];
+//   if (!file) return;
+
+//   Papa.parse(file, {
+//     header: true,
+//     skipEmptyLines: true,
+//     dynamicTyping: false,     // on gère nous-même les floats (virgules, etc.)
+//     delimiter: "",            // auto-détection (tab, ;, , ...)
+//     complete: function (results) {
+//       avalonLayerGroup.clearLayers();
+
+//       const coords = [];
+
+//       const toFloat = (v) => {
+//         if (v === null || v === undefined) return NaN;
+//         if (typeof v === "number") return v;
+//         const s = String(v).trim().replace(",", "."); // "17,39" -> "17.39"
+//         const n = parseFloat(s);
+//         return Number.isFinite(n) ? n : NaN;
+//       };
+
+//       results.data.forEach((row) => {
+//         const lat = toFloat(row.Latitude ?? row.latitude ?? row.lat);
+//         const lon = toFloat(row.Longitude ?? row.longitude ?? row.lon);
+
+//         if (!Number.isFinite(lat) || !Number.isFinite(lon)) return;
+
+//         coords.push([lat, lon]);
+
+//         const heading = toFloat(row.Heading);
+//         const speed   = toFloat(row.Speed);
+//         const twa     = toFloat(row.TWA);
+//         const twd     = toFloat(row.TWD);
+//         const tws     = toFloat(row.TWS);
+
+//         const popup = `
+//           <b>VRZEN</b>
+//           <b>${row.Date ?? ""}</b><br>
+//           Lat/Lon: ${lat.toFixed(5)}, ${lon.toFixed(5)}<br>
+//           Heading: ${Number.isFinite(heading) ? heading.toFixed(0) : ""}°<br>
+//           Speed: ${Number.isFinite(speed) ? speed.toFixed(2) : ""} kn<br>
+//           SailSet: ${row.SailSet ?? ""}<br>
+//           TWA: ${Number.isFinite(twa) ? twa.toFixed(1) : ""}°<br>
+//           TWD: ${Number.isFinite(twd) ? twd.toFixed(1) : ""}°<br>
+//           TWS: ${Number.isFinite(tws) ? tws.toFixed(2) : ""} kn<br>
+//           STAMINA: ${row.STAMINA ?? ""}<br>
+//           BOOST: ${row.BOOST ?? ""}
+//         `;
+
+//         L.circle([lat, lon], {
+//           radius: 10,
+//           weight: 0.5,
+//           color: 'blue',
+//           fillColor: 'cyan',
+//           fillOpacity: 0.5
+//         })
+//           .bindTooltip(popup)
+//           .bindPopup(popup)
+         
+//           .addTo(VRZENLayerGroup);
+//       });
+
+//       // trace la trajectoire
+//       if (coords.length > 1) {
+//         L.polyline(coords, { color: 'lime', weight: 1, opacity: 0.9 })
+//           .addTo(avalonLayerGroup);
+
+//         map.fitBounds(coords, { padding: [20, 20] });
+//       } else if (coords.length === 1) {
+//         map.setView(coords[0], Math.max(map.getZoom(), 6));
+//       }
+
+//       // si tu veux être sûr que le layer est visible
+//       if (!map.hasLayer(VRZENLayerGroup)) VRZENLayerGroup.addTo(map);
+
+//       console.log(`VRZEN: ${coords.length} points chargés`);
+//     }
+//   });
+// });
 
 
-            document.getElementById('gpx-input3').addEventListener('change', function (e) {
-
-                // Pas de lignes, VRZEN
-                const file = e.target.files[0];
-                if (!file) return;
-
-                const reader = new FileReader();
-                reader.onload = function (event) {
-                    const gpxText = event.target.result;
-
-                    // Parse XML
-                    const parser = new DOMParser();
-                    const xml = parser.parseFromString(gpxText, "application/xml");
-
-                    // Convert to GeoJSON
-                    const geojson = toGeoJSON.gpx(xml);
-                    console.log("GeoJSON extrait :", geojson);
 
 
-                    const layer = L.geoJSON(geojson, {
-                        pointToLayer: function (feature, latlng) {
-                            // Récupération des données
-                            const coords = latlng;
-                            const properties = feature.properties || {};
-                            const isoTime = properties.time || '';
-                            const timeStr = isoTime
-                                ? new Date(isoTime).toLocaleString('fr-FR', {
-                                    timeZone: 'Europe/Paris',
-                                    hour: '2-digit',
-                                    minute: '2-digit',
-                                    day: '2-digit',
-                                    month: '2-digit'
-                                })
-                                : 'N/A';
 
-                            // Construction du contenu du tooltip
-                            const tooltipText = `
-            <b> VRZen <b><br>
-            <b>Lat:</b> ${coords.lat.toFixed(6)}<br>
-            <b>Lon:</b> ${coords.lng.toFixed(6)}<br>
-            <b>Heure:</b> ${timeStr}
+
+
+
+
+// version gpx
+
+        //     document.getElementById('csv-vrzen').addEventListener('change', function (e) {
+
+        //         // Pas de lignes, VRZEN
+        //         const file = e.target.files[0];
+        //         if (!file) return;
+
+        //         const reader = new FileReader();
+        //         reader.onload = function (event) {
+        //             const gpxText = event.target.result;
+
+        //             // Parse XML
+        //             const parser = new DOMParser();
+        //             const xml = parser.parseFromString(gpxText, "application/xml");
+
+        //             // Convert to GeoJSON
+        //             const geojson = toGeoJSON.gpx(xml);
+        //             console.log("GeoJSON extrait :", geojson);
+
+
+        //             const layer = L.geoJSON(geojson, {
+        //                 pointToLayer: function (feature, latlng) {
+        //                     // Récupération des données
+        //                     const coords = latlng;
+        //                     const properties = feature.properties || {};
+        //                     const isoTime = properties.time || '';
+        //                     const timeStr = isoTime
+        //                         ? new Date(isoTime).toLocaleString('fr-FR', {
+        //                             timeZone: 'Europe/Paris',
+        //                             hour: '2-digit',
+        //                             minute: '2-digit',
+        //                             day: '2-digit',
+        //                             month: '2-digit'
+        //                         })
+        //                         : 'N/A';
+
+        //                     // Construction du contenu du tooltip
+        //                     const tooltipText = `
+        //     <b> VRZen <b><br>
+        //     <b>Lat:</b> ${coords.lat.toFixed(6)}<br>
+        //     <b>Lon:</b> ${coords.lng.toFixed(6)}<br>
+        //     <b>Heure:</b> ${timeStr}
+        // `;
+
+        //                     // Cercle avec tooltip
+        //                     return L.circle(latlng, {
+        //                         radius: 15,
+        //                         color: 'black',
+        //                         fillColor: '#3399ff',
+        //                         fillOpacity: 0.5,
+        //                         weight: 0.5
+        //                     }).bindTooltip(tooltipText, { direction: 'top', permanent: false })
+        //                         .bindPopup(tooltipText, { direction: 'top', permanent: false })
+        //                         ;
+        //                 }
+        //             }).addTo(gpx3LayerGroup);
+        //         };
+
+        //         gpx3LayerGroup.addTo(map);
+        //         reader.readAsText(file);
+        //     });
+
+//2) AVALON ----------------------------------------------------------------------------------------
+ 
+document.getElementById('csv-avalon').addEventListener('change', function (event) {
+  console.log('chargement csv (Avalon) lancé');
+  const file = event.target.files[0];
+  if (!file) return;
+
+  Papa.parse(file, {
+    header: true,
+    skipEmptyLines: true,
+    dynamicTyping: false,     // on gère nous-même les floats (virgules, etc.)
+    delimiter: "",            // auto-détection (tab, ;, , ...)
+    complete: function (results) {
+      avalonLayerGroup.clearLayers();
+
+      const coords = [];
+
+      const toFloat = (v) => {
+        if (v === null || v === undefined) return NaN;
+        if (typeof v === "number") return v;
+        const s = String(v).trim().replace(",", "."); // "17,39" -> "17.39"
+        const n = parseFloat(s);
+        return Number.isFinite(n) ? n : NaN;
+      };
+
+      results.data.forEach((row) => {
+        const lat = toFloat(row.Latitude ?? row.latitude ?? row.lat);
+        const lon = toFloat(row.Longitude ?? row.longitude ?? row.lon);
+
+        if (!Number.isFinite(lat) || !Number.isFinite(lon)) return;
+
+        coords.push([lat, lon]);
+
+        const heading = toFloat(row.Heading);
+        const speed   = toFloat(row.Speed);
+        const twa     = toFloat(row.TWA);
+        const twd     = toFloat(row.TWD);
+        const tws     = toFloat(row.TWS);
+
+        const popup = `
+          <b>Avalon</b>
+          <b>${row.Date ?? ""}</b><br>
+          Lat/Lon: ${lat.toFixed(5)}, ${lon.toFixed(5)}<br>
+          Heading: ${Number.isFinite(heading) ? heading.toFixed(0) : ""}°<br>
+          Speed: ${Number.isFinite(speed) ? speed.toFixed(2) : ""} kn<br>
+          SailSet: ${row.SailSet ?? ""}<br>
+          TWA: ${Number.isFinite(twa) ? twa.toFixed(1) : ""}°<br>
+          TWD: ${Number.isFinite(twd) ? twd.toFixed(1) : ""}°<br>
+          TWS: ${Number.isFinite(tws) ? tws.toFixed(2) : ""} kn<br>
+          STAMINA: ${row.STAMINA ?? ""}<br>
+          BOOST: ${row.BOOST ?? ""}
         `;
 
-                            // Cercle avec tooltip
-                            return L.circle(latlng, {
-                                radius: 15,
-                                color: 'black',
-                                fillColor: '#3399ff',
-                                fillOpacity: 0.5,
-                                weight: 0.5
-                            }).bindTooltip(tooltipText, { direction: 'top', permanent: false })
-                                .bindPopup(tooltipText, { direction: 'top', permanent: false })
-                                ;
-                        }
-                    }).addTo(gpx3LayerGroup);
-                };
+        L.circle([lat, lon], {
+          radius: 10,
+          weight: 0.5,
+          color: 'blue',
+          fillColor: 'cyan',
+          fillOpacity: 0.5
+        })
+          .bindTooltip(popup)
+          .bindPopup(popup)
+         
+          .addTo(avalonLayerGroup);
+      });
 
-                gpx3LayerGroup.addTo(map);
-                reader.readAsText(file);
-            });
+      // trace la trajectoire
+      if (coords.length > 1) {
+        L.polyline(coords, { color: 'lime', weight: 1, opacity: 0.9 })
+          .addTo(avalonLayerGroup);
 
+        map.fitBounds(coords, { padding: [20, 20] });
+      } else if (coords.length === 1) {
+        map.setView(coords[0], Math.max(map.getZoom(), 6));
+      }
 
+      // si tu veux être sûr que le layer est visible
+      if (!map.hasLayer(avalonLayerGroup)) avalonLayerGroup.addTo(map);
 
-            document.getElementById('gpx-input2').addEventListener('change', function (e) {
+      console.log(`Avalon: ${coords.length} points chargés`);
+    }
+  });
+});
 
-                //trace des lignes bleues  (Avalon)  
-                const file = e.target.files[0];
-                if (!file) return;
+//3) VRZEN
 
-                const reader = new FileReader();
-                reader.onload = function (event) {
-                    const gpxText = event.target.result;
+document.getElementById('csv-vrzen').addEventListener('change', function (event) {
+  console.log('chargement csv VRZEN lancé');
+  const file = event.target.files[0];
+  if (!file) return;
 
-                    // Parse XML
-                    const parser = new DOMParser();
-                    const xml = parser.parseFromString(gpxText, "application/xml");
+  Papa.parse(file, {
+    header: true,
+    skipEmptyLines: true,
+    dynamicTyping: false,
+    delimiter: "", // auto (tab, ;, , ...)
+    complete: function (results) {
 
-                    // Convert to GeoJSON
-                    const geojson = toGeoJSON.gpx(xml);
-                    console.log("GeoJSON extrait :", geojson);
+      VRZENLayerGroup.clearLayers();
+      const coords = [];
 
-                    const coordsList = []; // on va stocker les coordonnées ici
+      const toFloat = (v) => {
+        if (v === null || v === undefined) return NaN;
+        if (typeof v === "number") return v;
+        const s = String(v).trim().replace(/\s/g, "").replace(",", ".");
+        const n = parseFloat(s);
+        return Number.isFinite(n) ? n : NaN;
+      };
 
-                    const layer = L.geoJSON(geojson, {
-                        pointToLayer: function (feature, latlng) {
-                            // Enregistre les points dans un tableau
-                            coordsList.push([latlng.lat, latlng.lng]);
+      const pick = (row, names) => {
+        for (const n of names) {
+          if (row[n] !== undefined && row[n] !== null && String(row[n]).trim() !== "") return row[n];
+        }
+        return "";
+      };
 
-                            // Tooltip info
-                            const props = feature.properties || {};
-                            const isoTime = props.time || '';
-                            const timeStr = isoTime
-                                ? new Date(isoTime).toLocaleString('fr-FR', {
-                                    timeZone: 'Europe/Paris',
-                                    hour: '2-digit',
-                                    minute: '2-digit',
-                                    day: '2-digit',
-                                    month: '2-digit'
-                                })
-                                : 'N/A';
+      results.data.forEach((row) => {
+        // Colonnes sûres dans ton CSV
+        const lat = toFloat(row["Latitude"]);
+        const lon = toFloat(row["Longitude"]);
+        if (!Number.isFinite(lat) || !Number.isFinite(lon)) return;
 
-                            const tooltipText = `
-          <b>Avalon</b><br>
-          <b>Lat:</b> ${latlng.lat.toFixed(6)}<br>
-          <b>Lon:</b> ${latlng.lng.toFixed(6)}<br>
-          <b>Heure:</b> ${timeStr}
+        coords.push([lat, lon]);
+
+        // Date : tu peux avoir DateHeure(UTC) + DateHeure, on privilégie DateHeure
+        const dateHeure = pick(row, ["DateHeure", "DateHeure(UTC)"]);
+
+        const hdg      = toFloat(row["HDG"]);
+        const twa      = toFloat(row["TWA"]);
+        const bestUp   = toFloat(row["BestUpVMG"]);
+        const bestDown = toFloat(row["BestDwnVMG"]);
+        const speed    = toFloat(row["Speed(kt)"]);
+        const twd      = toFloat(row["TWD"]);
+        const tws      = toFloat(row["TWS(kt)"]);
+        const voile    = row["Voile"] ?? "";
+
+        const energieFin = toFloat(row["EnergieFinIteration"]); // ex: "77,12"
+
+        const fmt = (n, d = 0) => (Number.isFinite(n) ? n.toFixed(d) : "");
+        const fmt2 = (n) => (Number.isFinite(n) ? n.toFixed(2) : "");
+
+        const popup = `
+          <b>VRZEN</b> <b>${dateHeure}</b><br>
+          Lat/Lon: ${lat.toFixed(5)}, ${lon.toFixed(5)}<br>
+          HDG: ${fmt(hdg, 0)}°<br>
+          TWA: ${fmt(twa, 0)}°<br>
+          BestUpVMG: ${fmt(bestUp, 0)}°<br>
+          BestDwnVMG: ${fmt(bestDown, 0)}°<br>
+          Speed: ${fmt2(speed)} kn<br>
+          TWS: ${fmt2(tws)} kn<br>
+          TWD: ${fmt(twd, 0)}°<br>
+          Voile: ${voile}<br>
+          EnergieFinIteration: ${fmt2(energieFin)}
         `;
 
-                            // Point sur la carte
-                            return L.circle(latlng, {
-                                radius: 15,
-                                color: 'black',
-                                fillColor: '#3399ff',
-                                fillOpacity: 0.5,
-                                weight: 0.5
-                            }).bindTooltip(tooltipText, { direction: 'top', permanent: false })
-                                .bindPopup(tooltipText, { direction: 'top', permanent: false })
-                                ;
-                        }
-                    }).addTo(gpx2LayerGroup);
+        // Cercle (garde tes couleurs/ta logique)
+        L.circle([lat, lon], {
+          radius: 40,      // adapte à ton rendu
+          weight: 1,
+          color: 'blue',
+          fillColor: 'cyan',
+          fillOpacity: 0.5
+        })
+          .bindPopup(popup)
+          .addTo(VRZENLayerGroup);
+      });
 
-                    // Ajout de la polyligne reliant tous les points
-                    if (coordsList.length > 1) {
-                        L.polyline(coordsList, {
-                            color: 'blue',
-                            weight: 1,
-                            opacity: 0.9
-                        }).addTo(gpx2LayerGroup);
-                    }
+      if (coords.length > 1) {
+        L.polyline(coords, { color: 'purple', weight: 1, opacity: 1 })
+          .addTo(VRZENLayerGroup);
+        map.fitBounds(coords, { padding: [20, 20] });
+      } else if (coords.length === 1) {
+        map.setView(coords[0], Math.max(map.getZoom(), 6));
+      }
 
-                    // Affichage du groupe sur la carte
-                    gpx2LayerGroup.addTo(map);
+      if (!map.hasLayer(VRZENLayerGroup)) VRZENLayerGroup.addTo(map);
+      console.log(`CSV: ${coords.length} points`);
+    }
+  });
+});
 
-                    // Optionnel : ajuste le zoom pour voir toute la trace
-                    if (gpx1LayerGroup.getLayers().length) {
-                        map.fitBounds(gpx2LayerGroup.getBounds(), { padding: [20, 20] });
-                    }
-                };
 
-                reader.readAsText(file);
-            });
+
+
+
+
+//4)DORADO
 
 
 
@@ -6675,10 +7191,13 @@ heuredepart
                 // console.log (' dernier '+arrayroutage[dernier] )
 
 
-                texteroute = `<!DOCTYPE html> <h2> ${username} -- ${tabNameCourses[indiceCourse][1]}   --  ${intlhmn.format((t0routage + arrayroutage[0][3]) * 1000)}
-                            <span class="purple"> -- ETA : ${intlhmn.format((t0routage + arrayroutage[dernier][1]) * 1000)}</span></h2>
-                            <title>Détail du routage </title>
+                texteroute = `<!DOCTYPE html> <title>Détail du routage </title>
                             <link rel="stylesheet" type="text/css" href="${urlcss} ">
+                
+                <h2> ${username} -- ${tabNameCourses[indiceCourse][1]}   --  ${intlhmn.format((t0routage + arrayroutage[0][3]) * 1000)}
+                            <span class="purple"> -- ETA : ${intlhmn.format((t0routage + arrayroutage[dernier][1]) * 1000)}
+                          </span></h2>
+                           <button id="btnExportCSV" class="btnExport">Export CSV</button>
                             <table class='table4'>
                             <th  >N </th><th>H +</th><th>Lat</th><th>Lon</th><th>Date </th><th>Twa</th><th>Cap</th>
                             <th>Vmgmin</th><th>Vmgmax</th><th>Speed</th><th>Voile</th><th>Boost</th><th>Tws</th><th>Twd</th><th>Stamina</th><th>Pen.</th>`
@@ -6726,11 +7245,6 @@ heuredepart
                         else { texteroute += `<td class='blue'   id ='cap${i}'      >${arrayroutage[i][6].toFixed(1)}</td>` }
                     }
                     else { texteroute += `<td class='blue'  id='cap${i}'      >${arrayroutage[i][6].toFixed(1)}</td>` }
-
-
-
-
-
 
 
                     if (Math.abs(arrayroutage[i][5]) < arrayroutage[i][7]) { color = 'red' } else { color = 'black' }                    //on est inferieur a la twa min 
@@ -6889,7 +7403,7 @@ heuredepart
                     fenetre.close();
                 }
                 // Par exemple, on réinitialise le contenu du bouton et la progress bar
-                document.getElementById('detailroute2').innerHTML = "Afficher Détail Route";
+                document.getElementById('detailroute2').innerHTML = " ";
                 var prog = document.getElementById('progress');
                 if (prog) prog.value = 0;
             }
@@ -6940,7 +7454,16 @@ heuredepart
                 const waypoints = JSON.parse(decodeURIComponent(encodedWaypoints));
                 const ari = JSON.parse(decodeURIComponent(encodedAri));
                 usernameRoutage= name;
-                heuredepart=t0
+                let heuredepart = document.getElementById('datetime').value 
+                let timestamp = new Date(heuredepart).getTime() / 1000; // Convertit en secondes
+                heuredepart = Math.ceil(timestamp / 60) * 60; // Arrondi à la minute supérieure
+                console.log('heure de depart en secondes du routage ' + heuredepart + 'soit ' + hmns.format(heuredepart * 1000))
+
+
+
+                // console.log (t0)
+                console.log (heuredepart)
+                // heuredepart=t0
                 const mode = document.querySelector('input[name="routage_mode"]:checked').value;
                 console.log ( name, lat, lon, heuredepart, waypoints, ari, cocheexclusions,mode )
 
@@ -7039,20 +7562,20 @@ heuredepart
                 }
             });
 
-            document.getElementById('showgpx2').addEventListener('change', function (e) {
+            document.getElementById('showAvalon').addEventListener('change', function (e) {
                 if (e.target.checked) {
-                    map.addLayer(gpx2LayerGroup);
+                    map.addLayer(avalonLayerGroup);
                 } else {
-                    map.removeLayer(gpx2LayerGroup);
+                    map.removeLayer(avalonLayerGroup);
                 }
             });
 
 
-            document.getElementById('showgpx3').addEventListener('change', function (e) {
+            document.getElementById('showVRZEN').addEventListener('change', function (e) {
                 if (e.target.checked) {
-                    map.addLayer(gpx3LayerGroup);
+                    map.addLayer(VRZENLayerGroup);
                 } else {
-                    map.removeLayer(gpx3LayerGroup);
+                    map.removeLayer(VRZENLayerGroup);
                 }
             });
 
@@ -7069,7 +7592,17 @@ heuredepart
 
 
 
+    // document.getElementById("fileInput").addEventListener("change", (event) => {
+    //     console.log ('Bouton declenché')
+    //     const file = event.target.files[0];
+    //     if (!file) return;
 
+    //     const reader = new FileReader();
+    //     reader.onload = () => {
+    //         traiteCSV(reader.result);
+    //     };
+    //     reader.readAsText(file);
+    // });
 
 
 

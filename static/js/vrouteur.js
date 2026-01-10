@@ -2706,3 +2706,137 @@ function afficheRoutageWrapped(tabroutage, map, routageLayer, colors, options = 
   refresh();
   if (!map.hasLayer(routageLayer)) routageLayer.addTo(map);
 }
+
+
+
+
+function afficheRoutageStandard(tabroutage, map, routageLayer, colors, options = {}) {
+  const {
+    hourBorderColor = "white",
+    typeVoilesShort,
+    intlhmn,
+    t0routage,
+    heuredepart
+  } = options;
+
+  routageLayer.clearLayers();
+
+  for (let i = 1; i <= tabroutage.length - 1; i++) {
+    const couleur  = colors[tabroutage[i][10]];
+    const voile    = tabroutage[i][10];
+    const nomvoile = typeVoilesShort?.[voile] ?? String(voile);
+
+    const twa = tabroutage[i][5];   // je garde en number
+    const tws = tabroutage[i][12];
+    const twd = tabroutage[i][13];
+    const cap = tabroutage[i][6];
+
+    const date = intlhmn.format((t0routage + tabroutage[i][1]) * 1000);
+
+    const vmgmin = tabroutage[i][7];
+    const vmgmax = tabroutage[i][8];
+    const vmg    = twa < 90 ? vmgmin : vmgmax;
+
+    tooltipprog[i] =
+      '<b> Point ' + i + ' le ' + date +
+      ' <br>(Routage du ' + intlhmn.format(heuredepart * 1000) +
+      ')</b><br> Twa ' + twa.toFixed(2) + '°  Vmg ' + vmg.toFixed(2) +
+      '°<br>Tws ' + tws.toFixed(2) + ' Twd ' + twd.toFixed(2) +
+      ' <br>Cap : ' + cap.toFixed(2) + '  Voile :' + nomvoile;
+
+    let tourcol = 'red', opac = 1, poids = 1, fillopac = 0.5, fillCol = couleur, rayon = 10;
+
+    if (i % 10 === 0) { rayon = 20; tourcol = 'red'; fillopac = 0.5; }
+    if ((tabroutage[i][1] % 3600) === 0) { tourcol = hourBorderColor; rayon = 50; fillopac = 0.5; }
+
+    circleprog[i] = L.circle([tabroutage[i][2], tabroutage[i][3]], {
+      fillColor: fillCol, color: tourcol, weight: poids, opacity: opac, fillOpacity: fillopac, radius: rayon
+    }).bindTooltip(tooltipprog[i]).bindPopup(tooltipprog[i]).addTo(routageLayer);
+  }
+
+  for (let i = 0; i <= tabroutage.length - 2; i++) {
+    const couleur = colors[tabroutage[i][10]];
+    polyglobal[i] = L.polyline(
+      [[tabroutage[i][2], tabroutage[i][3]], [tabroutage[i + 1][2], tabroutage[i + 1][3]]],
+      { color: couleur, weight: 1 }
+    ).addTo(routageLayer);
+  }
+
+  routageLayer.addTo(map);
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+// pour export CSV
+
+function formatDateDDMM_HHMM_UTC(ms) {
+  const d = new Date(ms);
+  const dd = String(d.getUTCDate()).padStart(2, "0");
+  const mm = String(d.getUTCMonth() + 1).padStart(2, "0");
+  const HH = String(d.getUTCHours()).padStart(2, "0");
+  const MM = String(d.getUTCMinutes()).padStart(2, "0");
+  return `${dd}/${mm} ${HH}:${MM}`;
+}
+
+// CSV escape minimal (si un champ contient virgule/guillemet/retour ligne)
+function csvEscape(value) {
+  const s = String(value ?? "");
+  return /[",\n\r]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
+}
+
+function toMsEpoch(t0) {
+  const n = Number(t0);
+  if (!Number.isFinite(n)) return NaN;
+  // seconds unix typiques ~ 1.7e9 ; ms ~ 1.7e12
+  return (n < 1e12) ? Math.round(n * 1000) : Math.round(n);
+}
+
+function formatDateDDMM_HHMM(ms, tz = "Europe/Paris") {
+  const d = new Date(ms);
+  if (Number.isNaN(d.getTime())) return "";
+  const parts = new Intl.DateTimeFormat("fr-FR", {
+    timeZone: tz,
+    day: "2-digit",
+    month: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+    hour12: false,
+  }).formatToParts(d);
+
+  const get = (type) => parts.find(p => p.type === type)?.value ?? "";
+  return `${get("day")}/${get("month")} ${get("hour")}:${get("minute")}`;
+}
+
+
+function formatDateYYYYMMDD_HHMM(ms) {
+    const d = new Date(ms);
+
+    const yyyy = d.getUTCFullYear();
+    const mm   = String(d.getUTCMonth() + 1).padStart(2, "0");
+    const dd   = String(d.getUTCDate()).padStart(2, "0");
+    const hh   = String(d.getUTCHours()).padStart(2, "0");
+    const min  = String(d.getUTCMinutes()).padStart(2, "0");
+
+    return `${yyyy}-${mm}-${dd} ${hh}:${min}`;
+}
+
+
+
+
+function fmt(n, d) {   // pour reduire le nombre de decimales 
+  const x = Number(n);
+  return Number.isFinite(x) ? x.toFixed(d) : "";
+}

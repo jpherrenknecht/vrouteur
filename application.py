@@ -4779,10 +4779,14 @@ def routageGlobal(course,user_id,isMe,ari,y0,x0,t0,tolerancehvmg,optionroutage,m
     iso             = session.isodepart            # la on est systematiquement sur ma pposition 
     posStartVR      = session.posStartVR
     posStart        = session.posStart
+    
+    print()
+    print ('(4784) waypoints ',waypoints)
+    print()       
 
     for wp in waypoints:
         wp[3] = lon_to_360(wp[3])
-
+    x0=lon_to_360(x0)
     # print ('\n Demande de routage global ')
     # print ('course',course)
     # print ('ari',ari)
@@ -4989,8 +4993,8 @@ def calculeroutage():
     optionroutage       = float(request.args.get('optionroutage'))
     ari                 = json.loads(aristr)
     mode                = request.args.get('mode')
-   
     username            = findUsername(user_id)
+
     #username            =  users[user_id]
     print ('course                                  ',course)
     print ('username                                ',username)
@@ -5017,7 +5021,6 @@ def calculeroutage():
         routage_np        = np.array(arrayroutage,dtype=np.float64)
         routagelisse      = lissage(course,routage_np,t0,posStartVR,posStart)  
         tabtwa            = routagelisse[:,5]
-
         twasmooth         = smooth(tabtwa)                      #    c est du smooth torch 
         twasmooth2        = smooth(twasmooth)  
         routagelisse[:,5] = twasmooth2                   # c 'est juste une substitution de facade, il faudrait recalculer le routage  
@@ -5028,10 +5031,7 @@ def calculeroutage():
     except:
         waypoints,arrayroutage,arrayroutage2,dico_isochrones,t0,eta=0,0,0,0,0,0  
         dico={'message':'Erreur','waypoints':waypoints,'arrayroutage':arrayroutage,'arrayroutage2':arrayroutage2,'isochrones':dico_isochrones,'t0routage':t0}    
-
-  
-    
-
+        print ('\n Erreur  dico pour debug ,_n',dico)
     print ('Routage pour {} sur course {} le {} {} ETA {} \n******************************************************************'.format(username,course,format_time(t0),dico['message'],format_time(eta)))
    
     eta=time.time()+10000
