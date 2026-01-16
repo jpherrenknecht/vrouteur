@@ -10,19 +10,8 @@ import datetime
 from scipy import interpolate
 from scipy.interpolate import RegularGridInterpolator,interp2d,interpn
 import json
-import psycopg2
+
 from psycopg2 import pool
-
-
-# Connexion à la base PostgreSQL
-conn = psycopg2.connect(
-    host="192.168.0.23",       # IP du serveur PostgreSQL
-    database="mabasedb",       # Nom de la base
-    user="jp",            # Nom de l'utilisateur PostgreSQL
-    password="Licois1000"   # Mot de passe
-)
-
-
 
 pg_pool = pool.SimpleConnectionPool(
                                         1, 10,  # minconn, maxconn
@@ -41,6 +30,14 @@ cursor = conn.cursor()
 
 
 print('test ')
+
+# on va charger les polaires dans la base de donnees 
+
+
+
+
+
+
 
 # on va charger les polaires dans la base de donnees 
 
