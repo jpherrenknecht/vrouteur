@@ -311,11 +311,11 @@
         var popup = L.popup();
 
         var gpx1LayerGroup = new L.layerGroup();  // groupe dédié aux CSV
-        var gpx2LayerGroup = new L.layerGroup();  // groupe dédié aux CSV
-        var gpx3LayerGroup = new L.layerGroup();  // groupe dédié aux CSV
+        // var gpx2LayerGroup = new L.layerGroup();  // groupe dédié aux CSV
+        // var gpx3LayerGroup = new L.layerGroup();  // groupe dédié aux CSV
         var VRZENLayerGroup = new L.layerGroup();  // groupe dédié aux CSV
         var avalonLayerGroup = new L.layerGroup();  // groupe dédié aux CSV Avalon
-        var csvLayerGroup = new L.layerGroup();  // groupe dédié aux CSV
+        var doradoLayerGroup = new L.layerGroup();  // groupe dédié aux CSV
 
         let windyLayers = []; // stockage des couches Windy internes
 
@@ -693,17 +693,17 @@
         <input type="file" id="csv-vrzen" accept=".csv" style="margin: 10px;" />
         <label for="csv-vrzen" class="chargergpx">📂 CSV VRZen</label>
 
-        <input type="file" id="csv-input3" accept=".csv" style="margin: 10px;" />
-        <label for="csv-input3" class="chargergpx">📂 CSV Dorado </label>
-
-
-
-        
+        <input type="file" id="csv-dorado" accept=".csv" style="margin: 10px;" />
+        <label for="csv-dorado" class="chargergpx">📂 CSV Dorado </label>
+               
        <div class='checkbox'>
         Zezo  <input type='checkbox' id='showgpx1' name='showgpx1' checked />   
         Avalon<input type='checkbox' id='showAvalon' name='showAvalon'  checked />   
         VRZen  <input type='checkbox' id='showVRZEN' name='showVRZEN'  checked />
         Dorado   <input type='checkbox' id='showcsv'  name='showcsv'  checked />   
+
+        <button id='ClearAllRoutes' class="blackwhite11">Clear</button>
+
       </div>
         
 
@@ -1611,14 +1611,19 @@
             function afficheselectarrivee(waypoints, ari) {
                 // Génère le HTML pour un <select> multiple
 
-                if (typeof ari === "undefined") {
-                    ari = ['Arrivee'];
-                }
+               // if (typeof ari === "undefined") { ari = ['Arrivee']; }
 
-                // console.log('On est dans afficheselectarrivee')
-                // console.log('ari  : ' + ari)
-                // console.log('waypoints :    ' + waypoints)
-                // console.log('leginfos dans selectarrivee\n' + leginfos)
+             if (ari === null || ari === undefined) {    ari = ['Arrivee'];}
+
+
+
+
+                console.log('On est dans afficheselectarrivee')
+                console.log('ari  : ' + ari)
+                console.log (ari)
+                console.log('waypoints :    ' + waypoints)
+                console.log( waypoints)
+                console.log('leginfos dans selectarrivee\n' + leginfos)
 
                 tabValues = waypoints.map(subArray => subArray[1]);
                 tabNoms = waypoints.map(subArray => subArray[1]);
@@ -2386,30 +2391,23 @@
                 // on va tout transmettre sauf waypoints qui est deja dans personalinfos pour eviter d avoir a faire 2 versions completement differentes 
                 let isMe = 'yes'
                 usernameRoutage=username
-                console.log('Dans calculeroutage usernameRoutage: '+usernameRoutage)
-
                 petitnomRoutage= genererNomRoutage()
-                console.log ('nomRoutage '+petitnomRoutage)
                 document.getElementById('nomRoutage').value=  petitnomRoutage
-               
-                console.log ('ari '+ari)
-
                 username2 = document.getElementById('idusername').value
                 if (username2 != username) { console.log('On ne route pas le bateau principal'); isMe = 'no'  }
 
 
-                console.log('On est dans calculeroutage')
-               
+                
+              
                 isochronesLayer.clearLayers()
                 strari = JSON.stringify(ari)
                 const select = document.getElementById('iddepart');
                 optionroutage = select.value    // option de routage position et heure vr , positionmanuelle   ou position depart heure depart course 
-                console.log('optionroutage ' + optionroutage)
-
-                // on va lancer la progressbar
-                console.log('ari ' + ari)
+               
+                console.log('Calculeroutage : \n '+usernameRoutage+' ari '+ari+ ' isme '+isMe+' nomroutage '+petitnomRoutage+ 'mode '+mode)
                 console.log(' waypoints ')
                 console.log(waypoints)
+
                 let lastName = ari[ari.length - 1];
                 // recherche dans waypoints du tableau correspondant
                 let found = waypoints.find(wp => wp[1] === lastName);
@@ -2421,8 +2419,6 @@
                 }
 
                 url = serveur + `/calculeroutage?course=${course}&user_id=${user_id}&isMe=${isMe}&username=${username}&y0=${y0}&x0=${x0}&t0=${heuredepart}&ari=${strari}&retardpeno=${retardpeno}&tolerancehvmg=${tolerancehvmg}&cocheexclusions=${cocheexclusions}&optionroutage=${optionroutage}&mode=${mode}`
-
-                //console.log('t0 issu de calculeroutage et transmis par l url  ' + intlhmn.format((heuredepart * 1000)))
 
                 console.log('\nDemande de routage url : ' + url + '\n***************************************************************************')
                 let response = await fetch(url); if (!response.ok) { throw new Error('Le routage n a pas pu etre calculé ' + response.statusText); }
@@ -2441,23 +2437,23 @@
                 tc = tabtempsroutage
                 console.log('t0routage issu de calculeroutage ' + hmns.format((t0routage * 1000)))
                 console.log ('tabroutage')
-                 console.log (tabroutage)
+                console.log (tabroutage)
                 // affichage de la route avec les tooltips suivant dernière methode 
 
 if (mode=='gfs')
 {
 //afficheRoutageStandard(tabroutage, map, routageLayer, colors, {  hourBorderColor: "white",  typeVoilesShort,  intlhmn,  t0routage,  heuredepart});
   // variante resistante antemeridien 
-    afficheRoutageWrapped(tabroutage, map, routageECMLayer, colors, {hourBorderColor: "black", typeVoilesShort, intlhmn, t0routage, heuredepart });
+    afficheRoutageWrapped(tabroutage, map, routageLayer, colors, {hourBorderColor: "yellow", typeVoilesShort, intlhmn, t0routage, heuredepart });
 
 }
                
 
 
 if (mode=='mixte'){
-afficheRoutageStandard(tabroutage, map, routageECMLayer, colors, {  hourBorderColor: "black",  typeVoilesShort,  intlhmn,  t0routage,  heuredepart});    
+//afficheRoutageStandard(tabroutage, map, routageECMLayer, colors, {  hourBorderColor: "black",  typeVoilesShort,  intlhmn,  t0routage,  heuredepart});    
     // variante resistante antemeridien 
-    //afficheRoutageWrapped(tabroutage, map, routageECMLayer, colors, {hourBorderColor: "black", typeVoilesShort, intlhmn, t0routage, heuredepart });
+    afficheRoutageWrapped(tabroutage, map, routageECMLayer, colors, {hourBorderColor: "black", typeVoilesShort, intlhmn, t0routage, heuredepart });
     }
  
 
@@ -4966,9 +4962,9 @@ function recupereRoutes(personalInfosJS) {
                 // console.log('ligne 3971 waypoints ' + waypoints + ' ari ' + ari)
                 afficheselectarrivee(waypoints, ari)// on affiche le select arrivee avec les waypoints et ceux selectionnes  contenus dans localstorage
 
-                if (typeof ari === "undefined") { ari = ['Arrivee']; }
+              
 
-
+                if (ari === null || ari === undefined) {    ari = ['Arrivee'];}
                 // ici on peut afficher les coordonnees du dernier wp selectionné qui est le dernier element de ari 
                 nomdernierwp = ari[ari.length - 1]                                        // nom du dernier wp
                 waypoint = waypoints.find(waypoints => waypoints[1] === nomdernierwp) // on le recherche dans la liste 
@@ -5784,7 +5780,8 @@ function recupereRoutes(personalInfosJS) {
                 labelbateau=leginfosjs['boat']['label']
                 console.log ('bateau '+labelbateau)
 
-                texte = `<div class="recou">Recouvrements  ${labelbateau}</div>`;
+                
+                texte = `<div class="recou">Recouvrements  ${labelbateau} ( TwaVR: ${twavr})</div>`;
 
                 let voile0 = typeVoiles[tableau[0][0]];
                 let class0 = (voile0 === voileActuelle) ? 'voile-active' : '';
@@ -6996,7 +6993,7 @@ document.getElementById('csv-avalon').addEventListener('change', function (event
 
       // trace la trajectoire
       if (coords.length > 1) {
-        L.polyline(coords, { color: 'lime', weight: 1, opacity: 0.9 })
+        L.polyline(coords, { color: 'purple', weight: 1, opacity: 1 })
           .addTo(avalonLayerGroup);
 
         map.fitBounds(coords, { padding: [20, 20] });
@@ -7118,7 +7115,7 @@ document.getElementById('csv-vrzen').addEventListener('change', function (event)
 
 
 
-            document.getElementById('csv-input3').addEventListener('change', function (event) {
+            document.getElementById('csv-dorado').addEventListener('change', function (event) {
                 console.log('chargement csv lancé')
                 const file = event.target.files[0];
                 if (!file) return;
@@ -7127,7 +7124,7 @@ document.getElementById('csv-vrzen').addEventListener('change', function (event)
                     header: true,
                     delimiter: ";",
                     complete: function (results) {
-                        csvLayerGroup.clearLayers(); // supprime les anciens points CSV
+                        doradoLayerGroup.clearLayers(); // supprime les anciens points CSV
                         const coords = [];
 
                         results.data.forEach(row => {
@@ -7154,13 +7151,13 @@ document.getElementById('csv-vrzen').addEventListener('change', function (event)
                                 fillOpacity: 0.6
                             })
                                 .bindPopup(popup)
-                                .addTo(csvLayerGroup);
+                                .addTo(doradoLayerGroup);
                         });
 
                         console.log('coords ' + coords)
-                        csvLayerGroup.addTo(map)
+                        doradoLayerGroup.addTo(map)
                         if (coords.length > 1) {
-                            L.polyline(coords, { color: 'red', weight: 1 }).addTo(csvLayerGroup);
+                            L.polyline(coords, { color: 'red', weight: 1 }).addTo(doradoLayerGroup);
                             map.fitBounds(coords);
                         }
 
@@ -7170,11 +7167,15 @@ document.getElementById('csv-vrzen').addEventListener('change', function (event)
             });
 
 
+document.getElementById('ClearAllRoutes').addEventListener('click', function (event) {
 
+console.log('ClearAll')
+gpx1LayerGroup.clearLayers()
+doradoLayerGroup.clearLayers()
+avalonLayerGroup.clearLayers()
+VRZENLayerGroup.clearLayers()
 
-
-
-
+});
 
 
 
@@ -7584,9 +7585,9 @@ document.getElementById('csv-vrzen').addEventListener('change', function (event)
             document.getElementById('showcsv').addEventListener('change', function (e) {
                 console.log('showcsv actionné')
                 if (e.target.checked) {
-                    map.addLayer(csvLayerGroup);
+                    map.addLayer(doradoLayerGroup);
                 } else {
-                    map.removeLayer(csvLayerGroup);
+                    map.removeLayer(doradoLayerGroup);
                 }
             });
 
