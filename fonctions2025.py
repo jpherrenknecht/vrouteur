@@ -108,9 +108,6 @@ if hostname=='linux3' :          # sur ordi linux2  (ordi blanc)
 
 
 
-
-
-
 if hostname=='portable' :          # sur ordi portable  (3eme ordi)
     basedirnpy          = '/home/jp/static/npy/'
     basedirGribs025     = '/home/jp/gribslocaux/gribs025/'
@@ -122,6 +119,8 @@ if hostname=='portable' :          # sur ordi portable  (3eme ordi)
 
 def lon_to_360(lon):
     return lon % 360
+
+
 
 def ftwao(HDG, TWD):
     """
@@ -235,12 +234,6 @@ def calcul_cap_loxodromique_tensor(lat0, lon0, lat1, lon1):
 
 
 
-
-
-
-
-
-
 def calcul_cap1(lat0, lon0, lat1, lon1):
     """
     Calcule le cap en degrés du point (lat0, lon0) vers le point (lat1, lon1).
@@ -249,7 +242,6 @@ def calcul_cap1(lat0, lon0, lat1, lon1):
     lat0, lon0, lat1, lon1 = map(math.radians, [lat0, lon0, lat1, lon1])
     
     delta_lon = lon1 - lon0
-    
     # Formule du cap initial
     y = math.sin(delta_lon) * math.cos(lat1)
     x = math.cos(lat0) * math.sin(lat1) - math.sin(lat0) * math.cos(lat1) * math.cos(delta_lon)
@@ -638,12 +630,15 @@ def prevision025todtig(GRto,dtig, latto, lonto):
 
 
 
+#######################################
+# Penalites en Stamina 
+#######################################    
 
 
 
 
 
-def calc_perte_stamina(tws: torch.Tensor, TackGybe: torch.Tensor, Chgt: torch.Tensor,
+def calc_perte_stamina_to(tws: torch.Tensor, TackGybe: torch.Tensor, Chgt: torch.Tensor,
                 coeffboat: float ,MF: float = 0.8) -> torch.Tensor:
     """
     Calcule la perte énergétique selon les conditions de vent, les changements de manœuvre et les coefficients.
@@ -670,40 +665,46 @@ def calc_perte_stamina(tws: torch.Tensor, TackGybe: torch.Tensor, Chgt: torch.Te
     p[tws >= 30] = 18
 
     # Calcul final de la perte
-    Perte = ((m * tws + p) * (TackGybe + 2 * Chgt * MF)) * coeffboat
-    return Perte
-
-
-def calc_perte_stamina_np(tws: np.ndarray, TackGybe: np.ndarray, Chgt: np.ndarray,
-                       coeffboat: float, MF: float = 0.8) -> np.ndarray:
-    """
-    Calcule la perte énergétique selon les conditions de vent, les changements de manœuvre et les coefficients.
-    
-    Args:
-        tws (ndarray): True Wind Speed.
-        TackGybe (ndarray): Nombre de virement ou empannage.
-        Chgt (ndarray): Nombre de changements de voile ou autre.
-        coeffboat (float): Coefficient global du bateau.
-        MF (float): Coefficient multiplicateur pour Chgt.
-    
-    Returns:
-        ndarray: La perte calculée pour chaque entrée.
-    """
-    m = np.zeros_like(tws)
-    p = np.zeros_like(tws)
-
-    # Remplissage de m
-    m[(tws > 10) & (tws <= 20)] = 0.2
-    m[(tws > 20) & (tws < 30)] = 0.6
-
-    # Remplissage de p
-    p[tws <= 10] = 10
-    p[(tws > 10) & (tws <= 20)] = 8
-    p[tws >= 30] = 18
-
-    # Calcul final de la perte
-    perte = ((m * tws + p) * (TackGybe + 2 * Chgt * MF)) * coeffboat
+    perte = ((m * tws + p) * coeffboat*(TackGybe + 2 * Chgt * MF))  
     return perte
+
+
+# def calc_perte_stamina_np(tws: np.ndarray, TackGybe: np.ndarray, Chgt: np.ndarray,
+#                        coeffboat: float, MF: float = 0.8) -> np.ndarray:
+#     """
+#     Calcule la perte énergétique selon les conditions de vent, les changements de manœuvre et les coefficients.
+    
+#     Args:
+#         tws (ndarray): True Wind Speed.
+#         TackGybe (ndarray): Nombre de virement ou empannage.
+#         Chgt (ndarray): Nombre de changements de voile ou autre.
+#         coeffboat (float): Coefficient global du bateau.
+#         MF (float): Coefficient multiplicateur pour Chgt.
+    
+#     Returns:
+#         ndarray: La perte calculée pour chaque entrée.
+#     """
+#     m = np.zeros_like(tws)
+#     p = np.zeros_like(tws)
+
+#     # Remplissage de m
+#     m[(tws > 10) & (tws <= 20)] = 0.2
+#     m[(tws > 20) & (tws < 30)] = 0.6
+
+#     # Remplissage de p
+#     p[tws <= 10] = 10
+#     p[(tws > 10) & (tws <= 20)] = 8
+#     p[tws >= 30] = 18
+
+#     # Calcul final de la perte
+#     perte = ((m * tws + p) * (TackGybe + 2 * Chgt * MF)) * coeffboat
+#     return perte
+
+
+
+
+
+
 
 
 
@@ -2108,6 +2109,10 @@ def gribFileName(basedir):
     date,heure,tig =dateheure(filename) 
     return filename,tig  
 
+
+
+
+
 #__________________________________________________________________________________
 # Partie ECMWF
 #_________________________________________________________________________________
@@ -2276,6 +2281,9 @@ def charge_ecmwf_npy(fileName):
     lons = 0.0 + 0.25 * np.arange(1440, dtype=np.float32)
 
     return GRECM, tig0, steps_h, lats, lons
+
+
+
 
 
 def prevision_ecmwf_dtig(GR, dtig, lat0, lon0):
@@ -2543,9 +2551,207 @@ def build_gfs_interp():
 
 
 
-# Calcul meteo pour ECMWF
-#________________________________
+
+
+#######################################
+# Penalites en temps 
+#######################################
+
+def peno_np(lwtimer, hwtimer, Tws, Stamina):
+    '''calcul de la penalite avec tws et stamina sous forme de np.array'''
+    ''' fonction testée exacte ITYC'''
+    Cstamina = 2 - 0.015 * Stamina
+    # loi de transition (10 < TWS < 30)
+    ftws = 50 - np.cos((Tws - 10) * math.pi / 20) * 50
+    Peno_mid = (((hwtimer - lwtimer) * ftws / 100) + lwtimer) 
+    #Plateaux
+    Peno = np.where(Tws <= 10, lwtimer, np.where( Tws >= 30, hwtimer,Peno_mid ))* Cstamina
+    return Peno
+
+
+def peno_torch(lwtimer, hwtimer, Tws, Stamina):
+    """
+    Calcul de pénalité (Torch).
+    - lwtimer, hwtimer : scalaires ou tensors broadcastables
+    - Tws, Stamina     : tensors (ou scalaires) broadcastables
+    Retour : tensor
+    """
+    # Convertit tout en tensors, en alignant dtype/device sur Tws si possible
+    Tws_t = Tws if torch.is_tensor(Tws) else torch.as_tensor(Tws)
+    ref = Tws_t
+
+    lwt = lwtimer if torch.is_tensor(lwtimer) else torch.as_tensor(lwtimer, device=ref.device, dtype=ref.dtype)
+    hwt = hwtimer if torch.is_tensor(hwtimer) else torch.as_tensor(hwtimer, device=ref.device, dtype=ref.dtype)
+    St  = Stamina if torch.is_tensor(Stamina) else torch.as_tensor(Stamina, device=ref.device, dtype=ref.dtype)
+    Tws_t = Tws_t.to(device=ref.device, dtype=ref.dtype)
+
+    # Coef stamina
+    Cstamina = 2 - 0.015 * St
+
+    # Transition (10 < TWS < 30)
+    pi = torch.pi if hasattr(torch, "pi") else torch.tensor(math.pi, device=ref.device, dtype=ref.dtype)
+    ftws = 50 - torch.cos((Tws_t - 10) * pi / 20) * 50
+    Peno_mid = ((hwt - lwt) * ftws / 100) + lwt
+
+    # Plateaux
+    Peno_base = torch.where(
+        Tws_t <= 10, lwt,
+        torch.where(Tws_t >= 30, hwt, Peno_mid)
+    )
+
+    return Peno_base * Cstamina
 
 
 
 
+#######################################
+# Penalites en Stamina 
+#######################################    
+
+def calc_perte_stamina_np(tws, TackGybe, Chgt,coeffboat, MF = 0.8):
+    """
+    Calcule la perte énergétique selon les conditions de vent, les changements de manœuvre et les coefficients.
+    
+    Args:
+        tws : True Wind Speed. TackGybe : Tableau des virements . Chgt : Tableau des changements de voile.
+        coeffboat (float): Coefficient global du bateau.
+        MF (float): Coefficient multiplicateur pour Chgt.
+    
+    Returns:
+        ndarray: La perte calculée pour chaque entrée.
+    """
+    m = np.zeros_like(tws)
+    p = np.zeros_like(tws)
+
+    # Remplissage de m
+    m[(tws > 10) & (tws <= 20)] = 0.2
+    m[(tws > 20) & (tws < 30)] = 0.6
+
+    # Remplissage de p
+    p[tws <= 10] = 10
+    p[(tws > 10) & (tws <= 20)] = 8
+    p[tws >= 30] = 18
+
+    # Calcul final de la perte
+    perte = ((m * tws + p) * (TackGybe + 2 * Chgt * MF)) * coeffboat
+    
+    return perte
+
+
+
+def calc_perte_stamina_to(tws: torch.Tensor, TackGybe: torch.Tensor, Chgt: torch.Tensor,
+                coeffboat: float ,MF: float = 0.8) -> torch.Tensor:
+    """
+    Calcule la perte énergétique selon les conditions de vent, les changements de manœuvre et les coefficients.
+    Args:
+        tws (Tensor): True Wind Speed.
+        TackGybe (Tensor): Nombre de virement ou empannage.
+        Chgt (Tensor): Nombre de changements de voile ou autre.
+        MF (float): Coefficient multiplicateur pour Chgt.
+        coeffboat (float): Coefficient global du bateau.
+
+    Returns:
+        Tensor: La perte calculée pour chaque entrée.
+    """
+    m = torch.zeros_like(tws)
+    p = torch.zeros_like(tws)
+
+    # Remplissage de m
+    m[(tws > 10) & (tws <= 20)] = 0.2
+    m[(tws > 20) & (tws < 30)] = 0.6
+
+    # Remplissage de p
+    p[tws <= 10] = 10
+    p[(tws > 10) & (tws <= 20)] = 8
+    p[tws >= 30] = 18
+
+    # Calcul final de la perte
+    perte = ((m * tws + p) * coeffboat*(TackGybe + 2 * Chgt * MF))  
+    return perte
+
+
+
+#######################################
+# Recuperation de la stamina 
+#######################################
+def _temps_pour_1pt_numpy(tws):       # la formule sera adaptee ulterieurement 
+    tws = np.clip(tws, 0.0, 30.0)
+    return 240.0 + 240.0 * (1.0 - np.cos(np.pi * tws / 30.0))
+
+
+def _temps_pour_1pt_torch(tws):
+    tws = torch.clamp(tws, 0.0, 30.0)
+    return 240.0 + 240.0 * (1.0 - torch.cos(math.pi * tws / 30.0))
+
+
+def temps_pour_1pt(tws):
+    """
+    tws : float | int | np.ndarray | torch.Tensor
+    return : même type logique que l'entrée
+    """
+    if torch.is_tensor(tws):
+        return _temps_pour_1pt_torch(tws)
+    else:
+        return _temps_pour_1pt_numpy(np.asarray(tws, dtype=float))
+
+
+def pts_recuperes(dt, tws, pouf=0.8):
+    """
+    dt  : float | np.ndarray | torch.Tensor (secondes)
+    tws : float | np.ndarray | torch.Tensor
+    pouf : scalaire
+    """
+    if torch.is_tensor(tws) or torch.is_tensor(dt):
+        if not torch.is_tensor(dt):
+            dt = torch.tensor(dt, dtype=torch.float32, device=tws.device)
+        return dt / (temps_pour_1pt(tws) * pouf)
+    else:
+        dt = np.asarray(dt, dtype=float)
+        return dt / (temps_pour_1pt(tws) * pouf)
+
+
+
+#######################################
+# Penalites en temps 
+#######################################    
+def peno_np(lwtimer, hwtimer, Tws, Stamina):
+    '''calcul de la penalite avec tws et stamina sous forme de np.array'''
+    ''' fonction testée exacte ITYC'''
+    Cstamina = 2 - 0.015 * Stamina
+    # loi de transition (10 < TWS < 30)
+    ftws = 50 - np.cos((Tws - 10) * math.pi / 20) * 50
+    Peno_mid = (((hwtimer - lwtimer) * ftws / 100) + lwtimer) 
+    #Plateaux
+    Peno = np.where(Tws <= 10, lwtimer, np.where( Tws >= 30, hwtimer,Peno_mid ))* Cstamina
+    return Peno
+
+
+
+
+
+def peno_torch(lwtimer, hwtimer, Tws, Stamina):
+    """
+    Calcul de pénalité (Torch).
+    - lwtimer, hwtimer : scalaires ou tensors broadcastables
+    - Tws, Stamina     : tensors (ou scalaires) broadcastables
+    Retour : tensor
+    """
+    # Convertit tout en tensors, en alignant dtype/device sur Tws si possible
+    Tws_t = Tws if torch.is_tensor(Tws) else torch.as_tensor(Tws)
+    ref = Tws_t
+    lwt = lwtimer if torch.is_tensor(lwtimer) else torch.as_tensor(lwtimer, device=ref.device, dtype=ref.dtype)
+    hwt = hwtimer if torch.is_tensor(hwtimer) else torch.as_tensor(hwtimer, device=ref.device, dtype=ref.dtype)
+    St  = Stamina if torch.is_tensor(Stamina) else torch.as_tensor(Stamina, device=ref.device, dtype=ref.dtype)
+    Tws_t = Tws_t.to(device=ref.device, dtype=ref.dtype)
+
+    # Coef stamina
+    Cstamina = 2 - 0.015 * St
+
+    # Transition (10 < TWS < 30)
+    pi = torch.pi if hasattr(torch, "pi") else torch.tensor(math.pi, device=ref.device, dtype=ref.dtype)
+    ftws = 50 - torch.cos((Tws_t - 10) * pi / 20) * 50
+    Peno_mid = ((hwt - lwt) * ftws / 100) + lwt
+
+    # Plateaux
+    Peno_base = torch.where(   Tws_t <= 10, lwt,    torch.where(Tws_t >= 30, hwt, Peno_mid ) )
+    return Peno_base * Cstamina
