@@ -2435,6 +2435,8 @@
                 t1routage      = data.t0routage                    // temps initial du routage
                 tabtempsroutage = tabroutage.map(row => row[1] + t1routage)
                 tc = tabtempsroutage
+
+                console.log ('tc'+tc)
                 console.log('t0routage issu de calculeroutage ' + hmns.format((t0routage * 1000)))
                 console.log ('tabroutage')
                 console.log (tabroutage)
@@ -2444,6 +2446,7 @@ if (mode=='gfs')
 {
 //afficheRoutageStandard(tabroutage, map, routageLayer, colors, {  hourBorderColor: "white",  typeVoilesShort,  intlhmn,  t0routage,  heuredepart});
   // variante resistante antemeridien 
+    console.log ('longueur routage gfs '+tabroutage.length)
     afficheRoutageWrapped(tabroutage, map, routageLayer, colors, {hourBorderColor: "yellow", typeVoilesShort, intlhmn, t0routage, heuredepart });
 
 }
@@ -2451,6 +2454,7 @@ if (mode=='gfs')
 
 
 if (mode=='mixte'){
+    console.log ('longueur routage mixte '+tabroutage.length)
 //afficheRoutageStandard(tabroutage, map, routageECMLayer, colors, {  hourBorderColor: "black",  typeVoilesShort,  intlhmn,  t0routage,  heuredepart});    
     // variante resistante antemeridien 
     afficheRoutageWrapped(tabroutage, map, routageECMLayer, colors, {hourBorderColor: "black", typeVoilesShort, intlhmn, t0routage, heuredepart });
@@ -5781,7 +5785,7 @@ function recupereRoutes(personalInfosJS) {
                 console.log ('bateau '+labelbateau)
 
                 
-                texte = `<div class="recou">Recouvrements  ${labelbateau} ( TwaVR: ${twavr})</div>`;
+                texte = `<div class="recou">Recouvrements  ${labelbateau} ( TwaVR: ${twavr.toFixed(2)})</div>`;
 
                 let voile0 = typeVoiles[tableau[0][0]];
                 let class0 = (voile0 === voileActuelle) ? 'voile-active' : '';
@@ -7866,22 +7870,36 @@ VRZENLayerGroup.clearLayers()
             //***********    Gestionnaires de map  windy    **************************************************
             //************************************************************************************************
 
+          function rechercheV (valeur,Tableau)
+			{
+				var indice=0
+				for (var i=0;i<Tableau.length ;i++)
+				{if (Tableau[i]<=valeur) {indice=i}}
+				return indice
+			}
 
+                function lon360to180(lon) {
+                // ramène n'importe quoi dans [-180, 180)
+                return ((lon + 180) % 360 + 360) % 360 - 180;
+                }
 
             broadcast.on('redrawFinished', () => {
+            console.log ('On est dans redraw')
                 map.removeLayer(circlew) // on retire l ancien point        
 
-                try {        //  ne fonctionne que s'il y a eu un routage
-
+                 try {        //  ne fonctionne que s'il y a eu un routage
+                
                     let sec = parseInt((store.get('timestamp')) / 1000);
-                    let npoint = recherche(sec, tc) - 1;
+                    console.log ('sec '+sec+' tc [0] '+ tc[0])
+                    let npoint = rechercheV(sec, tc) - 1;
+                    console.log ('npoint '+npoint)
                     npoint += 3
-                    console.log(' point   ' + arrayroutage[npoint][1] + ' ' + arrayroutage[npoint][2] + ' ' + arrayroutage[npoint][3])
-                    circlew = L.circle([arrayroutage[npoint][2], arrayroutage[npoint][3]], { color: 'red', fillColor: 'white', opacity: 1, fillOpacity: 0.5, radius: 3000 }).addTo(map);
-                }
-                catch {
-                    console.log(' ')
-                }
+                    console.log(' point   ' + arrayroutage[npoint][0] + ' ' + arrayroutage[npoint][2] + ' ' + arrayroutage[npoint][3])
+                    circlew = L.circle([arrayroutage[npoint][2], lon360to180(arrayroutage[npoint][3])], { color: 'red', fillColor: 'white', opacity: 1, fillOpacity: 0.5, radius: 3000 }).addTo(map);
+                 }
+                 catch {
+                     console.log(' ')
+                 }
 
             });
 

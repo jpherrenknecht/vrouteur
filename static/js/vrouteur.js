@@ -2593,6 +2593,8 @@ function refreshWrappedCircleInfinite(map, layerGroup, obj) {
 
 // =======================
 // (3) Affichage routage wrapped (adapté à TON tableau complet)
+
+
 function afficheRoutageWrapped(tabroutage, map, routageLayer, colors, options = {}) {
   routageLayer.clearLayers();
   const color2 = options.hourBorderColor ?? "white"; 

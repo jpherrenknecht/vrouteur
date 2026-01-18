@@ -1497,6 +1497,7 @@ def enregistrerPolaireSiPlusRecent(timestamp, _id, message):
 
 
 def insert_historoutages(  username,course, user_id, status, heuredepart, lat, lon, eta):
+    ''' Sert pour garder l historique des routages realises '''
     conn = pg_pool.getconn()
     try:
         cursor = conn.cursor()
@@ -5228,9 +5229,9 @@ def routageGlobal(course,user_id,isMe,ari,y0,x0,t0,tolerancehvmg,optionroutage,m
     dernieriso=pointfinal[0]
     tempsexe =time.time()-tic
     print('_________________________________________________________________________________________________________________________________________________________________________________________\
-          \nRoutage effectué en {:4.2f}s  {} isochrones  {:4.3f}s par Iso  \
+          \nRoutage {} effectué en {:4.2f}s  {} isochrones  {:4.3f}s par Iso  \
           \n_________________________________________________________________________________________________________________________________________________________________________________________\
-           '.format(tempsexe,dernieriso ,tempsexe/dernieriso) )  # Ajouter iso à session.isoglobal
+           '.format(mode, tempsexe,dernieriso ,tempsexe/dernieriso) )  # Ajouter iso à session.isoglobal
 
     return waypoints,session.isoglobal,session.posStartVR,session.posStart,nptmini,session.exclusionsVR,session.tabvmg10to,dico_isochrones
 
@@ -5364,10 +5365,12 @@ def calculeroutage():
     #     waypoints,arrayroutage,arrayroutage2,dico_isochrones,t0,eta=0,0,0,0,0,0  
     #     dico={'message':'Erreur','waypoints':waypoints,'arrayroutage':arrayroutage,'arrayroutage2':arrayroutage2,'isochrones':dico_isochrones,'t0routage':t0}    
     #     print ('\n Erreur  dico pour debug ,_n',dico)
-    print ('Routage pour {} sur course {} le {} {} ETA {} \n******************************************************************'.format(username,course,format_time(t0),dico['message'],format_time(eta)))
-   
+    
+    
+    print ('Routage pour {} en mode {} sur course {} le {} {} ETA {} \n******************************************************************'.format(username,course,mode,format_time(t0),dico['message'],format_time(eta)))
+    print ('len',len(arrayroutage))
     eta=time.time()+10000
-    insert_historoutages(  username,course, user_id,dico['message'], t0, y0, x0, eta)
+    insert_historoutages(  username,course, user_id,dico['message'], t0, y0, x0, eta)  # pour consulter les routages qui ont ete tentes et par qui 
     print('****************************************************************\n')
     return dico
 
