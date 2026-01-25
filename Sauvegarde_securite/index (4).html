@@ -6296,54 +6296,44 @@ heuredepart
 
 
 
-window.exportCSV = function (tabroutage, t0, race, v = "v", options = {}) {
-  const {
-    sep = ";",          // séparateur de colonnes
-    decimal = ".",      // séparateur décimal ("," pour Excel FR, "." sinon)
-    eol = "\n",
-    withBOM = true,     // aide Excel à bien détecter l'UTF-8
-  } = options;
 
+
+
+
+window.exportCSV = function (tabroutage, t0, race, v = "v") {
   if (!Array.isArray(tabroutage) || tabroutage.length === 0) {
     console.warn("tabroutage vide");
     return;
   }
 
-  const t0ms = toMsEpoch(t0);
-  if (!Number.isFinite(t0ms)) {
-    console.error("t0 invalide (non numérique):", t0);
-    return;
-  }
+//   // t0 peut être en secondes unix (10 chiffres) ou en ms (13 chiffres)
+//   const t0Num = Number(t0);
+//   if (!Number.isFinite(t0Num)) {
+//     console.error("t0 invalide:", t0);
+//     return;
+//   }
+//   const t0ms = (t0Num < 1e12) ? (t0Num * 1000) : t0Num; // heuristique
+
+const t0ms = toMsEpoch(t0);
+if (!Number.isFinite(t0ms)) {
+  console.error("t0 invalide (non numérique):", t0);
+  return;
+}
+
+
 
   const raceStr = String(race).padStart(3, "0");
   const filename = `${v}${raceStr}.csv`;
 
-  // formateur numérique: fixed + conversion décimale
-  const fmtLocal = (x, n) => {
-    if (!Number.isFinite(x)) return "";
-    let s = Number(x).toFixed(n);
-    if (decimal !== ".") s = s.replace(".", decimal);
-    return s;
-  };
-
-  // échappement CSV si besoin (si texte contient sep, guillemets, ou retour ligne)
-  const esc = (val) => {
-    if (val === null || val === undefined) return "";
-    const s = String(val);
-    if (s.includes('"') || s.includes(sep) || s.includes("\n") || s.includes("\r")) {
-      return `"${s.replace(/"/g, '""')}"`;
-    }
-    return s;
-  };
-
   let csv = "";
-  csv += ["Date","Latitude","Longitude","Heading","Speed","SailSet","TWA","TWD","TWS","STAMINA","BOOST"].join(sep) + eol;
+  csv += "Date,Latitude,Longitude,Heading,Speed,SailSet,TWA,TWD,TWS,STAMINA,BOOST\n";
 
   for (let i = 0; i < tabroutage.length; i++) {
     const row = tabroutage[i];
     if (!row || !Array.isArray(row)) continue;
 
     const dtSec = Number(row[1]);
+    
     const lat   = Number(row[2]);
     const lon   = Number(row[3]);
     const twa   = Number(row[5]);
@@ -6360,30 +6350,29 @@ window.exportCSV = function (tabroutage, t0, race, v = "v", options = {}) {
 
     const dateStr = formatDateYYYYMMDD_HHMM(t0ms + dtSec * 1000);
 
+
+
     const sailIdx = parseInt((Number(sailCode) % 10), 10);
     const sailSet = (Number.isFinite(sailIdx) && sailIdx >= 0 && sailIdx < typeVoiles.length)
       ? typeVoiles[sailIdx]
       : "";
-
-    const line = [
-      esc(dateStr),
-      fmtLocal(lat, 6),
-      fmtLocal(lon, 6),
-      fmtLocal(head, 2),
-      fmtLocal(speed, 2),
-      esc(sailSet),
-      fmtLocal(twa, 2),
-      fmtLocal(twd, 2),
-      fmtLocal(tws, 2),
-      fmtLocal(stamina, 2),
-      fmtLocal(boost, 2),
-    ].join(sep) + eol;
+const line = [
+  dateStr,
+  fmt(lat, 6),
+  fmt(lon, 6),
+  fmt(head, 2),
+  fmt(speed, 2),
+  sailSet,          // string
+  fmt(twa, 2),
+  fmt(twd, 2),
+  fmt(tws, 2),
+  fmt(stamina, 2),
+  fmt(boost, 2),
+].join(",") + "\n";
+   
 
     csv += line;
   }
-
-  // BOM (optionnel) pour Excel
-  if (withBOM) csv = "\uFEFF" + csv;
 
   const blob = new Blob([csv], { type: "text/csv;charset=utf-8" });
   const url = URL.createObjectURL(blob);
@@ -6395,94 +6384,6 @@ window.exportCSV = function (tabroutage, t0, race, v = "v", options = {}) {
   document.body.removeChild(a);
   URL.revokeObjectURL(url);
 };
-
-
-
-
-// window.exportCSV = function (tabroutage, t0, race, v = "v") {
-//   if (!Array.isArray(tabroutage) || tabroutage.length === 0) {
-//     console.warn("tabroutage vide");
-//     return;
-//   }
-
-// //   // t0 peut être en secondes unix (10 chiffres) ou en ms (13 chiffres)
-// //   const t0Num = Number(t0);
-// //   if (!Number.isFinite(t0Num)) {
-// //     console.error("t0 invalide:", t0);
-// //     return;
-// //   }
-// //   const t0ms = (t0Num < 1e12) ? (t0Num * 1000) : t0Num; // heuristique
-
-// const t0ms = toMsEpoch(t0);
-// if (!Number.isFinite(t0ms)) {
-//   console.error("t0 invalide (non numérique):", t0);
-//   return;
-// }
-
-
-
-//   const raceStr = String(race).padStart(3, "0");
-//   const filename = `${v}${raceStr}.csv`;
-
-//   let csv = "";
-//   csv += "Date,Latitude,Longitude,Heading,Speed,SailSet,TWA,TWD,TWS,STAMINA,BOOST\n";
-
-//   for (let i = 0; i < tabroutage.length; i++) {
-//     const row = tabroutage[i];
-//     if (!row || !Array.isArray(row)) continue;
-
-//     const dtSec = Number(row[1]);
-    
-//     const lat   = Number(row[2]);
-//     const lon   = Number(row[3]);
-//     const twa   = Number(row[5]);
-//     const head  = Number(row[6]);
-//     const speed = Number(row[9]);
-//     const sailCode = row[10];
-
-//     const boost = Number(row[11]);
-//     const tws   = Number(row[12]);
-//     const twd   = Number(row[13]);
-//     const stamina = Number(row[14]);
-
-//     if (!Number.isFinite(dtSec) || !Number.isFinite(lat) || !Number.isFinite(lon)) continue;
-
-//     const dateStr = formatDateYYYYMMDD_HHMM(t0ms + dtSec * 1000);
-
-
-
-//     const sailIdx = parseInt((Number(sailCode) % 10), 10);
-//     const sailSet = (Number.isFinite(sailIdx) && sailIdx >= 0 && sailIdx < typeVoiles.length)
-//       ? typeVoiles[sailIdx]
-//       : "";
-// const line = [
-//   dateStr,
-//   fmt(lat, 6),
-//   fmt(lon, 6),
-//   fmt(head, 2),
-//   fmt(speed, 2),
-//   sailSet,          // string
-//   fmt(twa, 2),
-//   fmt(twd, 2),
-//   fmt(tws, 2),
-//   fmt(stamina, 2),
-//   fmt(boost, 2),
-// ].join(",") + "\n";
-   
-
-//     csv += line;
-//   }
-
-//   const blob = new Blob([csv], { type: "text/csv;charset=utf-8" });
-//   const url = URL.createObjectURL(blob);
-//   const a = document.createElement("a");
-//   a.href = url;
-//   a.download = filename;
-//   document.body.appendChild(a);
-//   a.click();
-//   document.body.removeChild(a);
-//   URL.revokeObjectURL(url);
-// };
 
 
 
