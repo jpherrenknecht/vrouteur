@@ -351,58 +351,80 @@ for i in range (21):
         polairesjson=json.loads(polairesjsonstr) 
         polairesjson=json.loads(polairesjson) 
 
-        print (polairesjson)
+        #print polairesjson 
+        bateau         = polairesjson['label']
+        lws                   = polairesjson['winch']['lws']
+        hws                   = polairesjson['winch']['hws']
+        lwtimer               = polairesjson['winch']['sailChange']['pro']['lw']['timer']
+        hwtimer               = polairesjson['winch']['sailChange']['pro']['hw']['timer']
+        lwratio               = polairesjson['winch']['sailChange']['pro']['lw']['ratio']
+        hwratio               = polairesjson['winch']['sailChange']['pro']['hw']['ratio']
+        tackprolwtimer        = polairesjson['winch']['tack']['pro']['lw']['timer']
+        tackprolwratio        = polairesjson['winch']['tack']['pro']['lw']['ratio']
+        tackprohwtimer        = polairesjson['winch']['tack']['pro']['hw']['timer']
+        gybeprolwtimer        = polairesjson['winch']['gybe']['pro']['lw']['timer']
+        gybeprolwratio        = polairesjson['winch']['gybe']['pro']['lw']['ratio']
+        gybeprohwtimer        = polairesjson['winch']['gybe']['pro']['hw']['timer']
 
-        #############  Transformation en npy #################################################################
 
-        stringPolairestoNpy(polairesjson)
+        print ('polar_id {}\t bateau \t{} \t lws {} hws {}  lwtimer {},hwtimer {},lwratio {},hwratio {},tackprolwtimer {},tackprohwtimer {},gybeprolwtimer {},gybeprohwtimer {},gybeprolwratio {}'.format (polar_id,bateau,lws,hws,lwtimer,hwtimer,lwratio,hwratio,tackprolwtimer,tackprohwtimer,gybeprolwtimer,gybeprohwtimer,gybeprolwratio) )
+
+# Zone commentee 
+###############################################""
+
+        # print (polairesjson)
+
+        # #############  Transformation en npy #################################################################
+
+        # stringPolairestoNpy(polairesjson)
 
 
 
-        ##################################################################################################""
-        ################    Test des valeurs               ###############################################""
-        ##################################################################################################""e
+        # ##################################################################################################""
+        # ################    Test des valeurs               ###############################################""
+        # ##################################################################################################""e
 
-        # chargement des valeurs 
-        basedirnpy='/home/jp/staticLocal/npy/'
-        filenamelocal1='polairesglobales10_'+str(polar_id)+'.npy'
-        filename1=basedirnpy+filenamelocal1
-        with open(filename1,'rb')as f:
-                polairesglobales10 = np.load(f)
+        # # chargement des valeurs 
+        # basedirnpy='/home/jp/staticLocal/npy/'
+        # filenamelocal1='polairesglobales10_'+str(polar_id)+'.npy'
+        # filename1=basedirnpy+filenamelocal1
+        # with open(filename1,'rb')as f:
+        #         polairesglobales10 = np.load(f)
             
-        filenamelocal2='vmg10_'+str(polar_id)+'.npy'
-        filename2=basedirnpy+filenamelocal2
-        with open(filename2,'rb')as f:
-                tabvmg10 = np.load(f)   
+        # filenamelocal2='vmg10_'+str(polar_id)+'.npy'
+        # filename2=basedirnpy+filenamelocal2
+        # with open(filename2,'rb')as f:
+        #         tabvmg10 = np.load(f)   
 
 
 
 
-        print ('\n******************************************************************')
-        print ('Test sur polaires ',polairesjson['label'])
-        twa=55
-        tws=12.1
-        typeVoiles = ['jib', 'Spi', 'Staysail', 'LightJib', 'Code0', 'HeavyGnk', 'LightGnk']
-        voile=typeVoiles[int(polairesglobales10[8,int(tws*10),int(twa*10)])]
-        print ('pour twa= {} tws= {} voile {} vitesse = {:6.3f} '.format(twa,tws,voile,polairesglobales10[7,int(tws*10),int(twa*10)]))
-        print()
-        for i in range (len (typeVoiles)):
-            voile=typeVoiles[i]
-            print ('pour twa= {} tws= {} voile {:15} vitesse = {:6.3f} '.format(twa,tws,voile,polairesglobales10[i,int(tws*10),int(twa*10)]))
+        # print ('\n******************************************************************')
+        # print ('Test sur polaires ',polairesjson['label'])
+        # twa=55
+        # tws=12.1
+        # typeVoiles = ['jib', 'Spi', 'Staysail', 'LightJib', 'Code0', 'HeavyGnk', 'LightGnk']
+        # voile=typeVoiles[int(polairesglobales10[8,int(tws*10),int(twa*10)])]
+        # print ('pour twa= {} tws= {} voile {} vitesse = {:6.3f} '.format(twa,tws,voile,polairesglobales10[7,int(tws*10),int(twa*10)]))
+        # print()
+        # for i in range (len (typeVoiles)):
+        #     voile=typeVoiles[i]
+        #     print ('pour twa= {} tws= {} voile {:15} vitesse = {:6.3f} '.format(twa,tws,voile,polairesglobales10[i,int(tws*10),int(twa*10)]))
 
 
 
 
-        print ('valeur attendue pour imoca foils :  13.45,13.044,1.170,9.870,13.450,12.203,0,0')
-        print ('******************************************************************\n')
+        # print ('valeur attendue pour imoca foils :  13.45,13.044,1.170,9.870,13.450,12.203,0,0')
+        # print ('******************************************************************\n')
 
-        print ('Test sur Vmg ')
-        tws=12.1
-        tabvmg       = tabvmg10[int(tws*10)]
-        print('tabvmg \n',tabvmg)
-        print('valeurs attendues tws 12.1 ,vmb pres  8.825478  angle 45 vmg vent arriere -10.182713 angle : 140          vmax 15.680747 angle 105 ')
+        # print ('Test sur Vmg ')
+        # tws=12.1
+        # tabvmg       = tabvmg10[int(tws*10)]
+        # print('tabvmg \n',tabvmg)
+        # print('valeurs attendues tws 12.1 ,vmb pres  8.825478  angle 45 vmg vent arriere -10.182713 angle : 140          vmax 15.680747 angle 105 ')
 
-
+# Zone commentee 
+###############################################""
 
     except:
         None

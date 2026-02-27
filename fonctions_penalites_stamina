@@ -1,0 +1,76 @@
+import numpy as np
+import math
+
+
+# la fonction calcule la pente m  et l abscisse à l origine p en fonction du tws 
+# Tack gybe et Chgt sont egales à 1 ou si Tack ou Gybe et 0 si rien 
+#  
+def calc_perte_stamina_np(tws, TackGybe, Chgt,coeffboat, MF = 0.8):
+    """
+    Calcule la perte énergétique selon les conditions de vent, les changements de manœuvre et les coefficients.
+    
+    Args:
+        tws : True Wind Speed. TackGybe : Tableau des virements . Chgt : Tableau des changements de voile.
+        coeffboat (float): Coefficient global du bateau.
+        MF (float): Coefficient multiplicateur pour Chgt.
+
+            
+    Returns:
+        ndarray: La perte calculée pour chaque entrée.
+    """
+    m = np.zeros_like(tws,dtype=np.float64)
+    p = np.zeros_like(tws)
+
+    # Remplissage de m
+    m[(tws > 10) & (tws <= 20)] = 0.2
+    m[(tws > 20) & (tws < 30)] = 0.6
+
+    # Remplissage de p
+    p[tws <= 10] = 10
+    p[(tws > 10) & (tws <= 20)] = 8
+    p[tws >= 30] = 18
+
+    # Calcul final de la perte
+    # print ('m {} ,p {} ,tws {}'.format(m,p,tws))
+    perte = ((m * tws + p) * coeffboat*(TackGybe + 2 * Chgt * MF))  
+    
+    return perte
+
+
+
+#######################################
+# Recuperation de la stamina 
+#######################################
+
+# le vent est borné à 0 30 avant de faire le calcul 
+
+
+def pts_recuperes(tws, dt, pouf=0.8) :
+   
+    tws_clip = max(0.0, min(30.0, float(tws)))
+    cos_part = (1.0 + math.cos(math.pi * tws_clip / 30.0)) / 2.0
+    return ((0.10375 + 0.20875 * (cos_part ** 2.15)) / 60.0) * dt * pouf
+    
+
+#######################################
+# Penalites en temps 
+#######################################
+
+def peno_np(lwtimer, hwtimer, Tws, Stamina):
+    '''calcul de la penalite en temps avec tws et stamina sous forme de np.array'''
+    ''' fonction testée exacte ITYC'''
+    Cstamina = 2 - 0.015 * Stamina
+    # loi de transition (10 < TWS < 30)
+    ftws = 50 - np.cos((Tws - 10) * math.pi / 20) * 50
+    Peno_mid = (((hwtimer - lwtimer) * ftws / 100) + lwtimer) 
+    #Plateaux
+    Peno = np.where(Tws <= 10, lwtimer, np.where( Tws >= 30, hwtimer,Peno_mid ))* Cstamina
+    return Peno
+
+
+# il faut disposeer des valeurs de lwtimer hwtimer , gybeprolwtimer ,gybeprolwtimer pour le bateau 
+# et de Twd=s et de la stamina 
+
+
+penavoile=peno_np(lwtimer, hwtimer, Tws, Stamina)*furler
+penagybe=peno_np(gybeprolwtimer, gybeprohwtimer, Tws, Stamina)
