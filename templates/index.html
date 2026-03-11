@@ -147,10 +147,6 @@
 
 
 
-
-
-        
-
         async function registerClientId(user_id) {
             console.log("Enregistrement du client sur websocket  avec user_id :", user_id);
             socket.emit("register", { client_id: user_id });
@@ -280,7 +276,7 @@
         let boite = null; // Variable globale
 
 
-       
+
 
 
         //****************************************************************************************************
@@ -709,11 +705,11 @@
        </div>`;
 
 
-// sauvegarde pour entree gpx avalon
+            // sauvegarde pour entree gpx avalon
 
-//    <input type="file" id="gpx-input2" accept=".gpx" style="margin: 10px;" />
-//          <label for="gpx-input2" class="chargergpx">📂 GPX Avalon</label>
-        
+            //    <input type="file" id="gpx-input2" accept=".gpx" style="margin: 10px;" />
+            //          <label for="gpx-input2" class="chargergpx">📂 GPX Avalon</label>
+
 
 
             var texteboite44 =
@@ -965,7 +961,7 @@
 
 
 
-    async function afficheboatinfos(boatinfosdata)  // affiche les particularites de la course
+            async function afficheboatinfos(boatinfosdata)  // affiche les particularites de la course
             {
                 //console.log(' on est dans afficheboatinfos ')
                 boatinfos = boatinfosdata.result
@@ -1214,10 +1210,10 @@
 
                 //console.log ('ligne 3599 '+y0vr+'  '+x0vr+ '  '+t0+' '+twsvr+'  '+twavr+' '+polar_id)
                 resvoiles = await cherchevoiles(y0vr, x0vr, t0, twsvr, twavr, polar_id)
-                
+
                 let nowUnix = Math.floor(Date.now()); // Timestamp Unix en M secondes  
-                ecarttemps= nowUnix/1000-t0
-                console.log ('ecartTemps   '+ecartTemps+'s' ) 
+                ecarttemps = nowUnix / 1000 - t0
+                console.log('ecartTemps   ' + ecartTemps + 's')
                 verifierDeltat(ecartTemps)                                             // ca sa marche si je recois des boatinfos 
 
 
@@ -1371,9 +1367,20 @@
                     voile = polylineprog[i][5]
                     nomvoile = typeVoilesShort[voile]
                     option = polylineprog[i][1]
-                    if (option == 1) { nomOption = 'Twa' } else { nomOption = 'Cap' }
+                    if (option == 1) {
+                        nomOption = 'Twa Fixe'
+                        tooltipprog[i] = 'Progs                ' + intlhmn.format(polylineprog[i][0] * 1000) + '<br> ' + nomOption + ': ' + polylineprog[i][2].toFixed(1) + '° Cap ' + polylineprog[i][7].toFixed(1) + ' <br> Voile :' + nomvoile + ' - Tws ' + polylineprog[i][10].toFixed(2) + 'Knts'
+                    }       // le temps est en position 3
 
-                    tooltipprog[i] = ' Programmations <br>' + intlhmn.format(polylineprog[i][0] * 1000) + '<br> ' + nomOption + ': ' + polylineprog[i][2].toFixed(1) + '°<br> Voile :' + nomvoile              // le temps est en position 3
+                    else {
+                        nomOption = 'Cap Fixe'
+
+                        tooltipprog[i] = 'Progs                ' + intlhmn.format(polylineprog[i][0] * 1000) + '<br> ' + nomOption + ': ' + polylineprog[i][7].toFixed(1) + '° TWA ' + polylineprog[i][2].toFixed(1) + ' <br> Voile :' + nomvoile + ' - Tws ' + polylineprog[i][10].toFixed(2) + 'Knts'          // le temps est en position 3
+
+
+                    }
+
+
                     rayon = 10; tourcol = 'black'; poids = 1; opac = 0.5; fillopac = 1; fillCol = couleur;
 
 
@@ -1583,7 +1590,7 @@
             function fselectarrivee(tabValues, tabNoms, tabSelected, class1) {
                 // Génère le HTML pour un <select> multiple
                 // console.log('tabValues '+tabValues+ 'tabNoms '+ tabNoms+' ' + tabSelected+ 'class1 '+class1) 
-                
+
                 let selectHtml = '<select multiple  id="idarrivee" class="' + class1 + '">';
                 console.log('longueur ', tabValues.length)
                 console.log('longueur ', tabValues.length, ' ' + tabNoms.length)
@@ -1607,7 +1614,7 @@
             function afficheselectarrivee(waypoints, ari) {
                 // Génère le HTML pour un <select> multiple
 
-                if (ari === null || ari === undefined) {    ari = ['Arrivee'];}
+                if (ari === null || ari === undefined) { ari = ['Arrivee']; }
 
                 // Deboggage
                 // console.log('On est dans afficheselectarrivee')
@@ -1787,7 +1794,7 @@
                     return ligneCible;
                 }
 
-               // console.log('ligne 836' + tableau[0])
+                // console.log('ligne 836' + tableau[0])
                 return tableau[0];  // L'élément est déjà en première position
             }
 
@@ -2324,21 +2331,21 @@
 
 
 
-    async function calculeroutage(username,y0, x0, heuredepart, waypoints, ari, cocheexclusions,mode) {
+            async function calculeroutage(username, y0, x0, heuredepart, waypoints, ari, cocheexclusions, mode) {
                 // on va tout transmettre sauf waypoints qui est deja dans personalinfos pour eviter d avoir a faire 2 versions completement differentes 
                 let isMe = 'yes'
-                usernameRoutage=username
-                petitnomRoutage= genererNomRoutage()
-                document.getElementById('nomRoutage').value=  petitnomRoutage
+                usernameRoutage = username
+                petitnomRoutage = genererNomRoutage()
+                document.getElementById('nomRoutage').value = petitnomRoutage
                 username2 = document.getElementById('idusername').value
-                if (username2 != username) { console.log('On ne route pas le bateau principal'); isMe = 'no'  }
-              
+                if (username2 != username) { console.log('On ne route pas le bateau principal'); isMe = 'no' }
+
                 isochronesLayer.clearLayers()
                 strari = JSON.stringify(ari)
                 const select = document.getElementById('iddepart');
                 optionroutage = select.value    // option de routage position et heure vr , positionmanuelle   ou position depart heure depart course 
-               
-                console.log('Calculeroutage : \n '+usernameRoutage+' ari '+ari+ ' isme '+isMe+' nomroutage '+petitnomRoutage+ 'mode '+mode)
+
+                console.log('Calculeroutage : \n ' + usernameRoutage + ' ari ' + ari + ' isme ' + isMe + ' nomroutage ' + petitnomRoutage + 'mode ' + mode)
                 console.log(' waypoints ')
                 console.log(waypoints)
 
@@ -2357,181 +2364,183 @@
                 console.log('\nDemande de routage url : ' + url + '\n***************************************************************************')
                 let response = await fetch(url); if (!response.ok) { throw new Error('Le routage n a pas pu etre calculé ' + response.statusText); }
 
-               
+
                 let data = await response.json();      // recuperation des donnees de routage
                 message = data.message
-                console.log (' message de retour '+message)
-                if (message!='Erreur')
-                {
-                tabroutage = data.arrayroutage2
-                //tabroutage2 = data.arrayroutage
-                dicoIsochrones = data.isochrones
-                t1routage      = data.t0routage                    // temps initial du routage
-                tabtempsroutage = tabroutage.map(row => row[1] + t1routage)
-                tc = tabtempsroutage
+                console.log(' message de retour ' + message)
+                if (message != 'Erreur') {
+                    tabroutage = data.arrayroutage2
+                    //tabroutage2 = data.arrayroutage
+                    dicoIsochrones = data.isochrones
+                    t1routage = data.t0routage                    // temps initial du routage
+                    tabtempsroutage = tabroutage.map(row => row[1] + t1routage)
+                    tc = tabtempsroutage
 
-                // Deboguage 
-                // console.log ('tc')
-                // console.log(tc)
-                // console.log('t0routage issu de calculeroutage ' + hmns.format((t0routage * 1000)))
-                // console.log ('tabroutage')
-                // console.log (tabroutage)
-                // affichage de la route avec les tooltips suivant dernière methode 
+                    // Deboguage 
+                    // console.log ('tc')
+                    // console.log(tc)
+                    // console.log('t0routage issu de calculeroutage ' + hmns.format((t0routage * 1000)))
+                    // console.log ('tabroutage')
+                    // console.log (tabroutage)
+                    // affichage de la route avec les tooltips suivant dernière methode 
 
-if (mode=='gfs'){
-    //afficheRoutageStandard(tabroutage, map, routageLayer, colors, {  hourBorderColor: "white",  typeVoilesShort,  intlhmn,  t0routage,  heuredepart});
-    // variante resistante antemeridien 
-    //console.log ('longueur routage gfs '+tabroutage.length)
-    map.removeLayer(circlew) // on evite d avoir le point de deplacement   
-    afficheRoutageWrapped(tabroutage, map, routageLayer, colors, {hourBorderColor: "yellow", typeVoilesShort, intlhmn, t0routage, heuredepart });
-    }
-               
+                    if (mode == 'gfs') {
 
-
-if (mode=='mixte'){
-    //  console.log ('longueur routage mixte '+tabroutage.length)
-    //afficheRoutageStandard(tabroutage, map, routageECMLayer, colors, {  hourBorderColor: "black",  typeVoilesShort,  intlhmn,  t0routage,  heuredepart});    
-    // variante resistante antemeridien 
-    map.removeLayer(circlew) // on evite d avoir le point de deplacement 
-    afficheRoutageWrapped(tabroutage, map, routageECMLayer, colors, {hourBorderColor: "black", typeVoilesShort, intlhmn, t0routage, heuredepart });
-    }
- 
+                        afficheRoutageStandard(tabroutage, map, routageLayer, colors, { hourBorderColor: "white", typeVoilesShort, intlhmn, t0routage, heuredepart });
+                        // variante resistante antemeridien 
+                        //console.log ('longueur routage gfs '+tabroutage.length)
+                        map.removeLayer(circlew) // on evite d avoir le point de deplacement   
+                        //afficheRoutageWrapped(tabroutage, map, routageLayer, colors, {hourBorderColor: "yellow", typeVoilesShort, intlhmn, t0routage, heuredepart });
+                    }
 
 
 
-
-
-    // routageECMLayer.clearLayers()
-    //             for (var i = 1; i <= tabroutage.length - 1; i++)                // on affiche les nouveaux points mais pas le premier pas necessaire 
-    //             {
-    //                 couleur = colors[tabroutage[i][10]]
-    //                 voile = tabroutage[i][10]
-    //                 nomvoile = typeVoilesShort[voile]
-    //                 twa = tabroutage[i][5].toFixed(2)
-    //                 tws = tabroutage[i][12].toFixed(2)
-    //                 twd = tabroutage[i][13].toFixed(2)
-    //                 cap = tabroutage[i][6].toFixed(2)
-    //                 date = intlhmn.format((t0routage + tabroutage[i][1]) * 1000)
-    //                 vmgmin = tabroutage[i][7].toFixed(2)
-    //                 vmgmax = tabroutage[i][8].toFixed(2)
-    //                 vmg = twa < 90 ? vmgmin : vmgmax
-
-    //                 tooltipprog[i] = '<b> Point ' + i + ' le ' + date + ' <br>(Routage du ' + intlhmn.format((heuredepart * 1000)) + ')</b>  <br> Twa ' + twa + '°  Vmg ' + vmg + '°<br>Tws ' + tws + ' Twd ' + twd + ' <br>Cap : ' + cap + '  Voile :' + nomvoile              // le temps est en position 3
-    //                 tourcol = 'red'; opac = 1; poids = 1; fillopac = 0.5; fillCol = couleur; rayon = 10;       // valeur par defaut  
-    //                 if (i % 10 == 0) { rayon = 20, tourcol = 'red'; fillopac = 0.5 }              // tous les 10    
-    //                 if (tabroutage[i][1] % 3600 == 0) { tourcol = 'black'; rayon = 50, fillopac = 0.5 }                    // toutes les heures 
-    //                 circleprog[i] = L.circle([tabroutage[i][2], tabroutage[i][3]], { fillColor: fillCol, color: tourcol, weight: poids, opacity: opac, fillOpacity: fillopac, radius: rayon, })
-    //                     .bindTooltip(tooltipprog[i]).bindPopup(tooltipprog[i]).addTo(routageECMLayer)
-    //             }
-
-    //             for (var i = 0; i <= tabroutage.length - 2; i++)                // on affiche les nouveaux points mais pas le premier pas necessaire 
-    //             {
-    //                 couleur = colors[tabroutage[i][10]]
-    //                 polyglobal[i] = L.polyline([[tabroutage[i][2], tabroutage[i][3]], [tabroutage[i + 1][2], tabroutage[i + 1][3]]], { color: couleur, weight: 1 }).addTo(routageECMLayer);
-    //             }
-
-    //             routageECMLayer.addTo(map)
-
-    //             }
+                    if (mode == 'mixte') {
+                        //  console.log ('longueur routage mixte '+tabroutage.length)
+                        afficheRoutageStandard(tabroutage, map, routageECMLayer, colors, { hourBorderColor: "black", typeVoilesShort, intlhmn, t0routage, heuredepart });
+                        // variante resistante antemeridien 
+                        map.removeLayer(circlew) // on evite d avoir le point de deplacement 
+                        //afficheRoutageWrapped(tabroutage, map, routageECMLayer, colors, {hourBorderColor: "black", typeVoilesShort, intlhmn, t0routage, heuredepart });
+                    }
 
 
 
 
 
 
+                    // routageECMLayer.clearLayers()
+                    //             for (var i = 1; i <= tabroutage.length - 1; i++)                // on affiche les nouveaux points mais pas le premier pas necessaire 
+                    //             {
+                    //                 couleur = colors[tabroutage[i][10]]
+                    //                 voile = tabroutage[i][10]
+                    //                 nomvoile = typeVoilesShort[voile]
+                    //                 twa = tabroutage[i][5].toFixed(2)
+                    //                 tws = tabroutage[i][12].toFixed(2)
+                    //                 twd = tabroutage[i][13].toFixed(2)
+                    //                 cap = tabroutage[i][6].toFixed(2)
+                    //                 date = intlhmn.format((t0routage + tabroutage[i][1]) * 1000)
+                    //                 vmgmin = tabroutage[i][7].toFixed(2)
+                    //                 vmgmax = tabroutage[i][8].toFixed(2)
+                    //                 vmg = twa < 90 ? vmgmin : vmgmax
 
-                isochronesLayer.clearLayers()
-          
-                // if (Array.isArray(dicoIsochrones)) {
-                //     console.log("C'est un tableau, longueur =", dicoIsochrones.length);
-                // } else if (typeof dicoIsochrones === 'object') {
-                //     console.log("C'est un objet avec", Object.keys(dicoIsochrones).length, "clés");
-                // } else if (typeof dicoIsochrones === 'string') {
-                //     console.log("C'est une chaîne JSON ?");
-                // }
+                    //                 tooltipprog[i] = '<b> Point ' + i + ' le ' + date + ' <br>(Routage du ' + intlhmn.format((heuredepart * 1000)) + ')</b>  <br> Twa ' + twa + '°  Vmg ' + vmg + '°<br>Tws ' + tws + ' Twd ' + twd + ' <br>Cap : ' + cap + '  Voile :' + nomvoile              // le temps est en position 3
+                    //                 tourcol = 'red'; opac = 1; poids = 1; fillopac = 0.5; fillCol = couleur; rayon = 10;       // valeur par defaut  
+                    //                 if (i % 10 == 0) { rayon = 20, tourcol = 'red'; fillopac = 0.5 }              // tous les 10    
+                    //                 if (tabroutage[i][1] % 3600 == 0) { tourcol = 'black'; rayon = 50, fillopac = 0.5 }                    // toutes les heures 
+                    //                 circleprog[i] = L.circle([tabroutage[i][2], tabroutage[i][3]], { fillColor: fillCol, color: tourcol, weight: poids, opacity: opac, fillOpacity: fillopac, radius: rayon, })
+                    //                     .bindTooltip(tooltipprog[i]).bindPopup(tooltipprog[i]).addTo(routageECMLayer)
+                    //             }
+
+                    //             for (var i = 0; i <= tabroutage.length - 2; i++)                // on affiche les nouveaux points mais pas le premier pas necessaire 
+                    //             {
+                    //                 couleur = colors[tabroutage[i][10]]
+                    //                 polyglobal[i] = L.polyline([[tabroutage[i][2], tabroutage[i][3]], [tabroutage[i + 1][2], tabroutage[i + 1][3]]], { color: couleur, weight: 1 }).addTo(routageECMLayer);
+                    //             }
+
+                    //             routageECMLayer.addTo(map)
+
+                    //             }
 
 
 
-                // On transforme l'objet en tableau
-                let arrIso = Object.values(dicoIsochrones);
-                console.log("Nombre d'isochrones :", arrIso.length);
 
-                // Boucle sur le tableau
-                arrIso.forEach((points, idx) => {
-                    const couleur = (idx % 6 === 0) ? 'white' : 'black';
 
-                    // Cas : plusieurs polylines (tableau de tableaux de points)
-                    if (Array.isArray(points[0][0])) {
-                        points.forEach(poly => {
-                            L.polyline(poly, {
+
+
+                    isochronesLayer.clearLayers()
+
+                    // if (Array.isArray(dicoIsochrones)) {
+                    //     console.log("C'est un tableau, longueur =", dicoIsochrones.length);
+                    // } else if (typeof dicoIsochrones === 'object') {
+                    //     console.log("C'est un objet avec", Object.keys(dicoIsochrones).length, "clés");
+                    // } else if (typeof dicoIsochrones === 'string') {
+                    //     console.log("C'est une chaîne JSON ?");
+                    // }
+
+
+
+                    // On transforme l'objet en tableau
+                    let arrIso = Object.values(dicoIsochrones);
+                    console.log("Nombre d'isochrones :", arrIso.length);
+
+                    // Boucle sur le tableau
+                    arrIso.forEach((points, idx) => {
+                        const couleur = (idx % 6 === 0) ? 'white' : 'black';
+
+                        // Cas : plusieurs polylines (tableau de tableaux de points)
+                        if (Array.isArray(points[0][0])) {
+                            points.forEach(poly => {
+                                L.polyline(poly, {
+                                    color: couleur,
+                                    weight: 1,
+                                    opacity: 1
+                                }).bindTooltip('iso : ' + idx).addTo(isochronesLayer);
+                            });
+                        }
+                        // Cas : une seule polyline (tableau de points)
+                        else {
+                            L.polyline(points, {
                                 color: couleur,
                                 weight: 1,
                                 opacity: 1
                             }).bindTooltip('iso : ' + idx).addTo(isochronesLayer);
-                        });
+                        }
+                    });
+
+
+
+
+
+
+
+
+
+                    let checkboxiso = document.getElementById('showisochrones')
+                    if (checkboxiso.checked) {
+                        // Ajouter le layer des isochrones à la carte
+                        isochronesLayer.addTo(map);
                     }
-                    // Cas : une seule polyline (tableau de points)
-                    else {
-                        L.polyline(points, {
-                            color: couleur,
-                            weight: 1,
-                            opacity: 1
-                        }).bindTooltip('iso : ' + idx).addTo(isochronesLayer);
-                    }
-                });
 
 
+                    // affichage du tableau de routage 
+                    arrayroutage = tabroutage   // ("c'est arrayroutage qui est utilise dans createtexte")
+                    username2 = username
+                    texteroute = createTexteRoute()
+                    // console.log ('texteroute '+texteroute)
 
-
-
-
-
-
-
-                let checkboxiso = document.getElementById('showisochrones')
-                if (checkboxiso.checked) {
-                    // Ajouter le layer des isochrones à la carte
-                    isochronesLayer.addTo(map);
-                }
-
-
-                // affichage du tableau de routage 
-                arrayroutage = tabroutage   // ("c'est arrayroutage qui est utilise dans createtexte")
-                username2=username
-                texteroute = createTexteRoute()
-                // console.log ('texteroute '+texteroute)
-                
-                document.getElementById('detailroute2').innerHTML = `
+                    document.getElementById('detailroute2').innerHTML = `
                 <button data-action="detailroute" class="blackwhite11">Detail Route</button>
                 <button data-action="genereCSV" class="blackwhite11">CSV</button>
                 `;
 
-                // on va egalement afficcher l ETA 
-                let dernier = arrayroutage.length - 1
-                eta = t0routage + arrayroutage[dernier][1]
-                dureeparcours = arrayroutage[dernier][1]
+                    // on va egalement afficcher l ETA 
+                    let dernier = arrayroutage.length - 1
+                    eta = t0routage + arrayroutage[dernier][1]
+                    dureeparcours = arrayroutage[dernier][1]
 
-                document.getElementById('eta').innerHTML = `ETA : ${intlhmn.format((t0routage + arrayroutage[dernier][1]) * 1000)}`
-                document.getElementById('dureeeta').innerHTML = `soit ${formatSeconds(arrayroutage[dernier][1])}`
-                //ETA : ${intlhmn.format((t0routage + arrayroutage[dernier][1]) * 1000)}
-
-
-
-                // on va sauver les caracteristiques du routage dans memoire trajet
-                trajet = trouvederniertrajet()
-                console.log(' Ligne 2176 trajet ')
-                console.log(trajet)
-             
-                trajet = [username, course, y0, x0, y0, x0, heuredepart, y1, x1, optionroutage, user_id, ari, waypoints, 'maj suite routage']
-                updateTrajet(username, course, trajet)
-                console.log('mise a jour de memoiretrajet ')
-                console.log('Nouveau trajet enregistré  dans localstorage ')
-                console.log(trajet)
+                    document.getElementById('eta').innerHTML = `ETA : ${intlhmn.format((t0routage + arrayroutage[dernier][1]) * 1000)}`
+                    document.getElementById('dureeeta').innerHTML = `soit ${formatSeconds(arrayroutage[dernier][1])}`
+                    //ETA : ${intlhmn.format((t0routage + arrayroutage[dernier][1]) * 1000)}
 
 
-            }
-            else {  alert ('Le routage n\'a pas abouti. \nVotre WP n\'est probablement pas accessible directement. ');
-            console.log ('Le routage n a pas abouti \n************************************************************\n')}
+
+                    // on va sauver les caracteristiques du routage dans memoire trajet
+                    trajet = trouvederniertrajet()
+                    console.log(' Ligne 2176 trajet ')
+                    console.log(trajet)
+
+                    trajet = [username, course, y0, x0, y0, x0, heuredepart, y1, x1, optionroutage, user_id, ari, waypoints, 'maj suite routage']
+                    updateTrajet(username, course, trajet)
+                    console.log('mise a jour de memoiretrajet ')
+                    console.log('Nouveau trajet enregistré  dans localstorage ')
+                    console.log(trajet)
+
+
+                }
+                else {
+                    alert('Le routage n\'a pas abouti. \nVotre WP n\'est probablement pas accessible directement. ');
+                    console.log('Le routage n a pas abouti \n************************************************************\n')
+                }
 
 
 
@@ -2637,7 +2646,7 @@ if (mode=='mixte'){
                 var lat = e.latlng.lat;
                 var lon = e.latlng.lng;
                 var couleur = "#FFFF00"; // Jaune par défaut
-                var rayon = 0.5;         // ce sont des miles nautiques 
+                var rayonMi = 0.5;         // ce sont des miles nautiques 
 
                 console.log('lat ' + lat + ' lng ' + lon)
                 console.log('Waypoints avant enregistrement du nouveau ')
@@ -2686,10 +2695,10 @@ if (mode=='mixte'){
                     color: 'black',
                     fillColor: couleur,
                     fillOpacity: 0.5,
-                    radius: rayon * 1852,    // Stockage et affichage leaflet se fait en metres
+                    radius: rayonMi * 1852, //* 1852,    // radius  en metres
                     draggable: true
                 }).bindTooltip(nouveauNom)
-                  .addTo(WpCirclesLayer);
+                    .addTo(WpCirclesLayer);
 
                 newCircle.on('drag', function (event) {
                     cercleSelectionne = newCircle;
@@ -2702,10 +2711,12 @@ if (mode=='mixte'){
                 newCircle.on('click', function () {
                     ouvrirEditeurModifWaypoint(newCircle, nouveauNom, couleur);
                 });
+
+
                 // ajout du newcircle dans waypointsJS
                 waypointsJS[nouveauNom] = newCircle;
                 var waypointEditor = document.getElementById("waypointEditor");
-                waypointEditor.style.display = "block";         
+                waypointEditor.style.display = "block";
                 waypointEditor.classList.add("visible");
 
                 console.log(' ')
@@ -2800,7 +2811,7 @@ if (mode=='mixte'){
                 updateTrajet(username, course, trajet)
 
                 console.log('nomWaypoints apres ajout ligne 2904 \n' + waypoints)
-                // console.log ('ari'+ari)   
+                console.log('ari apres ajout waypoint ' + ari)
 
 
                 afficheselectarrivee(newwaypoints, ari)
@@ -2811,6 +2822,8 @@ if (mode=='mixte'){
 
 
             function ouvrirEditeurModifWaypoint(cercle, nom, couleurParDefaut = "#FFFF00") {
+
+                console.log('on est dans ouvrirEditeurModifwaypoint')
                 const waypointEditor = document.getElementById("waypointEditor");
                 waypointEditor.style.display = "block";
                 waypointEditor.classList.add("visible");
@@ -2818,20 +2831,23 @@ if (mode=='mixte'){
                 const latLng = cercle.getLatLng();
                 var lat = latLng.lat;
                 var lon = latLng.lng;
-                var rayon = cercle.getRadius() / 1000 * 1.852; //  on obtient une valeur en m que l onconvertit en mN
+                var rayonMi = cercle.getRadius() / 1852; //  on obtient une valeur en m que l onconvertit en 
+
+                console.log('rayonMi ' + rayonMi + 'Mi')
                 var couleur = cercle.options.fillColor; // Récupération de la couleur actuelle
 
                 document.getElementById('wpName').textContent = nom;
                 document.getElementById('wpLat').textContent = lat.toFixed(4);
                 document.getElementById('wpLon').textContent = lon.toFixed(4);
-                document.getElementById('wpRadius').value = rayon;
+                document.getElementById('wpRadius').value = rayonMi;
                 document.getElementById('wpColor').value = couleur;
                 cercleSelectionne = cercle; // Mettre à jour le cercle sélectionné
 
                 // Mise à jour du rayon en temps réel à l ecran 
                 document.getElementById('wpRadius').oninput = function () {
-                    var newRayon = parseFloat(this.value);                                     // la c est une valeur en MN
-                    cercle.setRadius(newRayon * 1000 / 1.852);                          // pour l affichage a l ecran on  convertit  les mn en m
+                    var newRayon = parseFloat(this.value);      // la c est une valeur en MN
+                    console.log('new rayon ' + newRayon + 'Mi')
+                    cercle.setRadius(newRayon * 1852);                          // pour l affichage a l ecran on  convertit  les mn en m
                 };
 
 
@@ -2847,7 +2863,7 @@ if (mode=='mixte'){
                 document.getElementById("saveWaypoint").onclick = function () {
                     wpRadius = parseFloat(document.getElementById('wpRadius').value)      //la c est une valeur en mN de la boite de dialogue 
                     wpColor = document.getElementById('wpColor').value
-              //    console.log(`on declenche miseajourwaypoint2 avec nom ${nom} lat${lat} lon${lon}  wpradius${wpRadius}  color ${wpColor}`)
+                    //    console.log(`on declenche miseajourwaypoint2 avec nom ${nom} lat${lat} lon${lon}  wpradius${wpRadius}  color ${wpColor}`)
                     miseajourWaypoint2(nom, lat, lon, wpRadius, wpColor);
                     waypointSauve = true;
                     fermerEditeurWaypoint();
@@ -2868,7 +2884,7 @@ if (mode=='mixte'){
 
                 typeinfo = 'wp'
                 typeaction = 'modify',
-                nouveauWP = [ordre, nomwp, newLat, newLon, newRayon, newColor]
+                    nouveauWP = [ordre, nomwp, newLat, newLon, newRayon, newColor]
                 nouveauWPStr = JSON.stringify(nouveauWP)
                 console.log('WPStr modifié ' + nouveauWPStr)
                 message = await modifpersonalinfos(username, user_id, course, typeinfo, typeaction, nomwp, nouveauWPStr)
@@ -3069,35 +3085,33 @@ if (mode=='mixte'){
             //**********************************************************************************************************************************
 
             var routageLayer = L.layerGroup().addTo(map);
-            var routageECMLayer= L.layerGroup().addTo(map);
+            var routageECMLayer = L.layerGroup().addTo(map);
             var polylines = {}; // Objet pour stocker les polylines
             let routes = [];  // Tableau global contenant toutes les routes
 
-        function getRandomColor() {
+            function getRandomColor() {
                 return "#" + Math.floor(Math.random() * 16777215).toString(16); // Génère une couleur hexadécimale aléatoire
             }
 
 
 
-        function construireRoute(nom, eta, duree, couleur, polyline) {
-            // polyline = tableau "riche" (avec plusieurs colonnes)
-            const coords = Array.isArray(polyline)
-                ? polyline.map(row => [row[2], row[3]])   // même logique que recupereRoutes
-                : [];
+            function construireRoute(nom, eta, duree, couleur, polyline) {
+                // polyline = tableau "riche" (avec plusieurs colonnes)
+                const coords = Array.isArray(polyline)
+                    ? polyline.map(row => [row[2], row[3]])   // même logique que recupereRoutes
+                    : [];
 
-            return {
-                nom,
-                eta,
-                duree,
-                couleur,
-                polyline,   // on garde le brut pour export GPX, etc.
-                coords,     // prêt pour Leaflet [lat, lon]
-                layer: L.layerGroup(),
-                visible: false
-            };
-        }
-
-
+                return {
+                    nom,
+                    eta,
+                    duree,
+                    couleur,
+                    polyline,   // on garde le brut pour export GPX, etc.
+                    coords,     // prêt pour Leaflet [lat, lon]
+                    layer: L.layerGroup(),
+                    visible: false
+                };
+            }
 
 
 
@@ -3115,32 +3129,34 @@ if (mode=='mixte'){
 
 
 
-        window.EditeurRoutes = () => { ouvrirEditeurRoutes() }
+
+
+            window.EditeurRoutes = () => { ouvrirEditeurRoutes() }
             function ouvrirEditeurRoutes()
             // Fonction pour ouvrir l'éditeur de routes
             {
                 console.log(' Demande affichage ouvrirEditeurRoutes  ')
-                console.log ('usernameRoutage '+usernameRoutage )
+                console.log('usernameRoutage ' + usernameRoutage)
                 const RoutesEditor = document.getElementById("RoutesEditor");
                 RoutesEditor.style.display = "block";
                 document.getElementById("RoutesEditor").classList.add("visible");
-                petitnomRoutage= genererNomRoutage()
-                console.log ('nomRoutage '+petitnomRoutage)
-                document.getElementById('nomRoutage').value=  petitnomRoutage
-               
+                petitnomRoutage = genererNomRoutage()
+                console.log('nomRoutage ' + petitnomRoutage)
+                document.getElementById('nomRoutage').value = petitnomRoutage
+
             };
 
 
 
 
-        window.fermerEditeurRoutes = () => {
+            window.fermerEditeurRoutes = () => {
                 const RoutesEditor = document.getElementById("RoutesEditor");
                 RoutesEditor.style.display = "none";
                 RoutesEditor.classList.remove("visible");
             }
 
 
-        window.sauveroute = async () => {
+            window.sauveroute = async () => {
                 console.log('On est dans sauveroute');
                 try {
                     await sauveRouteServeur2();  // Attente de la sauvegarde
@@ -3152,98 +3168,98 @@ if (mode=='mixte'){
             };
 
 
-window.afficherRoute = function (i) {
+            window.afficherRoute = function (i) {
 
-    console.log('indice i ' + i);
-    if (i < 0 || i >= routes.length) {
-        console.error("Index invalide :", i);
-        return;
-    }
+                console.log('indice i ' + i);
+                if (i < 0 || i >= routes.length) {
+                    console.error("Index invalide :", i);
+                    return;
+                }
 
-    const route = routes[i];
-    if (!route) {
-        console.error("Route inexistante à l'indice", i, "routes[i] =", route);
-        return;
-    }
+                const route = routes[i];
+                if (!route) {
+                    console.error("Route inexistante à l'indice", i, "routes[i] =", route);
+                    return;
+                }
 
-    if (!route.layer) {
-        route.layer = L.layerGroup();
-        route.visible = false;
-    }
+                if (!route.layer) {
+                    route.layer = L.layerGroup();
+                    route.visible = false;
+                }
 
-    route.layer.clearLayers();
+                route.layer.clearLayers();
 
-    if (!route.coords || !route.coords.length) {
-        console.error("Pas de coords pour la route", route);
-        return;
-    }
+                if (!route.coords || !route.coords.length) {
+                    console.error("Pas de coords pour la route", route);
+                    return;
+                }
 
-    const poly = L.polyline(route.coords, { color: route.couleur, weight: 2 });
-    poly.addTo(route.layer);
+                const poly = L.polyline(route.coords, { color: route.couleur, weight: 2 });
+                poly.addTo(route.layer);
 
-    if (!route.visible) {
-        route.layer.addTo(map);
-        route.visible = true;
-    }
-};
-
-
-        // window.afficherRoute = function (i) {
-
-        //     console.log('indice i ' + i);
-        //     if (i < 0 || i >= routes.length) {
-        //         console.error("Index invalide :", i);
-        //         return;
-        //     }
-
-        //     let route = routes[i];
-        //     if (!route) {
-        //         console.error("Route inexistante à l'indice", i, "routes[i] =", route);
-        //         return;
-        //     }
-
-        //     // Si le layer n'existe pas encore, on le crée
-        //     if (!route.layer) {
-        //         route.layer = L.layerGroup();
-        //         route.visible = false;
-        //     }
-
-        //     route.layer.clearLayers();
-
-        //     // ✅ On essaie d'abord route.coords (format [lat, lon])
-        //     let coords = route.coords;
-
-        //     // Si pas de coords, on tente de les reconstruire à partir de polyline
-        //     if ((!coords || !coords.length) && Array.isArray(route.polyline)) {
-        //         // Si polyline est du type [idx, x, lat, lon, ...]
-        //         if (Array.isArray(route.polyline[0]) && route.polyline[0].length >= 4) {
-        //             coords = route.polyline.map(row => [row[2], row[3]]);
-        //         } else {
-        //             // Sinon on suppose que polyline est déjà un tableau de [lat, lon]
-        //             coords = route.polyline;
-        //         }
-        //     }
-
-        //     if (!coords || !coords.length) {
-        //         console.error("Pas de coordonnées valides pour la route", route);
-        //         return;
-        //     }
-
-        //     const poly = L.polyline(coords, { color: route.couleur, weight: 2 });
-        //     poly.addTo(route.layer);
-
-        //     if (!route.visible) {
-        //         route.layer.addTo(map);
-        //         route.visible = true;
-        //     }
-        // };
+                if (!route.visible) {
+                    route.layer.addTo(map);
+                    route.visible = true;
+                }
+            };
 
 
+            // window.afficherRoute = function (i) {
+
+            //     console.log('indice i ' + i);
+            //     if (i < 0 || i >= routes.length) {
+            //         console.error("Index invalide :", i);
+            //         return;
+            //     }
+
+            //     let route = routes[i];
+            //     if (!route) {
+            //         console.error("Route inexistante à l'indice", i, "routes[i] =", route);
+            //         return;
+            //     }
+
+            //     // Si le layer n'existe pas encore, on le crée
+            //     if (!route.layer) {
+            //         route.layer = L.layerGroup();
+            //         route.visible = false;
+            //     }
+
+            //     route.layer.clearLayers();
+
+            //     // ✅ On essaie d'abord route.coords (format [lat, lon])
+            //     let coords = route.coords;
+
+            //     // Si pas de coords, on tente de les reconstruire à partir de polyline
+            //     if ((!coords || !coords.length) && Array.isArray(route.polyline)) {
+            //         // Si polyline est du type [idx, x, lat, lon, ...]
+            //         if (Array.isArray(route.polyline[0]) && route.polyline[0].length >= 4) {
+            //             coords = route.polyline.map(row => [row[2], row[3]]);
+            //         } else {
+            //             // Sinon on suppose que polyline est déjà un tableau de [lat, lon]
+            //             coords = route.polyline;
+            //         }
+            //     }
+
+            //     if (!coords || !coords.length) {
+            //         console.error("Pas de coordonnées valides pour la route", route);
+            //         return;
+            //     }
+
+            //     const poly = L.polyline(coords, { color: route.couleur, weight: 2 });
+            //     poly.addTo(route.layer);
+
+            //     if (!route.visible) {
+            //         route.layer.addTo(map);
+            //         route.visible = true;
+            //     }
+            // };
 
 
 
 
-        window.masquerRoute = function (i) {
+
+
+            window.masquerRoute = function (i) {
                 if (i < 0 || i >= routes.length) return;
                 const route = routes[i];
                 if (route.visible) {
@@ -3255,12 +3271,12 @@ window.afficherRoute = function (i) {
 
 
 
-        window.exporterRoute = function (i) {
+            window.exporterRoute = function (i) {
                 exporterRoute(i)
             }
 
 
-        window.supprimerRoute = function (i) {
+            window.supprimerRoute = function (i) {
                 let nom = routes[i].nom;
                 console.log('Username:', username);
                 console.log('Course:', course);
@@ -3269,22 +3285,22 @@ window.afficherRoute = function (i) {
             };
 
 
-function genererNomRoutage() {
+            function genererNomRoutage() {
 
-    if (usernameRoutage === undefined) {
-        usernameRoutage = 'Routage non calculé';
-    }
-    console.log('usernameRoutage ' + usernameRoutage);
+                if (usernameRoutage === undefined) {
+                    usernameRoutage = 'Routage non calculé';
+                }
+                console.log('usernameRoutage ' + usernameRoutage);
 
-    let now = new Date();
-    let jour = String(now.getDate()).padStart(2, '0');
-    let mois = String(now.getMonth() + 1).padStart(2, '0'); // mois 0–11
-    let heure = String(now.getHours()).padStart(2, '0');
-    let minute = String(now.getMinutes()).padStart(2, '0');
+                let now = new Date();
+                let jour = String(now.getDate()).padStart(2, '0');
+                let mois = String(now.getMonth() + 1).padStart(2, '0'); // mois 0–11
+                let heure = String(now.getHours()).padStart(2, '0');
+                let minute = String(now.getMinutes()).padStart(2, '0');
 
-    // Nom "propre" (une seule ligne) : ex. "Routage JP 16/11 11:32"
-    return `${usernameRoutage} ${jour}/${mois} ${heure}:${minute}`;
-}
+                // Nom "propre" (une seule ligne) : ex. "Routage JP 16/11 11:32"
+                return `${usernameRoutage} ${jour}/${mois} ${heure}:${minute}`;
+            }
 
             // function genererNomRoutage() {
 
@@ -3335,7 +3351,7 @@ function genererNomRoutage() {
             //     // ⚠️ important pour l’affichage
             //     nouvelleRoute.layer = L.layerGroup();  // layer dédié à cette route
             //     nouvelleRoute.visible = false;        // pas encore affichée
-                
+
             //     routes.push(nouvelleRoute);
             //     mettreAJourTableau();
 
@@ -3350,137 +3366,137 @@ function genererNomRoutage() {
             //     }
             // }
 
-async function sauveRouteServeur2() {
+            async function sauveRouteServeur2() {
 
-    console.log('la route est sauvee');
-    typeinfo = 'routage';
-    typeaction = 'insert';
-    console.log('Sauvegarde de la route sur le serveur dans personalinfos2');
+                console.log('la route est sauvee');
+                typeinfo = 'routage';
+                typeaction = 'insert';
+                console.log('Sauvegarde de la route sur le serveur dans personalinfos2');
 
-    const nbRoutes = routes.length;
-    const color = colorhex[nbRoutes % colorhex.length];
-    console.log(color);
+                const nbRoutes = routes.length;
+                const color = colorhex[nbRoutes % colorhex.length];
+                console.log(color);
 
-    let nomRoutage = document.getElementById('nomRoutage').value;
+                let nomRoutage = document.getElementById('nomRoutage').value;
 
-    if (!nomRoutage || !eta || !dureeparcours || !polyglobal) {
-        alert("Données incomplètes pour sauvegarder la route.");
-        return;
-    }
+                if (!nomRoutage || !eta || !dureeparcours || !polyglobal) {
+                    alert("Données incomplètes pour sauvegarder la route.");
+                    return;
+                }
 
-    // polyline "riche" = ton tabroutage
-    const polyline = tabroutage;
+                // polyline "riche" = ton tabroutage
+                const polyline = tabroutage;
 
-    // ✅ Route pour l’UI, normalisée comme celles rechargées
-    const nouvelleRoute = construireRoute(
-        nomRoutage,
-        eta,
-        dureeparcours,
-        color,
-        polyline
-    );
+                // ✅ Route pour l’UI, normalisée comme celles rechargées
+                const nouvelleRoute = construireRoute(
+                    nomRoutage,
+                    eta,
+                    dureeparcours,
+                    color,
+                    polyline
+                );
 
-    // ✅ Route à envoyer au serveur (sans layer, visible, coords)
-    const routePourServeur = {
-        nom: nomRoutage,
-        eta: eta,
-        duree: dureeparcours,
-        couleur: color,
-        polyline: polyline
-    };
+                // ✅ Route à envoyer au serveur (sans layer, visible, coords)
+                const routePourServeur = {
+                    nom: nomRoutage,
+                    eta: eta,
+                    duree: dureeparcours,
+                    couleur: color,
+                    polyline: polyline
+                };
 
-    // Ajout local + mise à jour affichage
-    routes.push(nouvelleRoute);
-    mettreAJourTableau();
+                // Ajout local + mise à jour affichage
+                routes.push(nouvelleRoute);
+                mettreAJourTableau();
 
-    try {
-        let message = await modifpersonalinfos(
-            username,
-            user_id,
-            course,
-            typeinfo,
-            typeaction,
-            nomRoutage,
-            JSON.stringify(routePourServeur)
-        );
-        console.log('Sauvegarde réussie : ', message);
-        alert('Route sauvegardée avec succès !');
+                try {
+                    let message = await modifpersonalinfos(
+                        username,
+                        user_id,
+                        course,
+                        typeinfo,
+                        typeaction,
+                        nomRoutage,
+                        JSON.stringify(routePourServeur)
+                    );
+                    console.log('Sauvegarde réussie : ', message);
+                    alert('Route sauvegardée avec succès !');
 
-    } catch (error) {
-        console.error('Erreur lors de la sauvegarde : ', error);
-        alert('Échec de la sauvegarde : ' + error.message);
-    }
-}
-
-
-
-function formaterNomRoutagePourTableau(nom) {
-    // Cherche un motif "dd/mm hh:mm" et insère un <br> avant
-    // Exemple : "Routage JP 16/11 11:32"
-    // devient   "Routage JP<br>16/11 11:32"
-    return nom.replace(/(\d{2}\/\d{2}\s+\d{2}:\d{2})/, '<br>$1');
-}
+                } catch (error) {
+                    console.error('Erreur lors de la sauvegarde : ', error);
+                    alert('Échec de la sauvegarde : ' + error.message);
+                }
+            }
 
 
-// async function sauveRouteServeur2() {
 
-//     console.log('la route est sauvee');
-//     typeinfo = 'routage';
-//     typeaction = 'insert';
-//     console.log('Sauvegarde de la route sur le serveur dans personalinfos2');
+            function formaterNomRoutagePourTableau(nom) {
+                // Cherche un motif "dd/mm hh:mm" et insère un <br> avant
+                // Exemple : "Routage JP 16/11 11:32"
+                // devient   "Routage JP<br>16/11 11:32"
+                return nom.replace(/(\d{2}\/\d{2}\s+\d{2}:\d{2})/, '<br>$1');
+            }
 
-//     nbRoutes = routes.length;
-//     let color = colorhex[nbRoutes % colorhex.length];
-//     console.log(color);
 
-//     let nomRoutage = document.getElementById('nomRoutage').value;
+            // async function sauveRouteServeur2() {
 
-//     // Vérification des valeurs avant de sauvegarder
-//     if (!nomRoutage || !eta || !dureeparcours || !polyglobal) {
-//         alert("Données incomplètes pour sauvegarder la route.");
-//         return;
-//     }
+            //     console.log('la route est sauvee');
+            //     typeinfo = 'routage';
+            //     typeaction = 'insert';
+            //     console.log('Sauvegarde de la route sur le serveur dans personalinfos2');
 
-//     // ✅ Construire coords exactement comme au chargement
-//     const coords = Array.isArray(tabroutage)
-//         ? tabroutage.map(row => [row[2], row[3]])
-//         : [];
+            //     nbRoutes = routes.length;
+            //     let color = colorhex[nbRoutes % colorhex.length];
+            //     console.log(color);
 
-//     let nouvelleRoute = {
-//         nom: nomRoutage,
-//         eta: eta,
-//         duree: dureeparcours,
-//         couleur: color,
-//         polyline: tabroutage,  // tableau complet (avec les autres infos)
-//         coords: coords         // juste [lat, lon] pour Leaflet
-//     };
+            //     let nomRoutage = document.getElementById('nomRoutage').value;
 
-//     // Layer dédié à cette route
-//     nouvelleRoute.layer = L.layerGroup();
-//     nouvelleRoute.visible = false;
+            //     // Vérification des valeurs avant de sauvegarder
+            //     if (!nomRoutage || !eta || !dureeparcours || !polyglobal) {
+            //         alert("Données incomplètes pour sauvegarder la route.");
+            //         return;
+            //     }
 
-//     // Ajout local + mise à jour de l’UI
-//     routes.push(nouvelleRoute);
-//     mettreAJourTableau();
+            //     // ✅ Construire coords exactement comme au chargement
+            //     const coords = Array.isArray(tabroutage)
+            //         ? tabroutage.map(row => [row[2], row[3]])
+            //         : [];
 
-//     try {
-//         let message = await modifpersonalinfos(
-//             username,
-//             user_id,
-//             course,
-//             typeinfo,
-//             typeaction,
-//             nomRoutage,
-//             JSON.stringify(nouvelleRoute)
-//         );
-//         console.log('Sauvegarde réussie : ', message);
-//         alert('Route sauvegardée avec succès !');
+            //     let nouvelleRoute = {
+            //         nom: nomRoutage,
+            //         eta: eta,
+            //         duree: dureeparcours,
+            //         couleur: color,
+            //         polyline: tabroutage,  // tableau complet (avec les autres infos)
+            //         coords: coords         // juste [lat, lon] pour Leaflet
+            //     };
 
-//     } catch (error) {
-//         console.error('Erreur lors de la sauvegarde : ', error);
-//         alert('Échec de la sauvegarde : ' + error.message);
-//     }
-// }
+            //     // Layer dédié à cette route
+            //     nouvelleRoute.layer = L.layerGroup();
+            //     nouvelleRoute.visible = false;
+
+            //     // Ajout local + mise à jour de l’UI
+            //     routes.push(nouvelleRoute);
+            //     mettreAJourTableau();
+
+            //     try {
+            //         let message = await modifpersonalinfos(
+            //             username,
+            //             user_id,
+            //             course,
+            //             typeinfo,
+            //             typeaction,
+            //             nomRoutage,
+            //             JSON.stringify(nouvelleRoute)
+            //         );
+            //         console.log('Sauvegarde réussie : ', message);
+            //         alert('Route sauvegardée avec succès !');
+
+            //     } catch (error) {
+            //         console.error('Erreur lors de la sauvegarde : ', error);
+            //         alert('Échec de la sauvegarde : ' + error.message);
+            //     }
+            // }
 
 
 
@@ -3534,7 +3550,7 @@ function formaterNomRoutagePourTableau(nom) {
 
 
 
-//<td><button onclick="exportRouteAsCSV(${i})">Export CSV</button></td>
+            //<td><button onclick="exportRouteAsCSV(${i})">Export CSV</button></td>
 
 
 
@@ -3544,116 +3560,116 @@ function formaterNomRoutagePourTableau(nom) {
 
 
 
-// Format "06/01 12:34" (UTC). Si tu veux heure locale, dis-le et je te mets la version locale.
-function formatDateDDMM_HHMM_UTC(ms) {
-  const d = new Date(ms);
-  const dd = String(d.getUTCDate()).padStart(2, "0");
-  const mm = String(d.getUTCMonth() + 1).padStart(2, "0");
-  const HH = String(d.getUTCHours()).padStart(2, "0");
-  const MM = String(d.getUTCMinutes()).padStart(2, "0");
-  return `${dd}/${mm} ${HH}:${MM}`;
-}
+            // Format "06/01 12:34" (UTC). Si tu veux heure locale, dis-le et je te mets la version locale.
+            function formatDateDDMM_HHMM_UTC(ms) {
+                const d = new Date(ms);
+                const dd = String(d.getUTCDate()).padStart(2, "0");
+                const mm = String(d.getUTCMonth() + 1).padStart(2, "0");
+                const HH = String(d.getUTCHours()).padStart(2, "0");
+                const MM = String(d.getUTCMinutes()).padStart(2, "0");
+                return `${dd}/${mm} ${HH}:${MM}`;
+            }
 
-// CSV escape minimal (si un champ contient virgule/guillemet/retour ligne)
-function csvEscape(value) {
-  const s = String(value ?? "");
-  return /[",\n\r]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
-}
+            // CSV escape minimal (si un champ contient virgule/guillemet/retour ligne)
+            function csvEscape(value) {
+                const s = String(value ?? "");
+                return /[",\n\r]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
+            }
 
-/**
- * Exporte tabroutage en CSV avec colonnes:
- * Date, Latitude, Longitude, Heading, Speed, SailSet, TWA, TWD, TWS, STAMINA, BOOST
- *
- * Indices (0-based) d'après ton message :
- * Date delta sec -> col 1
- * Lat -> col 2
- * Lon -> col 3
- * TWA -> col 5
- * Heading -> col 6
- * Speed -> col 9
- * SailSet -> col 10
- * BOOST -> col 11
- * TWS -> col 12
- * TWD -> col 13
- * STAMINA -> col 14
- *
- * t0: timestamp de départ (en secondes unix ou ms, géré ci-dessous)
- * race: int 3 digits
- * v: préfixe string (ex "vr_" ou "v")
- */
-window.exportRoutageAsCSV = function (tabroutage, t0, race, v = "v") {
-  if (!Array.isArray(tabroutage) || tabroutage.length === 0) {
-    console.warn("tabroutage vide");
-    return;
-  }
+            /**
+             * Exporte tabroutage en CSV avec colonnes:
+             * Date, Latitude, Longitude, Heading, Speed, SailSet, TWA, TWD, TWS, STAMINA, BOOST
+             *
+             * Indices (0-based) d'après ton message :
+             * Date delta sec -> col 1
+             * Lat -> col 2
+             * Lon -> col 3
+             * TWA -> col 5
+             * Heading -> col 6
+             * Speed -> col 9
+             * SailSet -> col 10
+             * BOOST -> col 11
+             * TWS -> col 12
+             * TWD -> col 13
+             * STAMINA -> col 14
+             *
+             * t0: timestamp de départ (en secondes unix ou ms, géré ci-dessous)
+             * race: int 3 digits
+             * v: préfixe string (ex "vr_" ou "v")
+             */
+            window.exportRoutageAsCSV = function (tabroutage, t0, race, v = "v") {
+                if (!Array.isArray(tabroutage) || tabroutage.length === 0) {
+                    console.warn("tabroutage vide");
+                    return;
+                }
 
-  // t0 peut être en secondes unix (10 chiffres) ou en ms (13 chiffres)
-  const t0Num = Number(t0);
-  if (!Number.isFinite(t0Num)) {
-    console.error("t0 invalide:", t0);
-    return;
-  }
-  const t0ms = (t0Num < 1e12) ? (t0Num * 1000) : t0Num; // heuristique
+                // t0 peut être en secondes unix (10 chiffres) ou en ms (13 chiffres)
+                const t0Num = Number(t0);
+                if (!Number.isFinite(t0Num)) {
+                    console.error("t0 invalide:", t0);
+                    return;
+                }
+                const t0ms = (t0Num < 1e12) ? (t0Num * 1000) : t0Num; // heuristique
 
-  const raceStr = String(race).padStart(3, "0");
-  const filename = `${v}${raceStr}.csv`;
+                const raceStr = String(race).padStart(3, "0");
+                const filename = `${v}${raceStr}.csv`;
 
-  let csv = "";
-  csv += "Date,Latitude,Longitude,Heading,Speed,SailSet,TWA,TWD,TWS,STAMINA,BOOST\n";
+                let csv = "";
+                csv += "Date,Latitude,Longitude,Heading,Speed,SailSet,TWA,TWD,TWS,STAMINA,BOOST\n";
 
-  for (let i = 0; i < tabroutage.length; i++) {
-    const row = tabroutage[i];
-    if (!row || !Array.isArray(row)) continue;
+                for (let i = 0; i < tabroutage.length; i++) {
+                    const row = tabroutage[i];
+                    if (!row || !Array.isArray(row)) continue;
 
-    const dtSec = Number(row[1]);
-    const lat   = Number(row[2]);
-    const lon   = Number(row[3]);
-    const twa   = Number(row[5]);
-    const head  = Number(row[6]);
-    const speed = Number(row[9]);
-    const sailCode = row[10];
+                    const dtSec = Number(row[1]);
+                    const lat = Number(row[2]);
+                    const lon = Number(row[3]);
+                    const twa = Number(row[5]);
+                    const head = Number(row[6]);
+                    const speed = Number(row[9]);
+                    const sailCode = row[10];
 
-    const boost = Number(row[11]);
-    const tws   = Number(row[12]);
-    const twd   = Number(row[13]);
-    const stamina = Number(row[14]);
+                    const boost = Number(row[11]);
+                    const tws = Number(row[12]);
+                    const twd = Number(row[13]);
+                    const stamina = Number(row[14]);
 
-    if (!Number.isFinite(dtSec) || !Number.isFinite(lat) || !Number.isFinite(lon)) continue;
+                    if (!Number.isFinite(dtSec) || !Number.isFinite(lat) || !Number.isFinite(lon)) continue;
 
-    const dateStr = formatDateDDMM_HHMM_UTC(t0ms + dtSec * 1000);
+                    const dateStr = formatDateDDMM_HHMM_UTC(t0ms + dtSec * 1000);
 
-    const sailIdx = parseInt((Number(sailCode) % 10), 10);
-    const sailSet = (Number.isFinite(sailIdx) && sailIdx >= 0 && sailIdx < typeVoiles.length)
-      ? typeVoiles[sailIdx]
-      : "";
+                    const sailIdx = parseInt((Number(sailCode) % 10), 10);
+                    const sailSet = (Number.isFinite(sailIdx) && sailIdx >= 0 && sailIdx < typeVoiles.length)
+                        ? typeVoiles[sailIdx]
+                        : "";
 
-    const line = [
-      csvEscape(dateStr),
-      csvEscape(lat),
-      csvEscape(lon),
-      csvEscape(head),
-      csvEscape(speed),
-      csvEscape(sailSet),
-      csvEscape(twa),
-      csvEscape(twd),
-      csvEscape(tws),
-      csvEscape(stamina),
-      csvEscape(boost),
-    ].join(",") + "\n";
+                    const line = [
+                        csvEscape(dateStr),
+                        csvEscape(lat),
+                        csvEscape(lon),
+                        csvEscape(head),
+                        csvEscape(speed),
+                        csvEscape(sailSet),
+                        csvEscape(twa),
+                        csvEscape(twd),
+                        csvEscape(tws),
+                        csvEscape(stamina),
+                        csvEscape(boost),
+                    ].join(",") + "\n";
 
-    csv += line;
-  }
+                    csv += line;
+                }
 
-  const blob = new Blob([csv], { type: "text/csv;charset=utf-8" });
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement("a");
-  a.href = url;
-  a.download = filename;
-  document.body.appendChild(a);
-  a.click();
-  document.body.removeChild(a);
-  URL.revokeObjectURL(url);
-};
+                const blob = new Blob([csv], { type: "text/csv;charset=utf-8" });
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement("a");
+                a.href = url;
+                a.download = filename;
+                document.body.appendChild(a);
+                a.click();
+                document.body.removeChild(a);
+                URL.revokeObjectURL(url);
+            };
 
 
 
@@ -3712,48 +3728,48 @@ window.exportRoutageAsCSV = function (tabroutage, t0, race, v = "v") {
 
 
 
-function recupereRoutes(personalInfosJS) {
-    routes = [];
-    console.log('**************************************');
-    console.log('on est dans recupereRoutes');
-    console.log('**************************************');
+            function recupereRoutes(personalInfosJS) {
+                routes = [];
+                console.log('**************************************');
+                console.log('on est dans recupereRoutes');
+                console.log('**************************************');
 
-    if (!personalInfosJS || !personalInfosJS.routage) return;
+                if (!personalInfosJS || !personalInfosJS.routage) return;
 
-    let raw = personalInfosJS.routage;
+                let raw = personalInfosJS.routage;
 
-    if (typeof raw === 'string') {
-        try {
-            raw = JSON.parse(raw);
-        } catch (e) {
-            console.error('routage global invalide:', e);
-            return;
-        }
-    }
+                if (typeof raw === 'string') {
+                    try {
+                        raw = JSON.parse(raw);
+                    } catch (e) {
+                        console.error('routage global invalide:', e);
+                        return;
+                    }
+                }
 
-    for (const [key, val] of Object.entries(raw)) {
-        let obj = val;
-        if (typeof obj === 'string') {
-            try {
-                obj = JSON.parse(obj);
-            } catch (e) {
-                console.warn('Entrée routage non parsable pour', key, e);
-                continue;
+                for (const [key, val] of Object.entries(raw)) {
+                    let obj = val;
+                    if (typeof obj === 'string') {
+                        try {
+                            obj = JSON.parse(obj);
+                        } catch (e) {
+                            console.warn('Entrée routage non parsable pour', key, e);
+                            continue;
+                        }
+                    }
+
+                    const nom = obj.nom ?? key;
+                    const eta = obj.eta ?? null;
+                    const duree = obj.duree ?? null;
+                    const couleur = obj.couleur ?? '#3388ff';
+                    const polyline = obj.polyline ?? [];
+
+                    const route = construireRoute(nom, eta, duree, couleur, polyline);
+                    routes.push(route);
+                }
+
+                mettreAJourTableau();
             }
-        }
-
-        const nom = obj.nom ?? key;
-        const eta = obj.eta ?? null;
-        const duree = obj.duree ?? null;
-        const couleur = obj.couleur ?? '#3388ff';
-        const polyline = obj.polyline ?? [];
-
-        const route = construireRoute(nom, eta, duree, couleur, polyline);
-        routes.push(route);
-    }
-
-    mettreAJourTableau();
-}
 
 
 
@@ -3891,10 +3907,10 @@ function recupereRoutes(personalInfosJS) {
             }
 
 
-            
 
 
-            
+
+
 
 
             // Export GPX d'une route index i (coords = [[lat, lon], ...])
@@ -4752,9 +4768,9 @@ function recupereRoutes(personalInfosJS) {
                 t0 = posStart.t0
                 course = race + '.' + leg
                 // on va recuperer ari dans le dernier trajet dans memoire trajets
-                tableau=trouvetrajet(username, course)
-                ari=tableau[11]
-                console.log ('On aa retrouvé ari '+ari)
+                tableau = trouvetrajet(username, course)
+                ari = tableau[11]
+                console.log('On aa retrouvé ari ' + ari)
                 //on initialise un trajet en localstorage
 
 
@@ -4807,7 +4823,7 @@ function recupereRoutes(personalInfosJS) {
                         // on remet à jour les dernières valeurs communiquées  
                         ari = trajet[11]
                         waypoints = trajet[12]                    // liste globale des waypoints 
-                        console.log ('dans main ari '+ari)
+                        console.log('dans main ari ' + ari)
                         console.log('Heure dernière position ' + intlhmn.format((t0)))
                     }
 
@@ -4847,7 +4863,7 @@ function recupereRoutes(personalInfosJS) {
                 //console.log ('leginfos'+leginfos)
                 afficheleginfos(leginfos)
                 //console.log(`leginfos recuperees pour la course par chercheleginfos ${course} \n*******************\n     ${leginfos}`)
-                
+
                 carte = await chargecartemaps2(y0vr, x0vr)
                 affichecarte(carte)                                       // affiche la carte locale pas forcement necessaire 
 
@@ -4884,7 +4900,7 @@ function recupereRoutes(personalInfosJS) {
                 //****************************************************************************
                 // ********** On recherche les personalinfos 
                 //****************************************************************************
-               // console.log(`Recherche de PersonalInfos  pour ${username}  ${user_id} sur  course ${course}`)
+                // console.log(`Recherche de PersonalInfos  pour ${username}  ${user_id} sur  course ${course}`)
                 personalInfosStr = await recherchepersonalinfos(username, user_id, course)
                 personalInfosJS = JSON.parse(personalInfosStr);
 
@@ -4902,9 +4918,9 @@ function recupereRoutes(personalInfosJS) {
                 // console.log('ligne 3971 waypoints ' + waypoints + ' ari ' + ari)
                 afficheselectarrivee(waypoints, ari)// on affiche le select arrivee avec les waypoints et ceux selectionnes  contenus dans localstorage
 
-              
 
-                if (ari === null || ari === undefined) {    ari = ['Arrivee'];}
+
+                if (ari === null || ari === undefined) { ari = ['Arrivee']; }
                 // ici on peut afficher les coordonnees du dernier wp selectionné qui est le dernier element de ari 
                 nomdernierwp = ari[ari.length - 1]                                        // nom du dernier wp
                 waypoint = waypoints.find(waypoints => waypoints[1] === nomdernierwp) // on le recherche dans la liste 
@@ -5299,8 +5315,8 @@ function recupereRoutes(personalInfosJS) {
 
 
                 // on affiche le selectcourse   avec la valeur de la course 
-                let tabValeurs  = tabNameCourses.map(subArray => subArray[0]);
-                let tabNoms     = tabNameCourses.map(subArray => subArray[1]);
+                let tabValeurs = tabNameCourses.map(subArray => subArray[0]);
+                let tabNoms = tabNameCourses.map(subArray => subArray[1]);
                 let coursesUser = await cherchecoursesuser(username) // on cherche les courses en cours du username
 
                 console.log('coursesUser issues du serveur :')
@@ -5326,17 +5342,17 @@ function recupereRoutes(personalInfosJS) {
                 affichewaypoints2(personalInfosJS)
                 waypoints = Object.values(personalInfosJS.wp).sort((a, b) => a[0] - b[0]);
                 nomsWaypoints = waypoints.map(item => item[1]);
-                
+
                 // si ari etait implemente dans personalinfos 
                 //ari = personalInfosJS['ari']
 
                 // sinon on va aller cherchertrajet dans lamemoire trajet 
-                
+
                 trajet = trouvetrajet(username, course)
-                console.log ('trajet dans changement course')
+                console.log('trajet dans changement course')
                 console.log(trajet)
-                ari=trajet[11]
-                console.log('valeur de ari dans changementcourse : '+ari)
+                ari = trajet[11]
+                console.log('valeur de ari dans changementcourse : ' + ari)
 
 
                 afficheselectarrivee(waypoints, ari)// on affiche le select arrivee avec les waypoints et ceux selectionnes  
@@ -5574,7 +5590,7 @@ function recupereRoutes(personalInfosJS) {
                 if (leginfos != null) {
                     leginfos = JSON.parse(leginfos)
                     lgMarkers.clearLayers();  // Contient les lignes de checkpoints   
-                    lgDashLines.clearLayers();                   
+                    lgDashLines.clearLayers();
                     var nombreLignes = leginfos['checkpoints'].length // on recupere les lignes de checkpoint 
 
                     tabLignesCheckPoints.length = nombreLignes
@@ -5628,10 +5644,10 @@ function recupereRoutes(personalInfosJS) {
                         }
                         console.log("Zones d'Exclusions Récupérées ")
                         console.log(JSON.stringify(zonesExclusions))
-                       afficheExclusions(zonesExclusions,map,layerExclusions,{ color:"red", weight:1, opacity:1 });
+                        afficheExclusions(zonesExclusions, map, layerExclusions, { color: "red", weight: 1, opacity: 1 });
 
 
-                        
+
                     }
                     catch { zonesExclusions = []; console.log('Pas de zones d exclusion pour la course') }
 
@@ -5679,7 +5695,7 @@ function recupereRoutes(personalInfosJS) {
                     });
 
 
-                    console.log ('zonesExclusions VR \n' +zonesExclusions)
+                    console.log('zonesExclusions VR \n' + zonesExclusions)
                     // lignes exclusions si elles existent 
                     try { L.polyline(zonesExclusions).setStyle({ color: 'red', weight: 1, opacity: 1, }).addTo(lgDashLines); }
                     catch { 'console.log pas de zones d exclusion' }
@@ -5713,14 +5729,14 @@ function recupereRoutes(personalInfosJS) {
                 // console.log (tabrecouvrements)
 
 
-                let voileActuelle=typeVoiles[(sail % 10)]
-               // console.log ('Dans tabrecou ',voileActuelle)
+                let voileActuelle = typeVoiles[(sail % 10)]
+                // console.log ('Dans tabrecou ',voileActuelle)
                 tableau = tabrecouvrements
                 leginfosjs = JSON.parse(leginfos)
-                labelbateau=leginfosjs['boat']['label']
+                labelbateau = leginfosjs['boat']['label']
                 //console.log ('bateau '+labelbateau)
 
-                
+
                 texte = `<div class="recou">Recouvrements  ${labelbateau} ( TwaVR: ${twavr.toFixed(2)})</div>`;
 
                 let voile0 = typeVoiles[tableau[0][0]];
@@ -5766,18 +5782,18 @@ function recupereRoutes(personalInfosJS) {
 
 
 
-/*
-                texte = '<div class="recou">Recouvrements </div>';
-                texte += "<tr><td>----</td><td>----</td><td>" + typeVoiles[tableau[0][0]] + "</td><td>" + tableau[0][2].toFixed(1) + "</td><td>" + tableau[0][4].toFixed(1) + "</td></tr>"
-                for (var i = 1; i < tableau.length - 1; i++) {
-                    texte += "<tr><td>" + tableau[i][3].toFixed(1) + "</td><td>" + tableau[i][1].toFixed(1) + "</td><td>" + typeVoiles[tableau[i][0]] + "</td><td>" + tableau[i][2].toFixed(1) + "</td><td>" + tableau[i][4].toFixed(1) + "</td></tr>"
-                }
-                texte += "<tr><td>" + tableau[i][3].toFixed(1) + "</td><td>" + tableau[i][1].toFixed(1) + "</td><td>" + typeVoiles[tableau[i][0]] + "</td><td>----</td><td>----</td></tr>"
-                
- */               
-                
-                
-                
+                /*
+                                texte = '<div class="recou">Recouvrements </div>';
+                                texte += "<tr><td>----</td><td>----</td><td>" + typeVoiles[tableau[0][0]] + "</td><td>" + tableau[0][2].toFixed(1) + "</td><td>" + tableau[0][4].toFixed(1) + "</td></tr>"
+                                for (var i = 1; i < tableau.length - 1; i++) {
+                                    texte += "<tr><td>" + tableau[i][3].toFixed(1) + "</td><td>" + tableau[i][1].toFixed(1) + "</td><td>" + typeVoiles[tableau[i][0]] + "</td><td>" + tableau[i][2].toFixed(1) + "</td><td>" + tableau[i][4].toFixed(1) + "</td></tr>"
+                                }
+                                texte += "<tr><td>" + tableau[i][3].toFixed(1) + "</td><td>" + tableau[i][1].toFixed(1) + "</td><td>" + typeVoiles[tableau[i][0]] + "</td><td>----</td><td>----</td></tr>"
+                                
+                 */
+
+
+
                 //document.getElementById('tabrecou').innerHTML = texte
 
 
@@ -5851,12 +5867,12 @@ function recupereRoutes(personalInfosJS) {
                 const clipboardData = event.clipboardData || window.clipboardData;   // Récupérer le texte collé
                 const pastedData = clipboardData.getData("text");
 
-                console.log ('pasteddata '+pastedData )
+                console.log('pasteddata ' + pastedData)
                 event.target.value = pastedData;                                     // Insérer le texte collé dans le champ    
 
                 const { latDecimal, lngDecimal } = dmsToDecimal(pastedData);         // Conversion des coordonnées en décimales
-               
-               
+
+
                 console.log('latDecimal ' + latDecimal)
                 console.log('lngDecimal ' + lngDecimal)
                 y0 = latDecimal
@@ -5944,6 +5960,23 @@ function recupereRoutes(personalInfosJS) {
                 memoiretrajets[0][11] = ari
                 localStorage.setItem('memoiretrajets', JSON.stringify(memoiretrajets))
                 // on Reaffiche avec ari  
+
+                console.log('ari en ligne 1955 ' + ari)
+
+                // on va modifier ari dans personalinfos 
+
+
+                console.log('username ' + username)
+                console.log('user_id  ' + user_id)
+                typeinfo = 'ari' // on va ajouter tolerancehvmg dans les personalinfos
+                typeaction = 'modify',
+                    nom = 'ari'
+                valeur = ari
+
+                message = modifpersonalinfos(username, user_id, course, typeinfo, typeaction, nom, valeur)
+                //console.log(message)
+
+                console.log(ari)
                 afficheselectarrivee(waypoints, ari)
 
 
@@ -6038,18 +6071,19 @@ function recupereRoutes(personalInfosJS) {
             showroutage.addEventListener('change', toggleShowRoutage)
 
             function toggleShowRoutage() {
-                if (showroutage.checked) { routageLayer.addTo(map);       }
-                else                     { map.removeLayer(routageLayer); }
+                if (showroutage.checked) { routageLayer.addTo(map); }
+                else { map.removeLayer(routageLayer); }
             }
 
 
- 
+
             const showmixte = document.getElementById('showmixte')
             showmixte.addEventListener('change', toggleShowMixte)
 
-            function toggleShowMixte() { console.log ('showmixte declenché');
-                if (showmixte.checked) { routageECMLayer.addTo(map);       }
-                else                     { map.removeLayer(routageECMLayer); }
+            function toggleShowMixte() {
+                console.log('showmixte declenché');
+                if (showmixte.checked) { routageECMLayer.addTo(map); }
+                else { map.removeLayer(routageECMLayer); }
             }
 
 
@@ -6064,8 +6098,8 @@ function recupereRoutes(personalInfosJS) {
             checkboxiso.addEventListener('change', toggleIsochronesLayer)
 
             function toggleIsochronesLayer() {
-                if (checkboxiso.checked) { isochronesLayer.addTo(map);}
-                 else                    { map.removeLayer(isochronesLayer);}
+                if (checkboxiso.checked) { isochronesLayer.addTo(map); }
+                else { map.removeLayer(isochronesLayer); }
             }
 
 
@@ -6232,7 +6266,7 @@ function recupereRoutes(personalInfosJS) {
                 }
 
 
-heuredepart
+                heuredepart
             });
 
 
@@ -6240,7 +6274,7 @@ heuredepart
             document.getElementById("btnDivers").addEventListener("click", function () {
                 // const urlPolaires = "http://inc.bureauvallee.free.fr/polaires/?race_id=654.1&tws=13.6+&twa=45&utm_source=VRDashboard";
                 console.log('polar_id' + polar_id)
-                console.log ('y0'+y0)
+                console.log('y0' + y0)
 
                 url = `${serveur}/parametres?course=${course}&polar_id=${polar_id}&tws=${twsvr}&twa=${Math.abs(twavr)}&stam=${stamina}&lat=${y0}&lon=${x0}&hull=true&winch=true&foil=true&light=true&heavy=true&reach=true&magicFurler=true&comfortLoungePug=true&vrtexJacket=true&voile=${sail % 10}`
                 const width = 1000;
@@ -6296,193 +6330,193 @@ heuredepart
 
 
 
-window.exportCSV = function (tabroutage, t0, race, v = "v", options = {}) {
-  const {
-    sep = ";",          // séparateur de colonnes
-    decimal = ".",      // séparateur décimal ("," pour Excel FR, "." sinon)
-    eol = "\n",
-    withBOM = true,     // aide Excel à bien détecter l'UTF-8
-  } = options;
+            window.exportCSV = function (tabroutage, t0, race, v = "v", options = {}) {
+                const {
+                    sep = ";",          // séparateur de colonnes
+                    decimal = ".",      // séparateur décimal ("," pour Excel FR, "." sinon)
+                    eol = "\n",
+                    withBOM = true,     // aide Excel à bien détecter l'UTF-8
+                } = options;
 
-  if (!Array.isArray(tabroutage) || tabroutage.length === 0) {
-    console.warn("tabroutage vide");
-    return;
-  }
+                if (!Array.isArray(tabroutage) || tabroutage.length === 0) {
+                    console.warn("tabroutage vide");
+                    return;
+                }
 
-  const t0ms = toMsEpoch(t0);
-  if (!Number.isFinite(t0ms)) {
-    console.error("t0 invalide (non numérique):", t0);
-    return;
-  }
+                const t0ms = toMsEpoch(t0);
+                if (!Number.isFinite(t0ms)) {
+                    console.error("t0 invalide (non numérique):", t0);
+                    return;
+                }
 
-  const raceStr = String(race).padStart(3, "0");
-  const filename = `${v}${raceStr}.csv`;
+                const raceStr = String(race).padStart(3, "0");
+                const filename = `${v}${raceStr}.csv`;
 
-  // formateur numérique: fixed + conversion décimale
-  const fmtLocal = (x, n) => {
-    if (!Number.isFinite(x)) return "";
-    let s = Number(x).toFixed(n);
-    if (decimal !== ".") s = s.replace(".", decimal);
-    return s;
-  };
+                // formateur numérique: fixed + conversion décimale
+                const fmtLocal = (x, n) => {
+                    if (!Number.isFinite(x)) return "";
+                    let s = Number(x).toFixed(n);
+                    if (decimal !== ".") s = s.replace(".", decimal);
+                    return s;
+                };
 
-  // échappement CSV si besoin (si texte contient sep, guillemets, ou retour ligne)
-  const esc = (val) => {
-    if (val === null || val === undefined) return "";
-    const s = String(val);
-    if (s.includes('"') || s.includes(sep) || s.includes("\n") || s.includes("\r")) {
-      return `"${s.replace(/"/g, '""')}"`;
-    }
-    return s;
-  };
+                // échappement CSV si besoin (si texte contient sep, guillemets, ou retour ligne)
+                const esc = (val) => {
+                    if (val === null || val === undefined) return "";
+                    const s = String(val);
+                    if (s.includes('"') || s.includes(sep) || s.includes("\n") || s.includes("\r")) {
+                        return `"${s.replace(/"/g, '""')}"`;
+                    }
+                    return s;
+                };
 
-  let csv = "";
-  csv += ["Date","Latitude","Longitude","Heading","Speed","SailSet","TWA","TWD","TWS","STAMINA","BOOST"].join(sep) + eol;
+                let csv = "";
+                csv += ["Date", "Latitude", "Longitude", "Heading", "Speed", "SailSet", "TWA", "TWD", "TWS", "STAMINA", "BOOST"].join(sep) + eol;
 
-  for (let i = 0; i < tabroutage.length; i++) {
-    const row = tabroutage[i];
-    if (!row || !Array.isArray(row)) continue;
+                for (let i = 0; i < tabroutage.length; i++) {
+                    const row = tabroutage[i];
+                    if (!row || !Array.isArray(row)) continue;
 
-    const dtSec = Number(row[1]);
-    const lat   = Number(row[2]);
-    const lon   = Number(row[3]);
-    const twa   = Number(row[5]);
-    const head  = Number(row[6]);
-    const speed = Number(row[9]);
-    const sailCode = row[10];
+                    const dtSec = Number(row[1]);
+                    const lat = Number(row[2]);
+                    const lon = Number(row[3]);
+                    const twa = Number(row[5]);
+                    const head = Number(row[6]);
+                    const speed = Number(row[9]);
+                    const sailCode = row[10];
 
-    const boost = Number(row[11]);
-    const tws   = Number(row[12]);
-    const twd   = Number(row[13]);
-    const stamina = Number(row[14]);
+                    const boost = Number(row[11]);
+                    const tws = Number(row[12]);
+                    const twd = Number(row[13]);
+                    const stamina = Number(row[14]);
 
-    if (!Number.isFinite(dtSec) || !Number.isFinite(lat) || !Number.isFinite(lon)) continue;
+                    if (!Number.isFinite(dtSec) || !Number.isFinite(lat) || !Number.isFinite(lon)) continue;
 
-    const dateStr = formatDateYYYYMMDD_HHMM(t0ms + dtSec * 1000);
+                    const dateStr = formatDateYYYYMMDD_HHMM(t0ms + dtSec * 1000);
 
-    const sailIdx = parseInt((Number(sailCode) % 10), 10);
-    const sailSet = (Number.isFinite(sailIdx) && sailIdx >= 0 && sailIdx < typeVoiles.length)
-      ? typeVoiles[sailIdx]
-      : "";
+                    const sailIdx = parseInt((Number(sailCode) % 10), 10);
+                    const sailSet = (Number.isFinite(sailIdx) && sailIdx >= 0 && sailIdx < typeVoiles.length)
+                        ? typeVoiles[sailIdx]
+                        : "";
 
-    const line = [
-      esc(dateStr),
-      fmtLocal(lat, 6),
-      fmtLocal(lon, 6),
-      fmtLocal(head, 2),
-      fmtLocal(speed, 2),
-      esc(sailSet),
-      fmtLocal(twa, 2),
-      fmtLocal(twd, 2),
-      fmtLocal(tws, 2),
-      fmtLocal(stamina, 2),
-      fmtLocal(boost, 2),
-    ].join(sep) + eol;
+                    const line = [
+                        esc(dateStr),
+                        fmtLocal(lat, 6),
+                        fmtLocal(lon, 6),
+                        fmtLocal(head, 2),
+                        fmtLocal(speed, 2),
+                        esc(sailSet),
+                        fmtLocal(twa, 2),
+                        fmtLocal(twd, 2),
+                        fmtLocal(tws, 2),
+                        fmtLocal(stamina, 2),
+                        fmtLocal(boost, 2),
+                    ].join(sep) + eol;
 
-    csv += line;
-  }
+                    csv += line;
+                }
 
-  // BOM (optionnel) pour Excel
-  if (withBOM) csv = "\uFEFF" + csv;
+                // BOM (optionnel) pour Excel
+                if (withBOM) csv = "\uFEFF" + csv;
 
-  const blob = new Blob([csv], { type: "text/csv;charset=utf-8" });
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement("a");
-  a.href = url;
-  a.download = filename;
-  document.body.appendChild(a);
-  a.click();
-  document.body.removeChild(a);
-  URL.revokeObjectURL(url);
-};
-
-
-
-
-// window.exportCSV = function (tabroutage, t0, race, v = "v") {
-//   if (!Array.isArray(tabroutage) || tabroutage.length === 0) {
-//     console.warn("tabroutage vide");
-//     return;
-//   }
-
-// //   // t0 peut être en secondes unix (10 chiffres) ou en ms (13 chiffres)
-// //   const t0Num = Number(t0);
-// //   if (!Number.isFinite(t0Num)) {
-// //     console.error("t0 invalide:", t0);
-// //     return;
-// //   }
-// //   const t0ms = (t0Num < 1e12) ? (t0Num * 1000) : t0Num; // heuristique
-
-// const t0ms = toMsEpoch(t0);
-// if (!Number.isFinite(t0ms)) {
-//   console.error("t0 invalide (non numérique):", t0);
-//   return;
-// }
+                const blob = new Blob([csv], { type: "text/csv;charset=utf-8" });
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement("a");
+                a.href = url;
+                a.download = filename;
+                document.body.appendChild(a);
+                a.click();
+                document.body.removeChild(a);
+                URL.revokeObjectURL(url);
+            };
 
 
 
-//   const raceStr = String(race).padStart(3, "0");
-//   const filename = `${v}${raceStr}.csv`;
 
-//   let csv = "";
-//   csv += "Date,Latitude,Longitude,Heading,Speed,SailSet,TWA,TWD,TWS,STAMINA,BOOST\n";
+            // window.exportCSV = function (tabroutage, t0, race, v = "v") {
+            //   if (!Array.isArray(tabroutage) || tabroutage.length === 0) {
+            //     console.warn("tabroutage vide");
+            //     return;
+            //   }
 
-//   for (let i = 0; i < tabroutage.length; i++) {
-//     const row = tabroutage[i];
-//     if (!row || !Array.isArray(row)) continue;
+            // //   // t0 peut être en secondes unix (10 chiffres) ou en ms (13 chiffres)
+            // //   const t0Num = Number(t0);
+            // //   if (!Number.isFinite(t0Num)) {
+            // //     console.error("t0 invalide:", t0);
+            // //     return;
+            // //   }
+            // //   const t0ms = (t0Num < 1e12) ? (t0Num * 1000) : t0Num; // heuristique
 
-//     const dtSec = Number(row[1]);
-    
-//     const lat   = Number(row[2]);
-//     const lon   = Number(row[3]);
-//     const twa   = Number(row[5]);
-//     const head  = Number(row[6]);
-//     const speed = Number(row[9]);
-//     const sailCode = row[10];
-
-//     const boost = Number(row[11]);
-//     const tws   = Number(row[12]);
-//     const twd   = Number(row[13]);
-//     const stamina = Number(row[14]);
-
-//     if (!Number.isFinite(dtSec) || !Number.isFinite(lat) || !Number.isFinite(lon)) continue;
-
-//     const dateStr = formatDateYYYYMMDD_HHMM(t0ms + dtSec * 1000);
+            // const t0ms = toMsEpoch(t0);
+            // if (!Number.isFinite(t0ms)) {
+            //   console.error("t0 invalide (non numérique):", t0);
+            //   return;
+            // }
 
 
 
-//     const sailIdx = parseInt((Number(sailCode) % 10), 10);
-//     const sailSet = (Number.isFinite(sailIdx) && sailIdx >= 0 && sailIdx < typeVoiles.length)
-//       ? typeVoiles[sailIdx]
-//       : "";
-// const line = [
-//   dateStr,
-//   fmt(lat, 6),
-//   fmt(lon, 6),
-//   fmt(head, 2),
-//   fmt(speed, 2),
-//   sailSet,          // string
-//   fmt(twa, 2),
-//   fmt(twd, 2),
-//   fmt(tws, 2),
-//   fmt(stamina, 2),
-//   fmt(boost, 2),
-// ].join(",") + "\n";
-   
+            //   const raceStr = String(race).padStart(3, "0");
+            //   const filename = `${v}${raceStr}.csv`;
 
-//     csv += line;
-//   }
+            //   let csv = "";
+            //   csv += "Date,Latitude,Longitude,Heading,Speed,SailSet,TWA,TWD,TWS,STAMINA,BOOST\n";
 
-//   const blob = new Blob([csv], { type: "text/csv;charset=utf-8" });
-//   const url = URL.createObjectURL(blob);
-//   const a = document.createElement("a");
-//   a.href = url;
-//   a.download = filename;
-//   document.body.appendChild(a);
-//   a.click();
-//   document.body.removeChild(a);
-//   URL.revokeObjectURL(url);
-// };
+            //   for (let i = 0; i < tabroutage.length; i++) {
+            //     const row = tabroutage[i];
+            //     if (!row || !Array.isArray(row)) continue;
+
+            //     const dtSec = Number(row[1]);
+
+            //     const lat   = Number(row[2]);
+            //     const lon   = Number(row[3]);
+            //     const twa   = Number(row[5]);
+            //     const head  = Number(row[6]);
+            //     const speed = Number(row[9]);
+            //     const sailCode = row[10];
+
+            //     const boost = Number(row[11]);
+            //     const tws   = Number(row[12]);
+            //     const twd   = Number(row[13]);
+            //     const stamina = Number(row[14]);
+
+            //     if (!Number.isFinite(dtSec) || !Number.isFinite(lat) || !Number.isFinite(lon)) continue;
+
+            //     const dateStr = formatDateYYYYMMDD_HHMM(t0ms + dtSec * 1000);
+
+
+
+            //     const sailIdx = parseInt((Number(sailCode) % 10), 10);
+            //     const sailSet = (Number.isFinite(sailIdx) && sailIdx >= 0 && sailIdx < typeVoiles.length)
+            //       ? typeVoiles[sailIdx]
+            //       : "";
+            // const line = [
+            //   dateStr,
+            //   fmt(lat, 6),
+            //   fmt(lon, 6),
+            //   fmt(head, 2),
+            //   fmt(speed, 2),
+            //   sailSet,          // string
+            //   fmt(twa, 2),
+            //   fmt(twd, 2),
+            //   fmt(tws, 2),
+            //   fmt(stamina, 2),
+            //   fmt(boost, 2),
+            // ].join(",") + "\n";
+
+
+            //     csv += line;
+            //   }
+
+            //   const blob = new Blob([csv], { type: "text/csv;charset=utf-8" });
+            //   const url = URL.createObjectURL(blob);
+            //   const a = document.createElement("a");
+            //   a.href = url;
+            //   a.download = filename;
+            //   document.body.appendChild(a);
+            //   a.click();
+            //   document.body.removeChild(a);
+            //   URL.revokeObjectURL(url);
+            // };
 
 
 
@@ -6560,9 +6594,9 @@ window.exportCSV = function (tabroutage, t0, race, v = "v", options = {}) {
 
             var lancerRoutage = document.getElementById('lancerRoutage')
             lancerRoutage.addEventListener("click", function (evt) {   // on va recuperer les donnees du routage  sur l interface
-                const mode = document.querySelector( 'input[name="routage_mode"]:checked'  ).value;
-                console.log('\n Lancement d\'un routage mode '+mode+' pour user _id'+user_id)
-               
+                const mode = document.querySelector('input[name="routage_mode"]:checked').value;
+                console.log('\n Lancement d\'un routage mode ' + mode + ' pour user _id' + user_id)
+
                 var { lat, lng } = recuperecoordsdep();
                 console.log('lat lng' + lat + ' ' + lng)
                 //var trajetsencours = JSON.parse(localStorage.getItem("memoiretrajets"))  // on recupere le tableau des waypoints 
@@ -6594,107 +6628,107 @@ window.exportCSV = function (tabroutage, t0, race, v = "v", options = {}) {
                 y0 = lat
                 x0 = lng
                 // on demande le routage
-                username2=username
+                username2 = username
 
-                if (mode=='gfs'){routageLayer.clearLayers() }
-                else{routageECMLayer.clearLayers()}
+                if (mode == 'gfs') { routageLayer.clearLayers() }
+                else { routageECMLayer.clearLayers() }
 
 
 
-                calculeroutage(username,lat, lng, heuredepart, waypoints, ari, cocheexclusions,mode)
+                calculeroutage(username, lat, lng, heuredepart, waypoints, ari, cocheexclusions, mode)
                 // chercheprogsvr(user_id,course,heuredepart+120)
             });
 
 
-           const container = document.getElementById("detailroute2");
+            const container = document.getElementById("detailroute2");
 
-           container.addEventListener("click", (e) => {
-            const btn = e.target.closest("button[data-action]");
-            if (!btn || !container.contains(btn)) return;
+            container.addEventListener("click", (e) => {
+                const btn = e.target.closest("button[data-action]");
+                if (!btn || !container.contains(btn)) return;
 
-            const action = btn.dataset.action;
+                const action = btn.dataset.action;
 
-            if (action === "genereCSV") {
-                console.log("generation CSV");
-                // exportRoutageCSV(...)
-                console.log ('test pour export ')
-                console.log (tabroutage)
-                console.log (t0routage)
-                console.log(race)
-                exportCSV(tabroutage, t0routage, race);
+                if (action === "genereCSV") {
+                    console.log("generation CSV");
+                    // exportRoutageCSV(...)
+                    console.log('test pour export ')
+                    console.log(tabroutage)
+                    console.log(t0routage)
+                    console.log(race)
+                    exportCSV(tabroutage, t0routage, race);
 
 
-            } 
+                }
 
-            else if (action === "detailroute") {
-                console.log ('bouton detailroute ')
-                var popupBlocked = false;
-                var testPopup = null;
+                else if (action === "detailroute") {
+                    console.log('bouton detailroute ')
+                    var popupBlocked = false;
+                    var testPopup = null;
 
-                try {
-                    testPopup = window.open("", "_blank", "width=100,height=100");
-                    if (!testPopup || testPopup.closed || typeof testPopup.closed === "undefined") {
+                    try {
+                        testPopup = window.open("", "_blank", "width=100,height=100");
+                        if (!testPopup || testPopup.closed || typeof testPopup.closed === "undefined") {
+                            popupBlocked = true;
+                        } else {
+                            // Vérifier l'accès au document (bloqueur de popup empêche cela)
+                            testPopup.document.write("<p>Test</p>");
+                            testPopup.document.close();
+                        }
+                    } catch (e) {
                         popupBlocked = true;
-                    } else {
-                        // Vérifier l'accès au document (bloqueur de popup empêche cela)
-                        testPopup.document.write("<p>Test</p>");
-                        testPopup.document.close();
                     }
-                } catch (e) {
-                    popupBlocked = true;
+
+                    if (testPopup) {
+                        testPopup.close();
+                    }
+
+                    if (!popupBlocked) {
+                        openPopupWindow();
+                    } else {
+                        openPopupDiv();
+                    }
+
+
+
+
+
+                    // openPopupDiv(...)
                 }
-
-                if (testPopup) {
-                    testPopup.close();
-                }
-
-                if (!popupBlocked) {
-                    openPopupWindow();
-                } else {
-                    openPopupDiv();
-                }
-
-
-
-
-
-                // openPopupDiv(...)
-            }
             });
 
 
 
-        //    document.getElementById("genereCSV").addEventListener("click", function () { console.log ('generation CSV')});
+            //    document.getElementById("genereCSV").addEventListener("click", function () { console.log ('generation CSV')});
 
 
-        //     document.getElementById("detailroute").addEventListener("click", function () {
-        //         console.log ('bouton detailroute ')
-        //         var popupBlocked = false;
-        //         var testPopup = null;
+            //     document.getElementById("detailroute").addEventListener("click", function () {
+            //         console.log ('bouton detailroute ')
+            //         var popupBlocked = false;
+            //         var testPopup = null;
 
-        //         try {
-        //             testPopup = window.open("", "_blank", "width=100,height=100");
-        //             if (!testPopup || testPopup.closed || typeof testPopup.closed === "undefined") {
-        //                 popupBlocked = true;
-        //             } else {
-        //                 // Vérifier l'accès au document (bloqueur de popup empêche cela)
-        //                 testPopup.document.write("<p>Test</p>");
-        //                 testPopup.document.close();
-        //             }
-        //         } catch (e) {
-        //             popupBlocked = true;
-        //         }
+            //         try {
+            //             testPopup = window.open("", "_blank", "width=100,height=100");
+            //             if (!testPopup || testPopup.closed || typeof testPopup.closed === "undefined") {
+            //                 popupBlocked = true;
+            //             } else {
+            //                 // Vérifier l'accès au document (bloqueur de popup empêche cela)
+            //                 testPopup.document.write("<p>Test</p>");
+            //                 testPopup.document.close();
+            //             }
+            //         } catch (e) {
+            //             popupBlocked = true;
+            //         }
 
-        //         if (testPopup) {
-        //             testPopup.close();
-        //         }
+            //         if (testPopup) {
+            //             testPopup.close();
+            //         }
 
-        //         if (!popupBlocked) {
-        //             openPopupWindow();
-        //         } else {
-        //             openPopupDiv();
-        //         }
-        //     });
+            //         if (!popupBlocked) {
+            //             openPopupWindow();
+            //         } else {
+            //             openPopupDiv();
+            //         }
+            //     });
 
 
 
@@ -6704,8 +6738,7 @@ window.exportCSV = function (tabroutage, t0, race, v = "v", options = {}) {
                 tolerancehvmg = document.getElementById('tolerancehvmg').value;
                 console.log('tolerancehvmg  = ' + tolerancehvmg)
                 console.log('username ' + username)
-                // on va ajouter tolerancehvmg dans les personalinfos
-                typeinfo = 'tolerancehvmg'
+                typeinfo = 'tolerancehvmg' // on va ajouter tolerancehvmg dans les personalinfos
                 typeaction = 'modify',
                     nom = 'tolerancehvmg'
                 valeur = tolerancehvmg
@@ -6730,80 +6763,80 @@ window.exportCSV = function (tabroutage, t0, race, v = "v", options = {}) {
             });
 
 
-//1 ) ZEZO------------------------------------------------------------------------------------------
-document.getElementById('csv-zezo').addEventListener('change', function (event) {
-  console.log('chargement csv (Zezo) lancé');
-  const file = event.target.files[0];
-  if (!file) return;
+            //1 ) ZEZO------------------------------------------------------------------------------------------
+            document.getElementById('csv-zezo').addEventListener('change', function (event) {
+                console.log('chargement csv (Zezo) lancé');
+                const file = event.target.files[0];
+                if (!file) return;
 
-  Papa.parse(file, {
-    header: true,
-    skipEmptyLines: true,
-    dynamicTyping: false,
-    delimiter: ";", // ici c'est bien du ;
-    complete: function (results) {
-      gpx1LayerGroup.clearLayers();
-      const coords = [];
+                Papa.parse(file, {
+                    header: true,
+                    skipEmptyLines: true,
+                    dynamicTyping: false,
+                    delimiter: ";", // ici c'est bien du ;
+                    complete: function (results) {
+                        gpx1LayerGroup.clearLayers();
+                        const coords = [];
 
-      const toFloat = (v) => {
-        if (v === null || v === undefined) return NaN;
-        if (typeof v === "number") return v;
-        const s = String(v)
-          .trim()
-          .replace("°", "")     // "290°" -> "290"
-          .replace(/\s/g, "")
-          .replace(",", ".");   // "77,12" -> "77.12"
-        const n = parseFloat(s);
-        return Number.isFinite(n) ? n : NaN;
-      };
+                        const toFloat = (v) => {
+                            if (v === null || v === undefined) return NaN;
+                            if (typeof v === "number") return v;
+                            const s = String(v)
+                                .trim()
+                                .replace("°", "")     // "290°" -> "290"
+                                .replace(/\s/g, "")
+                                .replace(",", ".");   // "77,12" -> "77.12"
+                            const n = parseFloat(s);
+                            return Number.isFinite(n) ? n : NaN;
+                        };
 
-      // Parse "2026-01-16 11:40" en UTC, retourne un Date (affiché ensuite en local)
-      const parseUtcDateHeure = (s) => {
-        if (!s) return null;
-        const txt = String(s).trim();
-        // attend "YYYY-MM-DD HH:MM" (ou HH:MM:SS)
-        const m = txt.match(/^(\d{4})-(\d{2})-(\d{2})[ T](\d{2}):(\d{2})(?::(\d{2}))?$/);
-        if (!m) return null;
-        const Y = Number(m[1]), Mo = Number(m[2]) - 1, D = Number(m[3]);
-        const h = Number(m[4]), mi = Number(m[5]), se = m[6] ? Number(m[6]) : 0;
-        return new Date(Date.UTC(Y, Mo, D, h, mi, se));
-      };
+                        // Parse "2026-01-16 11:40" en UTC, retourne un Date (affiché ensuite en local)
+                        const parseUtcDateHeure = (s) => {
+                            if (!s) return null;
+                            const txt = String(s).trim();
+                            // attend "YYYY-MM-DD HH:MM" (ou HH:MM:SS)
+                            const m = txt.match(/^(\d{4})-(\d{2})-(\d{2})[ T](\d{2}):(\d{2})(?::(\d{2}))?$/);
+                            if (!m) return null;
+                            const Y = Number(m[1]), Mo = Number(m[2]) - 1, D = Number(m[3]);
+                            const h = Number(m[4]), mi = Number(m[5]), se = m[6] ? Number(m[6]) : 0;
+                            return new Date(Date.UTC(Y, Mo, D, h, mi, se));
+                        };
 
-      const formatLocal = (d) => {
-        if (!d) return "";
-        // ex: "16/01 12:40" en locale
-        return d.toLocaleString(undefined, {
-          year: "numeric",
-          month: "2-digit",
-          day: "2-digit",
-          hour: "2-digit",
-          minute: "2-digit"
-        });
-      };
+                        const formatLocal = (d) => {
+                            if (!d) return "";
+                            // ex: "16/01 12:40" en locale
+                            return d.toLocaleString(undefined, {
+                                year: "numeric",
+                                month: "2-digit",
+                                day: "2-digit",
+                                hour: "2-digit",
+                                minute: "2-digit"
+                            });
+                        };
 
-      const fmt = (n, dec = 0) => (Number.isFinite(n) ? n.toFixed(dec) : "");
+                        const fmt = (n, dec = 0) => (Number.isFinite(n) ? n.toFixed(dec) : "");
 
-      results.data.forEach((row) => {
-        const lat = toFloat(row["Latitude"]);
-        const lon = toFloat(row["Longitude"]);
-        if (!Number.isFinite(lat) || !Number.isFinite(lon)) return;
+                        results.data.forEach((row) => {
+                            const lat = toFloat(row["Latitude"]);
+                            const lon = toFloat(row["Longitude"]);
+                            if (!Number.isFinite(lat) || !Number.isFinite(lon)) return;
 
-        coords.push([lat, lon]);
+                            coords.push([lat, lon]);
 
-        // Date UTC -> Date locale
-        const dUtc = parseUtcDateHeure(row["DateHeure(UTC)"]) || parseUtcDateHeure(row["DateHeure"]);
-        const dateLocale = formatLocal(dUtc);
+                            // Date UTC -> Date locale
+                            const dUtc = parseUtcDateHeure(row["DateHeure(UTC)"]) || parseUtcDateHeure(row["DateHeure"]);
+                            const dateLocale = formatLocal(dUtc);
 
-        // Champs
-        const hdg    = toFloat(row["HDG"]);
-        const twa    = toFloat(row["TWA"]);
-        const speed  = toFloat(row["Speed(kt)"]);
-        const twd    = toFloat(row["TWD"]);
-        const tws    = toFloat(row["TWS(kt)"]);
-        const voile  = row["Voile"] ?? "";
-        const energieFin = toFloat(row["EnergieFinIteration"]); // ex "77,12"
+                            // Champs
+                            const hdg = toFloat(row["HDG"]);
+                            const twa = toFloat(row["TWA"]);
+                            const speed = toFloat(row["Speed(kt)"]);
+                            const twd = toFloat(row["TWD"]);
+                            const tws = toFloat(row["TWS(kt)"]);
+                            const voile = row["Voile"] ?? "";
+                            const energieFin = toFloat(row["EnergieFinIteration"]); // ex "77,12"
 
-        const popup = `
+                            const popup = `
           <b>Zezo</b> <b>${dateLocale}</b><br>
           Lat/Lon: ${lat.toFixed(5)}, ${lon.toFixed(5)}<br>
           Heading: ${fmt(hdg, 0)}°<br>
@@ -6815,314 +6848,314 @@ document.getElementById('csv-zezo').addEventListener('change', function (event) 
           EnergieFinIteration: ${fmt(energieFin, 2)}
         `;
 
-        L.circle([lat, lon], {
-          radius: 20,
-          weight: 0.5,
-          color: 'blue',
-          fillColor: 'cyan',
-          fillOpacity: 0.5
-        })
-          .bindTooltip(popup)
-          .bindPopup(popup)
-          .addTo(gpx1LayerGroup);
-      });
-
-      if (coords.length > 1) {
-        L.polyline(coords, { color: 'green', weight: 2, opacity: 1 })
-          .addTo(gpx1LayerGroup);
-        map.fitBounds(coords, { padding: [20, 20] });
-      } else if (coords.length === 1) {
-        map.setView(coords[0], Math.max(map.getZoom(), 6));
-      }
-
-      if (!map.hasLayer(gpx1LayerGroup)) gpx1LayerGroup.addTo(map);
-      console.log(`Zezo: ${coords.length} points chargés`);
-    }
-  });
-});
-
-
-
-
-
-
-    // document.getElementById('gpx-input').addEventListener('change', function (e) {
-
-    //             //trace des lignes vertes (zezo)  
-    //             const file = e.target.files[0];
-        //         if (!file) return;
-
-        //         const reader = new FileReader();
-        //         reader.onload = function (event) {
-        //             const gpxText = event.target.result;
-
-        //             // Parse XML
-        //             const parser = new DOMParser();
-        //             const xml = parser.parseFromString(gpxText, "application/xml");
-
-        //             // Convert to GeoJSON
-        //             const geojson = toGeoJSON.gpx(xml);
-        //             console.log("GeoJSON extrait :", geojson);
-
-        //             const coordsList = []; // on va stocker les coordonnées ici
-
-        //             const layer = L.geoJSON(geojson, {
-        //                 pointToLayer: function (feature, latlng) {
-        //                     // Enregistre les points dans un tableau
-        //                     coordsList.push([latlng.lat, latlng.lng]);
-
-        //                     // Tooltip info
-        //                     const props = feature.properties || {};
-        //                     const isoTime = props.time || '';
-        //                     const timeStr = isoTime
-        //                         ? new Date(isoTime).toLocaleString('fr-FR', {
-        //                             timeZone: 'Europe/Paris',
-        //                             hour: '2-digit',
-        //                             minute: '2-digit',
-        //                             day: '2-digit',
-        //                             month: '2-digit'
-        //                         })
-        //                         : 'N/A';
-
-        //                     const tooltipText = `
-        //   <b>Zezo</b><br>
-        //   <b>Lat:</b> ${latlng.lat.toFixed(6)}<br>
-        //   <b>Lon:</b> ${latlng.lng.toFixed(6)}<br>
-        //   <b>Heure:</b> ${timeStr}
-        // `;
-
-        //                     // Point sur la carte
-        //                     return L.circle(latlng, {
-        //                         radius: 30,
-        //                         color: 'black',
-        //                         fillColor: '#3399ff',
-        //                         fillOpacity: 0.5,
-        //                         weight: 0.5
-        //                     }).bindTooltip(tooltipText, { direction: 'top', permanent: false })
-        //                         .bindPopup(tooltipText, { direction: 'top', permanent: false })
-        //                         ;
-
-
-        //                 }
-        //             }).addTo(gpx1LayerGroup);
-
-        //             // Ajout de la polyligne reliant tous les points
-        //             if (coordsList.length > 1) {
-        //                 L.polyline(coordsList, {
-        //                     color: 'green',
-        //                     weight: 1,
-        //                     opacity: 0.9
-        //                 }).addTo(gpx1LayerGroup);
-        //             }
-
-        //             // Affichage du groupe sur la carte
-        //             gpx1LayerGroup.addTo(map);
-
-        //             // Optionnel : ajuste le zoom pour voir toute la trace
-        //             if (gpx1LayerGroup.getLayers().length) {
-        //                 map.fitBounds(gpx1LayerGroup.getBounds(), { padding: [20, 20] });
-        //             }
-        //         };
+                            L.circle([lat, lon], {
+                                radius: 20,
+                                weight: 0.5,
+                                color: 'blue',
+                                fillColor: 'cyan',
+                                fillOpacity: 0.5
+                            })
+                                .bindTooltip(popup)
+                                .bindPopup(popup)
+                                .addTo(gpx1LayerGroup);
+                        });
+
+                        if (coords.length > 1) {
+                            L.polyline(coords, { color: 'green', weight: 2, opacity: 1 })
+                                .addTo(gpx1LayerGroup);
+                            map.fitBounds(coords, { padding: [20, 20] });
+                        } else if (coords.length === 1) {
+                            map.setView(coords[0], Math.max(map.getZoom(), 6));
+                        }
+
+                        if (!map.hasLayer(gpx1LayerGroup)) gpx1LayerGroup.addTo(map);
+                        console.log(`Zezo: ${coords.length} points chargés`);
+                    }
+                });
+            });
+
+
+
+
+
+
+            // document.getElementById('gpx-input').addEventListener('change', function (e) {
+
+            //             //trace des lignes vertes (zezo)  
+            //             const file = e.target.files[0];
+            //         if (!file) return;
+
+            //         const reader = new FileReader();
+            //         reader.onload = function (event) {
+            //             const gpxText = event.target.result;
+
+            //             // Parse XML
+            //             const parser = new DOMParser();
+            //             const xml = parser.parseFromString(gpxText, "application/xml");
+
+            //             // Convert to GeoJSON
+            //             const geojson = toGeoJSON.gpx(xml);
+            //             console.log("GeoJSON extrait :", geojson);
+
+            //             const coordsList = []; // on va stocker les coordonnées ici
+
+            //             const layer = L.geoJSON(geojson, {
+            //                 pointToLayer: function (feature, latlng) {
+            //                     // Enregistre les points dans un tableau
+            //                     coordsList.push([latlng.lat, latlng.lng]);
+
+            //                     // Tooltip info
+            //                     const props = feature.properties || {};
+            //                     const isoTime = props.time || '';
+            //                     const timeStr = isoTime
+            //                         ? new Date(isoTime).toLocaleString('fr-FR', {
+            //                             timeZone: 'Europe/Paris',
+            //                             hour: '2-digit',
+            //                             minute: '2-digit',
+            //                             day: '2-digit',
+            //                             month: '2-digit'
+            //                         })
+            //                         : 'N/A';
+
+            //                     const tooltipText = `
+            //   <b>Zezo</b><br>
+            //   <b>Lat:</b> ${latlng.lat.toFixed(6)}<br>
+            //   <b>Lon:</b> ${latlng.lng.toFixed(6)}<br>
+            //   <b>Heure:</b> ${timeStr}
+            // `;
+
+            //                     // Point sur la carte
+            //                     return L.circle(latlng, {
+            //                         radius: 30,
+            //                         color: 'black',
+            //                         fillColor: '#3399ff',
+            //                         fillOpacity: 0.5,
+            //                         weight: 0.5
+            //                     }).bindTooltip(tooltipText, { direction: 'top', permanent: false })
+            //                         .bindPopup(tooltipText, { direction: 'top', permanent: false })
+            //                         ;
+
+
+            //                 }
+            //             }).addTo(gpx1LayerGroup);
+
+            //             // Ajout de la polyligne reliant tous les points
+            //             if (coordsList.length > 1) {
+            //                 L.polyline(coordsList, {
+            //                     color: 'green',
+            //                     weight: 1,
+            //                     opacity: 0.9
+            //                 }).addTo(gpx1LayerGroup);
+            //             }
+
+            //             // Affichage du groupe sur la carte
+            //             gpx1LayerGroup.addTo(map);
+
+            //             // Optionnel : ajuste le zoom pour voir toute la trace
+            //             if (gpx1LayerGroup.getLayers().length) {
+            //                 map.fitBounds(gpx1LayerGroup.getBounds(), { padding: [20, 20] });
+            //             }
+            //         };
 
-        //         reader.readAsText(file);
-        //     });
+            //         reader.readAsText(file);
+            //     });
 
 
-//VRZEN-----------------------------------------------------------------------------------------
+            //VRZEN-----------------------------------------------------------------------------------------
 
-// document.getElementById('csv-vrzen').addEventListener('change', function (event) {
-//   console.log('chargement csv (Avalon) lancé');
-//   const file = event.target.files[0];
-//   if (!file) return;
+            // document.getElementById('csv-vrzen').addEventListener('change', function (event) {
+            //   console.log('chargement csv (Avalon) lancé');
+            //   const file = event.target.files[0];
+            //   if (!file) return;
 
-//   Papa.parse(file, {
-//     header: true,
-//     skipEmptyLines: true,
-//     dynamicTyping: false,     // on gère nous-même les floats (virgules, etc.)
-//     delimiter: "",            // auto-détection (tab, ;, , ...)
-//     complete: function (results) {
-//       avalonLayerGroup.clearLayers();
+            //   Papa.parse(file, {
+            //     header: true,
+            //     skipEmptyLines: true,
+            //     dynamicTyping: false,     // on gère nous-même les floats (virgules, etc.)
+            //     delimiter: "",            // auto-détection (tab, ;, , ...)
+            //     complete: function (results) {
+            //       avalonLayerGroup.clearLayers();
 
-//       const coords = [];
+            //       const coords = [];
 
-//       const toFloat = (v) => {
-//         if (v === null || v === undefined) return NaN;
-//         if (typeof v === "number") return v;
-//         const s = String(v).trim().replace(",", "."); // "17,39" -> "17.39"
-//         const n = parseFloat(s);
-//         return Number.isFinite(n) ? n : NaN;
-//       };
-
-//       results.data.forEach((row) => {
-//         const lat = toFloat(row.Latitude ?? row.latitude ?? row.lat);
-//         const lon = toFloat(row.Longitude ?? row.longitude ?? row.lon);
-
-//         if (!Number.isFinite(lat) || !Number.isFinite(lon)) return;
-
-//         coords.push([lat, lon]);
-
-//         const heading = toFloat(row.Heading);
-//         const speed   = toFloat(row.Speed);
-//         const twa     = toFloat(row.TWA);
-//         const twd     = toFloat(row.TWD);
-//         const tws     = toFloat(row.TWS);
-
-//         const popup = `
-//           <b>VRZEN</b>
-//           <b>${row.Date ?? ""}</b><br>
-//           Lat/Lon: ${lat.toFixed(5)}, ${lon.toFixed(5)}<br>
-//           Heading: ${Number.isFinite(heading) ? heading.toFixed(0) : ""}°<br>
-//           Speed: ${Number.isFinite(speed) ? speed.toFixed(2) : ""} kn<br>
-//           SailSet: ${row.SailSet ?? ""}<br>
-//           TWA: ${Number.isFinite(twa) ? twa.toFixed(1) : ""}°<br>
-//           TWD: ${Number.isFinite(twd) ? twd.toFixed(1) : ""}°<br>
-//           TWS: ${Number.isFinite(tws) ? tws.toFixed(2) : ""} kn<br>
-//           STAMINA: ${row.STAMINA ?? ""}<br>
-//           BOOST: ${row.BOOST ?? ""}
-//         `;
-
-//         L.circle([lat, lon], {
-//           radius: 10,
-//           weight: 0.5,
-//           color: 'blue',
-//           fillColor: 'cyan',
-//           fillOpacity: 0.5
-//         })
-//           .bindTooltip(popup)
-//           .bindPopup(popup)
-         
-//           .addTo(VRZENLayerGroup);
-//       });
-
-//       // trace la trajectoire
-//       if (coords.length > 1) {
-//         L.polyline(coords, { color: 'lime', weight: 1, opacity: 0.9 })
-//           .addTo(avalonLayerGroup);
-
-//         map.fitBounds(coords, { padding: [20, 20] });
-//       } else if (coords.length === 1) {
-//         map.setView(coords[0], Math.max(map.getZoom(), 6));
-//       }
-
-//       // si tu veux être sûr que le layer est visible
-//       if (!map.hasLayer(VRZENLayerGroup)) VRZENLayerGroup.addTo(map);
-
-//       console.log(`VRZEN: ${coords.length} points chargés`);
-//     }
-//   });
-// });
-
-
-
-
-
-
-
-
-
-// version gpx
-
-        //     document.getElementById('csv-vrzen').addEventListener('change', function (e) {
-
-        //         // Pas de lignes, VRZEN
-        //         const file = e.target.files[0];
-        //         if (!file) return;
-
-        //         const reader = new FileReader();
-        //         reader.onload = function (event) {
-        //             const gpxText = event.target.result;
-
-        //             // Parse XML
-        //             const parser = new DOMParser();
-        //             const xml = parser.parseFromString(gpxText, "application/xml");
-
-        //             // Convert to GeoJSON
-        //             const geojson = toGeoJSON.gpx(xml);
-        //             console.log("GeoJSON extrait :", geojson);
-
-
-        //             const layer = L.geoJSON(geojson, {
-        //                 pointToLayer: function (feature, latlng) {
-        //                     // Récupération des données
-        //                     const coords = latlng;
-        //                     const properties = feature.properties || {};
-        //                     const isoTime = properties.time || '';
-        //                     const timeStr = isoTime
-        //                         ? new Date(isoTime).toLocaleString('fr-FR', {
-        //                             timeZone: 'Europe/Paris',
-        //                             hour: '2-digit',
-        //                             minute: '2-digit',
-        //                             day: '2-digit',
-        //                             month: '2-digit'
-        //                         })
-        //                         : 'N/A';
-
-        //                     // Construction du contenu du tooltip
-        //                     const tooltipText = `
-        //     <b> VRZen <b><br>
-        //     <b>Lat:</b> ${coords.lat.toFixed(6)}<br>
-        //     <b>Lon:</b> ${coords.lng.toFixed(6)}<br>
-        //     <b>Heure:</b> ${timeStr}
-        // `;
-
-        //                     // Cercle avec tooltip
-        //                     return L.circle(latlng, {
-        //                         radius: 15,
-        //                         color: 'black',
-        //                         fillColor: '#3399ff',
-        //                         fillOpacity: 0.5,
-        //                         weight: 0.5
-        //                     }).bindTooltip(tooltipText, { direction: 'top', permanent: false })
-        //                         .bindPopup(tooltipText, { direction: 'top', permanent: false })
-        //                         ;
-        //                 }
-        //             }).addTo(gpx3LayerGroup);
-        //         };
-
-        //         gpx3LayerGroup.addTo(map);
-        //         reader.readAsText(file);
-        //     });
-
-//2) AVALON ----------------------------------------------------------------------------------------
- 
-document.getElementById('csv-avalon').addEventListener('change', function (event) {
-  console.log('chargement csv (Avalon) lancé');
-  const file = event.target.files[0];
-  if (!file) return;
-
-  Papa.parse(file, {
-    header: true,
-    skipEmptyLines: true,
-    dynamicTyping: false,     // on gère nous-même les floats (virgules, etc.)
-    delimiter: "",            // auto-détection (tab, ;, , ...)
-    complete: function (results) {
-      avalonLayerGroup.clearLayers();
-
-      const coords = [];
-
-      const toFloat = (v) => {
-        if (v === null || v === undefined) return NaN;
-        if (typeof v === "number") return v;
-        const s = String(v).trim().replace(",", "."); // "17,39" -> "17.39"
-        const n = parseFloat(s);
-        return Number.isFinite(n) ? n : NaN;
-      };
-
-      results.data.forEach((row) => {
-        const lat = toFloat(row.Latitude ?? row.latitude ?? row.lat);
-        const lon = toFloat(row.Longitude ?? row.longitude ?? row.lon);
-
-        if (!Number.isFinite(lat) || !Number.isFinite(lon)) return;
-
-        coords.push([lat, lon]);
-
-        const heading = toFloat(row.Heading);
-        const speed   = toFloat(row.Speed);
-        const twa     = toFloat(row.TWA);
-        const twd     = toFloat(row.TWD);
-        const tws     = toFloat(row.TWS);
-
-        const popup = `
+            //       const toFloat = (v) => {
+            //         if (v === null || v === undefined) return NaN;
+            //         if (typeof v === "number") return v;
+            //         const s = String(v).trim().replace(",", "."); // "17,39" -> "17.39"
+            //         const n = parseFloat(s);
+            //         return Number.isFinite(n) ? n : NaN;
+            //       };
+
+            //       results.data.forEach((row) => {
+            //         const lat = toFloat(row.Latitude ?? row.latitude ?? row.lat);
+            //         const lon = toFloat(row.Longitude ?? row.longitude ?? row.lon);
+
+            //         if (!Number.isFinite(lat) || !Number.isFinite(lon)) return;
+
+            //         coords.push([lat, lon]);
+
+            //         const heading = toFloat(row.Heading);
+            //         const speed   = toFloat(row.Speed);
+            //         const twa     = toFloat(row.TWA);
+            //         const twd     = toFloat(row.TWD);
+            //         const tws     = toFloat(row.TWS);
+
+            //         const popup = `
+            //           <b>VRZEN</b>
+            //           <b>${row.Date ?? ""}</b><br>
+            //           Lat/Lon: ${lat.toFixed(5)}, ${lon.toFixed(5)}<br>
+            //           Heading: ${Number.isFinite(heading) ? heading.toFixed(0) : ""}°<br>
+            //           Speed: ${Number.isFinite(speed) ? speed.toFixed(2) : ""} kn<br>
+            //           SailSet: ${row.SailSet ?? ""}<br>
+            //           TWA: ${Number.isFinite(twa) ? twa.toFixed(1) : ""}°<br>
+            //           TWD: ${Number.isFinite(twd) ? twd.toFixed(1) : ""}°<br>
+            //           TWS: ${Number.isFinite(tws) ? tws.toFixed(2) : ""} kn<br>
+            //           STAMINA: ${row.STAMINA ?? ""}<br>
+            //           BOOST: ${row.BOOST ?? ""}
+            //         `;
+
+            //         L.circle([lat, lon], {
+            //           radius: 10,
+            //           weight: 0.5,
+            //           color: 'blue',
+            //           fillColor: 'cyan',
+            //           fillOpacity: 0.5
+            //         })
+            //           .bindTooltip(popup)
+            //           .bindPopup(popup)
+
+            //           .addTo(VRZENLayerGroup);
+            //       });
+
+            //       // trace la trajectoire
+            //       if (coords.length > 1) {
+            //         L.polyline(coords, { color: 'lime', weight: 1, opacity: 0.9 })
+            //           .addTo(avalonLayerGroup);
+
+            //         map.fitBounds(coords, { padding: [20, 20] });
+            //       } else if (coords.length === 1) {
+            //         map.setView(coords[0], Math.max(map.getZoom(), 6));
+            //       }
+
+            //       // si tu veux être sûr que le layer est visible
+            //       if (!map.hasLayer(VRZENLayerGroup)) VRZENLayerGroup.addTo(map);
+
+            //       console.log(`VRZEN: ${coords.length} points chargés`);
+            //     }
+            //   });
+            // });
+
+
+
+
+
+
+
+
+
+            // version gpx
+
+            //     document.getElementById('csv-vrzen').addEventListener('change', function (e) {
+
+            //         // Pas de lignes, VRZEN
+            //         const file = e.target.files[0];
+            //         if (!file) return;
+
+            //         const reader = new FileReader();
+            //         reader.onload = function (event) {
+            //             const gpxText = event.target.result;
+
+            //             // Parse XML
+            //             const parser = new DOMParser();
+            //             const xml = parser.parseFromString(gpxText, "application/xml");
+
+            //             // Convert to GeoJSON
+            //             const geojson = toGeoJSON.gpx(xml);
+            //             console.log("GeoJSON extrait :", geojson);
+
+
+            //             const layer = L.geoJSON(geojson, {
+            //                 pointToLayer: function (feature, latlng) {
+            //                     // Récupération des données
+            //                     const coords = latlng;
+            //                     const properties = feature.properties || {};
+            //                     const isoTime = properties.time || '';
+            //                     const timeStr = isoTime
+            //                         ? new Date(isoTime).toLocaleString('fr-FR', {
+            //                             timeZone: 'Europe/Paris',
+            //                             hour: '2-digit',
+            //                             minute: '2-digit',
+            //                             day: '2-digit',
+            //                             month: '2-digit'
+            //                         })
+            //                         : 'N/A';
+
+            //                     // Construction du contenu du tooltip
+            //                     const tooltipText = `
+            //     <b> VRZen <b><br>
+            //     <b>Lat:</b> ${coords.lat.toFixed(6)}<br>
+            //     <b>Lon:</b> ${coords.lng.toFixed(6)}<br>
+            //     <b>Heure:</b> ${timeStr}
+            // `;
+
+            //                     // Cercle avec tooltip
+            //                     return L.circle(latlng, {
+            //                         radius: 15,
+            //                         color: 'black',
+            //                         fillColor: '#3399ff',
+            //                         fillOpacity: 0.5,
+            //                         weight: 0.5
+            //                     }).bindTooltip(tooltipText, { direction: 'top', permanent: false })
+            //                         .bindPopup(tooltipText, { direction: 'top', permanent: false })
+            //                         ;
+            //                 }
+            //             }).addTo(gpx3LayerGroup);
+            //         };
+
+            //         gpx3LayerGroup.addTo(map);
+            //         reader.readAsText(file);
+            //     });
+
+            //2) AVALON ----------------------------------------------------------------------------------------
+
+            document.getElementById('csv-avalon').addEventListener('change', function (event) {
+                console.log('chargement csv (Avalon) lancé');
+                const file = event.target.files[0];
+                if (!file) return;
+
+                Papa.parse(file, {
+                    header: true,
+                    skipEmptyLines: true,
+                    dynamicTyping: false,     // on gère nous-même les floats (virgules, etc.)
+                    delimiter: "",            // auto-détection (tab, ;, , ...)
+                    complete: function (results) {
+                        avalonLayerGroup.clearLayers();
+
+                        const coords = [];
+
+                        const toFloat = (v) => {
+                            if (v === null || v === undefined) return NaN;
+                            if (typeof v === "number") return v;
+                            const s = String(v).trim().replace(",", "."); // "17,39" -> "17.39"
+                            const n = parseFloat(s);
+                            return Number.isFinite(n) ? n : NaN;
+                        };
+
+                        results.data.forEach((row) => {
+                            const lat = toFloat(row.Latitude ?? row.latitude ?? row.lat);
+                            const lon = toFloat(row.Longitude ?? row.longitude ?? row.lon);
+
+                            if (!Number.isFinite(lat) || !Number.isFinite(lon)) return;
+
+                            coords.push([lat, lon]);
+
+                            const heading = toFloat(row.Heading);
+                            const speed = toFloat(row.Speed);
+                            const twa = toFloat(row.TWA);
+                            const twd = toFloat(row.TWD);
+                            const tws = toFloat(row.TWS);
+
+                            const popup = `
           <b>Avalon</b>
           <b>${row.Date ?? ""}</b><br>
           Lat/Lon: ${lat.toFixed(5)}, ${lon.toFixed(5)}<br>
@@ -7136,95 +7169,95 @@ document.getElementById('csv-avalon').addEventListener('change', function (event
           BOOST: ${row.BOOST ?? ""}
         `;
 
-        L.circle([lat, lon], {
-          radius: 10,
-          weight: 0.5,
-          color: 'blue',
-          fillColor: 'cyan',
-          fillOpacity: 0.5
-        })
-          .bindTooltip(popup)
-          .bindPopup(popup)
-         
-          .addTo(avalonLayerGroup);
-      });
+                            L.circle([lat, lon], {
+                                radius: 10,
+                                weight: 0.5,
+                                color: 'blue',
+                                fillColor: 'cyan',
+                                fillOpacity: 0.5
+                            })
+                                .bindTooltip(popup)
+                                .bindPopup(popup)
 
-      // trace la trajectoire
-      if (coords.length > 1) {
-        L.polyline(coords, { color: 'purple', weight: 1, opacity: 1 })
-          .addTo(avalonLayerGroup);
+                                .addTo(avalonLayerGroup);
+                        });
 
-        map.fitBounds(coords, { padding: [20, 20] });
-      } else if (coords.length === 1) {
-        map.setView(coords[0], Math.max(map.getZoom(), 6));
-      }
+                        // trace la trajectoire
+                        if (coords.length > 1) {
+                            L.polyline(coords, { color: 'purple', weight: 1, opacity: 1 })
+                                .addTo(avalonLayerGroup);
 
-      // si tu veux être sûr que le layer est visible
-      if (!map.hasLayer(avalonLayerGroup)) avalonLayerGroup.addTo(map);
+                            map.fitBounds(coords, { padding: [20, 20] });
+                        } else if (coords.length === 1) {
+                            map.setView(coords[0], Math.max(map.getZoom(), 6));
+                        }
 
-      console.log(`Avalon: ${coords.length} points chargés`);
-    }
-  });
-});
+                        // si tu veux être sûr que le layer est visible
+                        if (!map.hasLayer(avalonLayerGroup)) avalonLayerGroup.addTo(map);
 
-//3) VRZEN
+                        console.log(`Avalon: ${coords.length} points chargés`);
+                    }
+                });
+            });
 
-document.getElementById('csv-vrzen').addEventListener('change', function (event) {
-  console.log('chargement csv VRZEN lancé');
-  const file = event.target.files[0];
-  if (!file) return;
+            //3) VRZEN
 
-  Papa.parse(file, {
-    header: true,
-    skipEmptyLines: true,
-    dynamicTyping: false,
-    delimiter: "", // auto (tab, ;, , ...)
-    complete: function (results) {
+            document.getElementById('csv-vrzen').addEventListener('change', function (event) {
+                console.log('chargement csv VRZEN lancé');
+                const file = event.target.files[0];
+                if (!file) return;
 
-      VRZENLayerGroup.clearLayers();
-      const coords = [];
+                Papa.parse(file, {
+                    header: true,
+                    skipEmptyLines: true,
+                    dynamicTyping: false,
+                    delimiter: "", // auto (tab, ;, , ...)
+                    complete: function (results) {
 
-      const toFloat = (v) => {
-        if (v === null || v === undefined) return NaN;
-        if (typeof v === "number") return v;
-        const s = String(v).trim().replace(/\s/g, "").replace(",", ".");
-        const n = parseFloat(s);
-        return Number.isFinite(n) ? n : NaN;
-      };
+                        VRZENLayerGroup.clearLayers();
+                        const coords = [];
 
-      const pick = (row, names) => {
-        for (const n of names) {
-          if (row[n] !== undefined && row[n] !== null && String(row[n]).trim() !== "") return row[n];
-        }
-        return "";
-      };
+                        const toFloat = (v) => {
+                            if (v === null || v === undefined) return NaN;
+                            if (typeof v === "number") return v;
+                            const s = String(v).trim().replace(/\s/g, "").replace(",", ".");
+                            const n = parseFloat(s);
+                            return Number.isFinite(n) ? n : NaN;
+                        };
 
-      results.data.forEach((row) => {
-        // Colonnes sûres dans ton CSV
-        const lat = toFloat(row["Latitude"]);
-        const lon = toFloat(row["Longitude"]);
-        if (!Number.isFinite(lat) || !Number.isFinite(lon)) return;
+                        const pick = (row, names) => {
+                            for (const n of names) {
+                                if (row[n] !== undefined && row[n] !== null && String(row[n]).trim() !== "") return row[n];
+                            }
+                            return "";
+                        };
 
-        coords.push([lat, lon]);
+                        results.data.forEach((row) => {
+                            // Colonnes sûres dans ton CSV
+                            const lat = toFloat(row["Latitude"]);
+                            const lon = toFloat(row["Longitude"]);
+                            if (!Number.isFinite(lat) || !Number.isFinite(lon)) return;
 
-        // Date : tu peux avoir DateHeure(UTC) + DateHeure, on privilégie DateHeure
-        const dateHeure = pick(row, ["DateHeure", "DateHeure(UTC)"]);
+                            coords.push([lat, lon]);
 
-        const hdg      = toFloat(row["HDG"]);
-        const twa      = toFloat(row["TWA"]);
-        const bestUp   = toFloat(row["BestUpVMG"]);
-        const bestDown = toFloat(row["BestDwnVMG"]);
-        const speed    = toFloat(row["Speed(kt)"]);
-        const twd      = toFloat(row["TWD"]);
-        const tws      = toFloat(row["TWS(kt)"]);
-        const voile    = row["Voile"] ?? "";
+                            // Date : tu peux avoir DateHeure(UTC) + DateHeure, on privilégie DateHeure
+                            const dateHeure = pick(row, ["DateHeure", "DateHeure(UTC)"]);
 
-        const energieFin = toFloat(row["EnergieFinIteration"]); // ex: "77,12"
+                            const hdg = toFloat(row["HDG"]);
+                            const twa = toFloat(row["TWA"]);
+                            const bestUp = toFloat(row["BestUpVMG"]);
+                            const bestDown = toFloat(row["BestDwnVMG"]);
+                            const speed = toFloat(row["Speed(kt)"]);
+                            const twd = toFloat(row["TWD"]);
+                            const tws = toFloat(row["TWS(kt)"]);
+                            const voile = row["Voile"] ?? "";
 
-        const fmt = (n, d = 0) => (Number.isFinite(n) ? n.toFixed(d) : "");
-        const fmt2 = (n) => (Number.isFinite(n) ? n.toFixed(2) : "");
+                            const energieFin = toFloat(row["EnergieFinIteration"]); // ex: "77,12"
 
-        const popup = `
+                            const fmt = (n, d = 0) => (Number.isFinite(n) ? n.toFixed(d) : "");
+                            const fmt2 = (n) => (Number.isFinite(n) ? n.toFixed(2) : "");
+
+                            const popup = `
           <b>VRZEN</b> <b>${dateHeure}</b><br>
           Lat/Lon: ${lat.toFixed(5)}, ${lon.toFixed(5)}<br>
           HDG: ${fmt(hdg, 0)}°<br>
@@ -7238,38 +7271,38 @@ document.getElementById('csv-vrzen').addEventListener('change', function (event)
           EnergieFinIteration: ${fmt2(energieFin)}
         `;
 
-        // Cercle (garde tes couleurs/ta logique)
-        L.circle([lat, lon], {
-          radius: 40,      // adapte à ton rendu
-          weight: 1,
-          color: 'blue',
-          fillColor: 'cyan',
-          fillOpacity: 0.5
-        })
-          .bindPopup(popup)
-          .addTo(VRZENLayerGroup);
-      });
+                            // Cercle (garde tes couleurs/ta logique)
+                            L.circle([lat, lon], {
+                                radius: 40,      // adapte à ton rendu
+                                weight: 1,
+                                color: 'blue',
+                                fillColor: 'cyan',
+                                fillOpacity: 0.5
+                            })
+                                .bindPopup(popup)
+                                .addTo(VRZENLayerGroup);
+                        });
 
-      if (coords.length > 1) {
-        L.polyline(coords, { color: 'purple', weight: 1, opacity: 1 })
-          .addTo(VRZENLayerGroup);
-        map.fitBounds(coords, { padding: [20, 20] });
-      } else if (coords.length === 1) {
-        map.setView(coords[0], Math.max(map.getZoom(), 6));
-      }
+                        if (coords.length > 1) {
+                            L.polyline(coords, { color: 'purple', weight: 1, opacity: 1 })
+                                .addTo(VRZENLayerGroup);
+                            map.fitBounds(coords, { padding: [20, 20] });
+                        } else if (coords.length === 1) {
+                            map.setView(coords[0], Math.max(map.getZoom(), 6));
+                        }
 
-      if (!map.hasLayer(VRZENLayerGroup)) VRZENLayerGroup.addTo(map);
-      console.log(`CSV: ${coords.length} points`);
-    }
-  });
-});
-
-
+                        if (!map.hasLayer(VRZENLayerGroup)) VRZENLayerGroup.addTo(map);
+                        console.log(`CSV: ${coords.length} points`);
+                    }
+                });
+            });
 
 
 
 
-//4)DORADO
+
+
+            //4)DORADO
 
 
 
@@ -7325,15 +7358,15 @@ document.getElementById('csv-vrzen').addEventListener('change', function (event)
             });
 
 
-document.getElementById('ClearAllRoutes').addEventListener('click', function (event) {
+            document.getElementById('ClearAllRoutes').addEventListener('click', function (event) {
 
-console.log('ClearAll')
-gpx1LayerGroup.clearLayers()
-doradoLayerGroup.clearLayers()
-avalonLayerGroup.clearLayers()
-VRZENLayerGroup.clearLayers()
+                console.log('ClearAll')
+                gpx1LayerGroup.clearLayers()
+                doradoLayerGroup.clearLayers()
+                avalonLayerGroup.clearLayers()
+                VRZENLayerGroup.clearLayers()
 
-});
+            });
 
 
 
@@ -7599,39 +7632,39 @@ VRZENLayerGroup.clearLayers()
 
 
 
-        window.autreRoutage = async (
-            encodedName,
-            lat,
-            lon,
-            heuredepart,
-            encodedWaypoints,
-            encodedAri,
-            cocheexclusions
-        ) => {
-            try {
-                const name = decodeURIComponent(encodedName);
-                const waypoints = JSON.parse(decodeURIComponent(encodedWaypoints));
-                const ari = JSON.parse(decodeURIComponent(encodedAri));
-                usernameRoutage= name;
-                let heuredepart = document.getElementById('datetime').value 
-                let timestamp = new Date(heuredepart).getTime() / 1000; // Convertit en secondes
-                heuredepart = Math.ceil(timestamp / 60) * 60; // Arrondi à la minute supérieure
-                console.log('heure de depart en secondes du routage ' + heuredepart + 'soit ' + hmns.format(heuredepart * 1000))
+            window.autreRoutage = async (
+                encodedName,
+                lat,
+                lon,
+                heuredepart,
+                encodedWaypoints,
+                encodedAri,
+                cocheexclusions
+            ) => {
+                try {
+                    const name = decodeURIComponent(encodedName);
+                    const waypoints = JSON.parse(decodeURIComponent(encodedWaypoints));
+                    const ari = JSON.parse(decodeURIComponent(encodedAri));
+                    usernameRoutage = name;
+                    let heuredepart = document.getElementById('datetime').value
+                    let timestamp = new Date(heuredepart).getTime() / 1000; // Convertit en secondes
+                    heuredepart = Math.ceil(timestamp / 60) * 60; // Arrondi à la minute supérieure
+                    console.log('heure de depart en secondes du routage ' + heuredepart + 'soit ' + hmns.format(heuredepart * 1000))
 
 
 
-                // console.log (t0)
-                console.log (heuredepart)
-                // heuredepart=t0
-                const mode = document.querySelector('input[name="routage_mode"]:checked').value;
-                console.log ( name, lat, lon, heuredepart, waypoints, ari, cocheexclusions,mode )
+                    // console.log (t0)
+                    console.log(heuredepart)
+                    // heuredepart=t0
+                    const mode = document.querySelector('input[name="routage_mode"]:checked').value;
+                    console.log(name, lat, lon, heuredepart, waypoints, ari, cocheexclusions, mode)
 
-                calculeroutage( name, lat, lon, heuredepart, waypoints, ari, cocheexclusions,mode );
-            }
-            catch (err) {
-                console.error("Erreur dans autreroutage :", err);
-            }
-        };
+                    calculeroutage(name, lat, lon, heuredepart, waypoints, ari, cocheexclusions, mode);
+                }
+                catch (err) {
+                    console.error("Erreur dans autreroutage :", err);
+                }
+            };
 
 
 
@@ -7704,9 +7737,9 @@ VRZENLayerGroup.clearLayers()
                 event.target.value = pastedData;             // Insérer le texte collé dans le champ
 
                 // Conversion des coordonnées en décimales
-                const [latDecimal, lngDecimal ] = dmsToDecimal(pastedData);
-                console.log (' Ligne 6595 latdecimal'+latDecimal)
-                console.log (' Ligne 6595 lngdecimal'+lngDecimal)
+                const [latDecimal, lngDecimal] = dmsToDecimal(pastedData);
+                console.log(' Ligne 6595 latdecimal' + latDecimal)
+                console.log(' Ligne 6595 lngdecimal' + lngDecimal)
                 affichecoordsdep(latDecimal, lngDecimal)
 
             });
@@ -7751,17 +7784,17 @@ VRZENLayerGroup.clearLayers()
 
 
 
-    // document.getElementById("fileInput").addEventListener("change", (event) => {
-    //     console.log ('Bouton declenché')
-    //     const file = event.target.files[0];
-    //     if (!file) return;
+            // document.getElementById("fileInput").addEventListener("change", (event) => {
+            //     console.log ('Bouton declenché')
+            //     const file = event.target.files[0];
+            //     if (!file) return;
 
-    //     const reader = new FileReader();
-    //     reader.onload = () => {
-    //         traiteCSV(reader.result);
-    //     };
-    //     reader.readAsText(file);
-    // });
+            //     const reader = new FileReader();
+            //     reader.onload = () => {
+            //         traiteCSV(reader.result);
+            //     };
+            //     reader.readAsText(file);
+            // });
 
 
 
@@ -7905,36 +7938,39 @@ VRZENLayerGroup.clearLayers()
             //***********    Gestionnaires de map  windy    **************************************************
             //************************************************************************************************
 
-          function rechercheV (valeur,Tableau)
-			{
-				var indice=0
-				for (var i=0;i<Tableau.length ;i++)
-				{if (Tableau[i]<=valeur) {indice=i}}
-				return indice
-			}
+            function rechercheV(valeur, Tableau) {
+                var indice = 0
+                for (var i = 0; i < Tableau.length; i++) { if (Tableau[i] <= valeur) { indice = i } }
+                return indice
+            }
 
-                function lon360to180(lon) {
+            function lon360to180(lon) {
                 // ramène n'importe quoi dans [-180, 180)
                 return ((lon + 180) % 360 + 360) % 360 - 180;
-                }
+            }
+
+
 
             broadcast.on('redrawFinished', () => {
-            console.log ('On est dans redraw')
+                console.log('On est dans redraw')
                 map.removeLayer(circlew) // on retire l ancien point        
 
-                 try {        //  ne fonctionne que s'il y a eu un routage
-                
+                try {        //  ne fonctionne que s'il y a eu un routage
+
                     let sec = parseInt((store.get('timestamp')) / 1000);
-                    console.log ('sec '+sec+' tc [0] '+ tc[0])
+                    console.log('sec ' + sec + ' tc [0] ' + tc[0])
                     let npoint = rechercheV(sec, tc) - 1;
-                    console.log ('npoint '+npoint)
-                    npoint += 3
-                    console.log(' point   ' + arrayroutage[npoint][0] + ' ' + arrayroutage[npoint][2] + ' ' + arrayroutage[npoint][3])
-                    circlew = L.circle([arrayroutage[npoint][2], lon360to180(arrayroutage[npoint][3])], { color: 'red', fillColor: 'white', opacity: 1, fillOpacity: 0.5, radius: 3000 }).addTo(map);
-                 }
-                 catch {
-                     console.log(' ')
-                 }
+                    if (npoint > 0)    // pour eviter que le cercle n apparaisse dès le debut 
+                    {
+                        console.log('npoint ' + npoint)
+                        npoint += 3
+                        console.log(' point   ' + arrayroutage[npoint][0] + ' ' + arrayroutage[npoint][2] + ' ' + arrayroutage[npoint][3])
+                        circlew = L.circle([arrayroutage[npoint][2], lon360to180(arrayroutage[npoint][3])], { color: 'red', fillColor: 'white', opacity: 1, fillOpacity: 0.5, radius: 3000 }).addTo(map);
+                    }
+                }
+                catch {
+                    console.log(' ')
+                }
 
             });
 
@@ -7979,7 +8015,7 @@ VRZENLayerGroup.clearLayers()
 
 
 
-  async function mainelse() {
+            async function mainelse() {
 
                 console.log('routage d un autre bateau ')
 

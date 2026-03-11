@@ -2643,7 +2643,7 @@ function afficheRoutageWrapped(tabroutage, map, routageLayer, colors, options = 
 
     const vmgmin = Number(row[idxVmgMin]).toFixed(2);
     const vmgmax = Number(row[idxVmgMax]).toFixed(2);
-    const vmg = (parseFloat(twa) < 90) ? vmgmin : vmgmax;
+    const vmg = ( Math.abs(parseFloat(twa) )< 90) ? vmgmin : vmgmax;
 
     const dateRoutage = intlhmn
       ? intlhmn.format(heuredepart * 1000)
@@ -2737,8 +2737,8 @@ function afficheRoutageStandard(tabroutage, map, routageLayer, colors, options =
 
     const vmgmin = tabroutage[i][7];
     const vmgmax = tabroutage[i][8];
-    const vmg    = twa < 90 ? vmgmin : vmgmax;
-
+    const vmg    = Math.abs(twa)< 90 ? vmgmin : vmgmax;
+    
     tooltipprog[i] =
       '<b> Point ' + i + ' le ' + date +
       ' <br>(Routage du ' + intlhmn.format(heuredepart * 1000) +

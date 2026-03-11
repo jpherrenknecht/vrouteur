@@ -1901,61 +1901,61 @@ def impression11cc(tableau):
 
 
 
-# necessaire pour ancienne prevision 
-def recupereGrib (filename):
-    filenamejson=filename.split('.')[0]+'.json'
-    with open(filename, 'rb') as f:
-        GR = np.load(f)
+# # necessaire pour ancienne prevision 
+# def recupereGrib (filename):
+#     filenamejson=filename.split('.')[0]+'.json'
+#     with open(filename, 'rb') as f:
+#         GR = np.load(f)
 
-    with open(filenamejson, 'r') as fp:
-        data = json.load(fp)
-    tig=data['tig']
-    indices=data['indices']
-    avail_ts=data['avail_ts']
-    return GR,tig,indices,avail_ts      
-
-
+#     with open(filenamejson, 'r') as fp:
+#         data = json.load(fp)
+#     tig=data['tig']
+#     indices=data['indices']
+#     avail_ts=data['avail_ts']
+#     return GR,tig,indices,avail_ts      
 
 
-def chargement_grib():
-    global GR025
-    try:
-        # on essaye de charger sur serveur 
-        basedirGribs025     = '/home/jp/gribslocaux/gribs025/'
-        fileName,tig=gribFileName(basedirGribs025)
-        heure= datetime.fromtimestamp(tig, tz=timezone.utc).hour
-        with open(fileName, 'rb') as f:
-                GR025 = np.load(f)           
-        print('Le grib 025  {} h+ {:3.0f}h            {}     a été chargé sur le site distant'.format(heure, GR025[0,0,0,1]*3,fileName))
-        return GR025,tig
 
-    except:
-        basedirgribs='/home/jp/gribslocaux/gribs025/'
-        fileName,tig=gribFileName(basedirgribs)
-        heure= datetime.fromtimestamp(tig, tz=timezone.utc).hour
-        with open(fileName, 'rb') as f:
-                GR025 = np.load(f)
-        print('Le grib 025 {} h+ {:3.0f}h            {}      a été chargé sur l ordi local  '.format(heure,GR025[0,0,0,1]*3,fileName))
-        return GR025,tig                                                                                            
+
+# def chargement_grib():
+#     global GR025
+#     try:
+#         # on essaye de charger sur serveur 
+#         basedirGribs025     = '/home/jp/gribslocaux/gribs025/'
+#         fileName,tig=gribFileName(basedirGribs025)
+#         heure= datetime.fromtimestamp(tig, tz=timezone.utc).hour
+#         with open(fileName, 'rb') as f:
+#                 GR025 = np.load(f)           
+#         print('Le grib 025  {} h+ {:3.0f}h            {}     a été chargé sur le site distant'.format(heure, GR025[0,0,0,1]*3,fileName))
+#         return GR025,tig
+
+#     except:
+#         basedirgribs='/home/jp/gribslocaux/gribs025/'
+#         fileName,tig=gribFileName(basedirgribs)
+#         heure= datetime.fromtimestamp(tig, tz=timezone.utc).hour
+#         with open(fileName, 'rb') as f:
+#                 GR025 = np.load(f)
+#         print('Le grib 025 {} h+ {:3.0f}h            {}      a été chargé sur l ordi local  '.format(heure,GR025[0,0,0,1]*3,fileName))
+#         return GR025,tig                                                                                            
    
 
 
 
-def majgrib():
-    global GR025,tig
-    basedirGribs025     = '/home/jp/gribslocaux/gribs025/'
-    filename,derniertig=gribFileName(basedirGribs025)
-    #  si pas sur dernier grib ou si moins de  360 h chargées
-    print('Dernier indice chargé',GR025[0,0,0,1]*3,'h')
-    if os.path.exists(filename)==True:
-        if (derniertig!=GR025[0,0,0,0]*100 )   or (int(GR025[0,0,0,1]<120) ):
-            print('\n Rechargement du grib necessaire\n******************************\n')
-            GR025,tig = chargement_grib()
-            print('Nouveau Dernier indice chargé',GR025[0,0,0,1]*3,'h')
-            return 
+# def majgrib():
+#     global GR025,tig
+#     basedirGribs025     = '/home/jp/gribslocaux/gribs025/'
+#     filename,derniertig=gribFileName(basedirGribs025)
+#     #  si pas sur dernier grib ou si moins de  360 h chargées
+#     print('Dernier indice chargé',GR025[0,0,0,1]*3,'h')
+#     if os.path.exists(filename)==True:
+#         if (derniertig!=GR025[0,0,0,0]*100 )   or (int(GR025[0,0,0,1]<120) ):
+#             print('\n Rechargement du grib necessaire\n******************************\n')
+#             GR025,tig = chargement_grib()
+#             print('Nouveau Dernier indice chargé',GR025[0,0,0,1]*3,'h')
+#             return 
 
-    else:
-        return
+#     else:
+#         return
 
 
 

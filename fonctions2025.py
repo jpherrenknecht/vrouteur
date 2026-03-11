@@ -252,6 +252,28 @@ def calcul_cap1(lat0, lon0, lat1, lon1):
     return cap
 
 
+def dist_mn_vec(lat1, lon1, lat2, lon2):
+    """
+    Distance approximative entre 2 ensembles de points en milles nautiques.
+    lat/lon en radians.
+    Compatible scalaires, vecteurs et tenseurs broadcastables.
+    Gère le passage 0/360 et ±180 via repli de dlon dans [-pi, pi].
+    """
+    R_NM = 3440.065
+
+    lat1 = torch.as_tensor(lat1)
+    lon1 = torch.as_tensor(lon1)
+    lat2 = torch.as_tensor(lat2)
+    lon2 = torch.as_tensor(lon2)
+
+    dlon = lon2 - lon1
+    dlon = (dlon + torch.pi) % (2.0 * torch.pi) - torch.pi
+
+    dlat = lat2 - lat1
+    x = dlon * torch.cos((lat1 + lat2) * 0.5)
+
+    return torch.sqrt(x * x + dlat * dlat) * R_NM
+
 
 def distance_haversine(lat0, lon0, lat1, lon1):
     """
@@ -634,6 +656,34 @@ def prevision025todtig(GRto,dtig, latto, lonto):
 # Penalites en Stamina 
 #######################################    
 
+def calc_perte_stamina_np(tws, TackGybe, Chgt,coeffboat, MF = 0.8):
+    """
+    Calcule la perte énergétique selon les conditions de vent, les changements de manœuvre et les coefficients.
+    
+    Args:
+        tws : True Wind Speed. TackGybe : Tableau des virements . Chgt : Tableau des changements de voile.
+        coeffboat (float): Coefficient global du bateau.
+        MF (float): Coefficient multiplicateur pour Chgt.
+    
+    Returns:
+        ndarray: La perte calculée pour chaque entrée.
+    """
+    m = np.zeros_like(tws)
+    p = np.zeros_like(tws)
+
+    # Remplissage de m
+    m[(tws > 10) & (tws <= 20)] = 0.2
+    m[(tws > 20) & (tws < 30)] = 0.6
+
+    # Remplissage de p
+    p[tws <= 10] = 10
+    p[(tws > 10) & (tws <= 20)] = 8
+    p[tws >= 30] = 18
+
+    # Calcul final de la perte
+    perte = ((m * tws + p) * (TackGybe + 2 * Chgt * MF)) * coeffboat
+    
+    return perte
 
 
 
@@ -820,13 +870,23 @@ def reconstruire_chemin(isoglobal: torch.Tensor, nptmini: int) -> torch.Tensor:
 
 
 
-def frecupstaminato(dt,Tws,pouf=0.8):
-    ''' Calcul exact vérifié avec ITYC '''
-    ''' tws en noeuds, dt en s '''
-    ''' Tws peut etre un np.array'''
-    TempsPourUnPoint = splineto(0, 30, 300, 900, Tws)*pouf
-    ptsRecuperes = dt / TempsPourUnPoint
-    return ptsRecuperes
+# def frecupstaminato(dt,Tws,pouf=0.8):
+#     ''' Calcul exact vérifié avec ITYC '''
+#     ''' tws en noeuds, dt en s '''
+#     ''' Tws peut etre un np.array'''
+#     TempsPourUnPoint = splineto(0, 30, 300, 900, Tws)*pouf
+#     ptsRecuperes = dt / TempsPourUnPoint
+#     return ptsRecuperes
+
+def frecupstaminato(dt: torch.Tensor, TWS: torch.Tensor, pouf=0.8) -> torch.Tensor:
+    #dt  : tensor (durée, typiquement en minutes si c'est ton (L18-L17))
+    #TWS : tensor (wind speed)
+    #Retour : tensor des points récupérés sur l'intervalle dt.
+    tws = TWS.clamp(0.0, 30.0)
+    x = (1.0 + torch.cos(torch.pi * tws / 30.0)) * 0.5
+    return ((0.10375 + 0.20875 * x.pow(2.15)) / 60.0) * dt * pouf
+
+
 
 
 def frecupstamina(dt,Tws,pouf=0.8):
@@ -2569,37 +2629,58 @@ def peno_np(lwtimer, hwtimer, Tws, Stamina):
     return Peno
 
 
-def peno_torch(lwtimer, hwtimer, Tws, Stamina):
+
+def peno_torch(lwtimer: float, hwtimer: float, Tws: torch.Tensor, Stamina: torch.Tensor) -> torch.Tensor:
     """
-    Calcul de pénalité (Torch).
-    - lwtimer, hwtimer : scalaires ou tensors broadcastables
-    - Tws, Stamina     : tensors (ou scalaires) broadcastables
-    Retour : tensor
+    Version GPU-friendly (pas de torch.where).
+    Tws et Stamina : torch.tensor (CPU ou CUDA)
+    lwtimer / hwtimer : float
+    Retour : torch.tensor (même device/dtype que Tws)
     """
-    # Convertit tout en tensors, en alignant dtype/device sur Tws si possible
-    Tws_t = Tws if torch.is_tensor(Tws) else torch.as_tensor(Tws)
-    ref = Tws_t
 
-    lwt = lwtimer if torch.is_tensor(lwtimer) else torch.as_tensor(lwtimer, device=ref.device, dtype=ref.dtype)
-    hwt = hwtimer if torch.is_tensor(hwtimer) else torch.as_tensor(hwtimer, device=ref.device, dtype=ref.dtype)
-    St  = Stamina if torch.is_tensor(Stamina) else torch.as_tensor(Stamina, device=ref.device, dtype=ref.dtype)
-    Tws_t = Tws_t.to(device=ref.device, dtype=ref.dtype)
+    # constantes sur le bon device/dtype
+    lwt = Tws.new_tensor(lwtimer)
+    hwt = Tws.new_tensor(hwtimer)
 
-    # Coef stamina
-    Cstamina = 2 - 0.015 * St
+    # stamina factor
+    Cstamina = 2 - 0.015 * Stamina
 
-    # Transition (10 < TWS < 30)
-    pi = torch.pi if hasattr(torch, "pi") else torch.tensor(math.pi, device=ref.device, dtype=ref.dtype)
-    ftws = 50 - torch.cos((Tws_t - 10) * pi / 20) * 50
-    Peno_mid = ((hwt - lwt) * ftws / 100) + lwt
+    # transition normalisée puis clampée => plateaux automatiques
+    t = ((Tws - 10) / 20).clamp_(0.0, 1.0)      # t in [0,1]
+    ftws = 50 - torch.cos(t * torch.pi) * 50    # 0 -> 100 (cos easing)
 
-    # Plateaux
-    Peno_base = torch.where(
-        Tws_t <= 10, lwt,
-        torch.where(Tws_t >= 30, hwt, Peno_mid)
-    )
+    # interpolation timer (déjà bornée par le clamp)
+    Peno = ((hwt - lwt) * ftws / 100 + lwt) * Cstamina
+    return Peno
 
-    return Peno_base * Cstamina
+
+
+
+# def peno_torch(lwtimer, hwtimer, Tws, Stamina):
+#     """
+#     calcul de la penalite en temps
+#     Tws et Stamina : torch.tensor
+#     lwtimer et hwtimer : float
+#     retourne : torch.tensor
+#     """
+
+#     Cstamina = 2 - 0.015 * Stamina
+
+#     # loi de transition (10 < TWS < 30)
+#     ftws = 50 - torch.cos((Tws - 10) * torch.pi / 20) * 50
+#     Peno_mid = ((hwtimer - lwtimer) * ftws / 100) + lwtimer
+#     # plateaux
+#     Peno = torch.where(
+#         Tws <= 10,
+#         torch.tensor(lwtimer, device=Tws.device, dtype=Tws.dtype),
+#         torch.where(
+#             Tws >= 30,
+#             torch.tensor(hwtimer, device=Tws.device, dtype=Tws.dtype),
+#             Peno_mid
+#         )
+#     ) * Cstamina
+
+#     return Peno
 
 
 
