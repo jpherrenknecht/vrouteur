@@ -106,7 +106,7 @@
 
         socket.on("registered", (data) => {
             if (data.status === 'ok') {
-                console.log("Client enregistré en websocket avec l'id :", data.client_id);
+                //console.log("Client enregistré en websocket avec l'id :", data.client_id);
                 try {
                     let indicator = document.getElementById("status-indicator");
                     indicator.style.backgroundColor = "green"
@@ -148,7 +148,7 @@
 
 
         async function registerClientId(user_id) {
-            console.log("Enregistrement du client sur websocket  avec user_id :", user_id);
+            console.log("Enregistrement sur websocket  de user_id :", user_id);
             socket.emit("register", { client_id: user_id });
         }
 
@@ -405,8 +405,8 @@
 
                 if (typereponse) {
                     course2 = response['course']
-                    console.log("Message  websocket : " + typereponse + " course " + course2 + " à" + intlhmn.format(Date.now()));
-                    console.log('*******************************************************')
+                    console.log(intlhmn.format(Date.now()) + " Message  websocket : " + typereponse + " pour course " + course2);
+                    console.log(' ')
                 }
 
 
@@ -418,6 +418,7 @@
                         changementcourse(username, course2)
                         course = course2
                     }
+
                     console.log('Update de boatinfos pour ' + username + ' course ' + course + ' bloque ' + bloque)
                     update(username, course, bloque)
                     console.log('boatinfos traité')
@@ -438,7 +439,7 @@
 
 
                 if (typereponse == 'getfleet') {
-                    console.log('\non traite getfleet pour changer de course \n*******************************')
+                    console.log('\n on traite getfleet ')
                     afficheFlotte()
                     course2 = response['course']
                     //console.log('test user_id' + user_id + ' course ' + course + ' t0routage ' + t0routage)
@@ -463,9 +464,10 @@
                     // on a besoin des donnees boatinfos
                     console.log('\nDemande de update le ' + intlhmn.format(Date.now()))
                     console.log('Course ' + course)
-                    console.log('Course2 ' + course2)
+
 
                     if (course2 != course) {
+                        console.log('Course2 ' + course2)
                         console.log('changement de course declenche par boatinfos')
                         leginfos = chercheleginfos(course2)
                         changementcourse(username, course2)
@@ -475,7 +477,14 @@
 
                     boatinfosdata = await chercheboatinfos(username, course2)
                     boatinfos = boatinfosdata.result
-                    if (boatinfos != null) { afficheboatinfos(boatinfosdata) }
+
+
+                    //console.log ('Informations boatinfos reçues '+JSON.stringify(boatinfos))
+
+                    if (boatinfos != null) {
+
+                        afficheboatinfos(boatinfosdata)
+                    }
                     else { console.log("Ce bateau n'etant pas connu dans boatinfos , ça ne sert à rien de faire un update ") }
 
                 } //fin du bloquage si routage 
@@ -500,7 +509,7 @@
     </table>
 
     <table class='table3' id= 'table32' >
-     <tr><td class='l20px' >De</td> <td  id='idselectdepart' ></td><td  rowspan='3' class='center' > A</td> <td rowspan='3' id='idselectarrivee'  > </td></tr>
+     <tr><td class='l20px' >De</td> <td  id='idselectdepart' ></td><td  rowspan='3' class='center' > A</td><td> <button onclick='EditeurWP2()' class="blackwhite11">WPS</button></td><td rowspan='3' id='idselectarrivee'  > </td></tr>
 
    
    
@@ -613,17 +622,32 @@
     </div> 
     <table class='table50' id= 'table21'>
         <tr>
-           <td>Speed</td>    <td id='speedvr'></td>    <td>Twsvr </td> <td id='twsvr'   ></td>   <td> Twdvr </td>    <td id='twdvr'  ></td> 
+           <td>SpeedVr</td>    <td id='speedvr1'></td>    <td>Twsvr </td> <td id='twsvr'   ></td>   <td> Twdvr </td>    <td id='twdvr'  ></td> 
         </tr><tr>
-        <td>Cap </td><td id='headingvr' ></td><td>Twscalc </td>    <td id='twscalc' ></td>     <td> Twdcalc </td>  <td id='twdcalc'></td>
-        </tr><tr>
-         <td> Sail </td>  <td id='sailvr'></td>        <td >Twavr </td><td id='twavr' class='red'></td>                             <td>Stamina</td>   <td  id='staminavr'></td></tr>
-        <tr><td colspan=2> Voiles auto</td ><td><input type='checkbox' id='voilesautovr' name='voilesautovr'  checked    /></td>
+     
+          <td> SpeedCalc </td>  <td id='speedcalc'> 99 </td>  <td> Twscalc </td>    <td id='twscalc' ></td>     <td> Twdcalc </td>  <td id='twdcalc'></td>
+        </tr>
+        
+        <tr>    <td>Cap </td><td id='headingvr' ></td>
+         
+         <td >Twavr </td><td id='twavr' class='red'></td>                             <td>Stamina</td>   <td  id='staminavr'></td></tr>
+        <tr><td id='sailvr'></td> <td > auto</td ><td><input type='checkbox' id='voilesautovr' name='voilesautovr'  checked    /></td>
         <td colspan=2> Twa auto</td ><td><input type='checkbox' id='twaauto' name='twaauto'  checked    /></td></tr>
         </table>   
-         
-        <div id="status-indicator" style="width: 10px; height: 10px; background-color: red; border-radius: 50%;"></div>   
-    </div>`
+        <div class="status-bar">
+    <div id="status-indicator"></div>
+
+    <div class="auto-center">
+        <label for="autoCenterDelay">Auto-centrage :</label>
+        <select id="autoCenterDelay">
+            <option value="0">Off</option>
+            <option value="1">1 min</option>
+            <option value="2">2 min</option>
+            <option value="3">3 min</option>
+        </select>
+    </div>
+</div>`
+
 
 
 
@@ -673,10 +697,13 @@
             var texteboite4 =
                 `<div class='liens' >
               
-       <button id="btnDivers" class="blackwhite11">Calculettes</button>       
-       <button onclick='EditeurExclusions()' class="blackwhite11">Exclusions</button>
+       <button id="btnDivers" class="blackwhite11">Divers</button>       
+       <button onclick='EditeurExclusions()' class="blackwhite11">Exclus.</button>
        <button onclick='EditeurBarrieres()' class="blackwhite11">Barrieres</button>
        <button onclick='EditeurRoutes()' class="blackwhite11">Routes</button>
+
+       <button onclick='EditeurWP2()' class="blackwhite11">WPS</button>
+       
        <button id="btnPolaires" class="blackwhite11">Polaires</button>
 
         <input type="file" id="csv-zezo" accept=".csv" style="margin: 10px;" />
@@ -730,16 +757,18 @@
 
             var texteEditeurWP =
                 `<div id="waypointEditor" class="waypointeditor">
-        <span class="close-button" onclick="fermerEditeurWaypoint()">×</span>       
-        <h3>Modifier le Waypoint</h3>
-        <p>Nom: <span id="wpName"></span></p>
-        <p>Latitude: <span id="wpLat"></span></p>
-        <p>Longitude: <span id="wpLon"></span></p>
-        <span> Rayon: <input type="number" id="wpRadius" step="0.1" style="width: 60px;"> NM &nbsp;</span>
-        Couleur: <input type="color" id="wpColor" value="#FFFF00"></input><br>
-        <button id="saveWaypoint">Sauvegarder le WP</button>
-        <button id="deleteWaypoint">Supprimer le WP</button>
-    </div>`;
+            <span class="close-button" onclick="fermerEditeurWaypoint()">×</span>       
+            <h3>Modifier le Waypoint</h3>
+            <p>Nom: <span id="wpName"></span></p>
+            <p>Latitude: <span id="wpLat"></span></p>
+            <p>Longitude: <span id="wpLon"></span></p>
+            <span> Rayon: <input type="number" id="wpRadius" step="0.1" style="width: 60px;"> NM &nbsp;</span>
+            Couleur: <input type="color" id="wpColor" value="#FFFF00"></input><br>
+            <button id="saveWaypoint">Sauvegarder</button>
+            <button id="atteindreWaypoint">Centrer </button>
+            <button id="deleteWaypoint">Supprimer</button>
+
+            </div>`;
 
 
             var texteEditeurExclusions = ""
@@ -791,6 +820,17 @@
 
 
 
+            var texteEditeurWP2 =
+                `<div id="wpEditorContainer" class = "wpEditorContainer" >
+         <span class="close-button" onclick="fermerEditeurWP2()">×</span>  
+        <h3>Editeur de WP</h3>
+        <label> Modification des waypoints </label>
+        <button onclick="sauveWP2()"  id="sauveroute">Sauvegarder les modifications</button>
+        <br>
+        </div>`;
+
+
+
 
 
             function initBoites()                                       //necessaire
@@ -819,6 +859,8 @@
                 newElt23.setAttribute("id", "popup22")
                 windiv.appendChild(newElt23);
                 newElt23.innerHTML = texteEditeurWP
+
+
 
                 const newElt3 = document.createElement("div");              // c'est la boite qui suit le curseur et donne la position et le vent 
                 newElt3.setAttribute("id", "boite3")
@@ -861,6 +903,15 @@
                 newElt26.setAttribute("id", "popup26")
                 windiv.appendChild(newElt26);
                 newElt26.innerHTML = texteEditeurBarrieres
+
+                const newElt27 = document.createElement("div");             // c'est la boite de l editeur de WP
+                newElt27.setAttribute("id", "popup27")
+                windiv.appendChild(newElt27);
+                newElt27.innerHTML = texteEditeurWP2
+
+
+
+
 
 
                 // const newElt6 = document.createElement("div");     // c est la boite rouge pour simulation
@@ -905,7 +956,7 @@
 
             async function chercheboatinfos(username, course) {
                 // recupere le resultat qui vient directement du serveur VR
-                console.log(' Dans rechercheboatinfos user_id' + user_id)
+                //console.log(' Dans rechercheboatinfos user_id' + user_id)
                 if (user_id) { registerClientId(user_id); }     //  on cherche a se reconnecter si jamais la connection a ete perdue 
 
 
@@ -917,8 +968,7 @@
                     boatinfos = data.result
                     tig = data.tig
                     indicemajgrib = data.indicemajgrib
-                    console.log('ligne 1174  tig ' + intlhmn.format(tig * 1000))    // ici il y a une heure de trop 
-                    console.log('Indice ' + indicemajgrib)
+                    console.log('tig ' + intlhmn.format(tig * 1000) + ' indice ' + indicemajgrib)    // ici il y a une heure de trop 
                     return data
                 }
                 catch (error) {
@@ -965,67 +1015,19 @@
             {
                 //console.log(' on est dans afficheboatinfos ')
                 boatinfos = boatinfosdata.result
-                console.log('boatinfos reçues à ' + intlhmn.format(Date.now()))//+ ' \n' + boatinfos)
-
+                console.log(intlhmn.format(Date.now()) + ' boatinfos reçues  \n' + boatinfos)
                 indicemajgrib = boatinfosdata.indicemajgrib
                 tig = boatinfosdata.tig
                 boatinfos = JSON.parse(boatinfos)
                 boatinfosbs = boatinfos['bs']
-                try { boatinfosBA = boatinfos['ba'] }
 
-                catch { boatinfosBA = [] }
-                //console.log (' ligne 3468   boatinfosBA \n  '+ JSON.stringify(boatinfosBA ))
-
-                typebateau = boatinfosbs['boat']['name']                    //ok si course pas demarree              
-                username = boatinfosbs['displayName']                     //ok si course pas demarree   
-                race = boatinfosbs['_id']['race_id']                  //ok si course pas demarree  
-                leg = boatinfosbs['_id']['leg_num']                 //ok si course pas demarree   
-                course = race + '.' + leg
-
-                user_id = boatinfosbs['_id']['user_id']
-                polar_id = boatinfosbs['boat']['polar_id']
-                heading = boatinfosbs['heading']
-                y0vr = boatinfosbs['pos']['lat']
-                x0vr = boatinfosbs['pos']['lon']
-                sail = boatinfosbs['sail']
-                speed = boatinfosbs['speed']
-                legStartDate = boatinfosbs['legStartDate']
-
-
-
-
-                if (boatinfosbs['lastCalcDate']) { lastCalcDate = boatinfosbs['lastCalcDate'] } else { lastCalcDate = legStartDate }
-                if (boatinfosbs['twa']) { twavr = boatinfosbs['twa'] } else { twavr = 40 }
-                if (boatinfosbs['tws']) { twsvr = boatinfosbs['tws'] } else { twsvr = 10 }
-                if (boatinfosbs['twd']) { twdvr = boatinfosbs['twd'] } else { twdvr = 0 }
-                if (boatinfosbs['stamina']) { stamina = boatinfosbs['stamina'] } else { stamina = 100 }
-                if (boatinfosbs['state']) { state = boatinfosbs['state'] }
-                if (boatinfosbs['twaAuto']) { twaAuto = boatinfosbs['twaAuto'] } else { twaAuto = twavr }
-                if (boatinfosbs['stamina']) { stamina = boatinfosbs['stamina'] } else { stamina = 100 }
-                if (boatinfosbs['rank']) { rankvr = boatinfosbs['rank'] } else { rankvr = 0 }
-                if (boatinfosbs['tsEndOfAutoSail']) { tsEndOfAutoSail = boatinfosbs['tsEndOfAutoSail'] } else { tsEndOfAutoSail = lastCalcDate }
-                if (boatinfosbs['tsEndOfSailChange']) { tsEndOfSailChange = boatinfosbs['tsEndOfSailChange'] }
-                if (boatinfosbs['tsEndOfGybe']) { tsEndofGybe = boatinfosbs['tsEndOfGybe'] }
-                if (boatinfosbs['tsEndOfTack']) { tsEndofTack = boatinfosbs['tsEndOfTack'] }
-                if (boatinfosbs['tsLastAction']) { tsLastAction = boatinfosbs['tsLastAction'] }
-                if (boatinfosbs['gateGroupCounters']) { gateGroupCounters = boatinfosbs['gateGroupCounters'] }
-                var autosail = sail > 10 ? true : false
-                var nowJS = new Date()
-                var nowMSec = nowJS.getTime()
-                ecartTemps = (nowMSec - lastCalcDate) / 1000
-
-
-
-                try { boatinfosBA = boatinfos['ba'] }
-
-                catch { boatinfosBA = [] }
-                //console.log (' ligne 3468   boatinfosBA \n  '+ JSON.stringify(boatinfosBA ))
 
                 //Variables qui existent toujours 
                 typebateau = boatinfosbs['boat']['name']                    //ok si course pas demarree              
                 username = boatinfosbs['displayName']                     //ok si course pas demarree   
                 race = boatinfosbs['_id']['race_id']                  //ok si course pas demarree  
-                leg = boatinfosbs['_id']['leg_num']                 //ok si course pas demarree   
+                leg = boatinfosbs['_id']['leg_num']                  //ok si course pas demarree   
+                course = race + '.' + leg
                 user_id = boatinfosbs['_id']['user_id']
                 polar_id = boatinfosbs['boat']['polar_id']
                 heading = boatinfosbs['heading']
@@ -1034,6 +1036,7 @@
                 sail = boatinfosbs['sail']
                 speed = boatinfosbs['speed']
                 legStartDate = boatinfosbs['legStartDate']
+
 
 
                 // Variables qui n existent pas toujours 
@@ -1052,22 +1055,26 @@
                 if (boatinfosbs['tsEndOfTack']) { tsEndofTack = boatinfosbs['tsEndOfTack'] }
                 if (boatinfosbs['tsLastAction']) { tsLastAction = boatinfosbs['tsLastAction'] }
                 if (boatinfosbs['gateGroupCounters']) { gateGroupCounters = boatinfosbs['gateGroupCounters'] }
-
-
                 var autosail = sail > 10 ? true : false
                 var nowJS = new Date()
                 var nowMSec = nowJS.getTime()
                 ecartTemps = (nowMSec - lastCalcDate) / 1000
 
 
+                // s'il y a des actions 
+                try { boatinfosBA = boatinfos['ba'] }
+                catch { boatinfosBA = [] }
+                //console.log (' ligne 3468   boatinfosBA \n  '+ JSON.stringify(boatinfosBA ))
+
+
                 // Affichage de l heure de depart 
 
                 if (state == 'waiting') {
                     console.log('boatinfos course en attente' + JSON.stringify(boatinfosbs))
-                    if (sail == 10) { sail = 11 }
+                    if (sail == 10) { sail = 11 }  // la voile est egale a 10 pour vr ce qui pose probleme 
 
 
-                    // la voile est egale a 10 pour vr ce qui pose probleme 
+
 
                     // cas du record 
                     if (boatinfosbs['record']) {
@@ -1101,10 +1108,9 @@
                 }
                 // fin de l affichage de l heure de depart 
 
-                affichecoordsdep(y0vr, x0vr)                   // Les coordonnnees du depart sont celle de boatinfos  dans tous les cas
 
-
-                // Remplissage de la boite 2 avec les donnees VR
+                console.log(intlhmn.format(Date.now()) + ' Mise a jour des donnees VR lastCalcDate ' + intlhmn.format(lastCalcDate))
+                affichecoordsdep(y0vr, x0vr)                   // Les coordonnnees du depart sont celle de boatinfos  dans tous les cas             
                 document.getElementById('dateposvr').innerHTML = intlhmn.format(lastCalcDate)
                 document.getElementById('usernamevr').innerHTML = username
                 document.getElementById('y0vr').innerHTML = pos_dec_mn_lat(y0vr) + '(' + y0vr.toFixed(4) + ") "
@@ -1113,12 +1119,10 @@
                 document.getElementById('twdvr').innerHTML = twdvr.toFixed(2)
                 document.getElementById('twavr').innerHTML = twavr.toFixed(2)
                 document.getElementById('rankvr').innerHTML = rankvr
-                document.getElementById('speedvr').innerHTML = speed.toFixed(2)
+                document.getElementById('speedvr1').innerHTML = speed.toFixed(2)
                 document.getElementById('sailvr').innerHTML = typeVoiles[(sail % 10)]
                 document.getElementById('headingvr').innerHTML = heading.toFixed(2)
                 document.getElementById('staminavr').innerHTML = stamina.toFixed(2)
-                //document.getElementById('twscalc').innerHTML    = twscalc.toFixed(2)
-                //document.getElementById('twdcalc').innerHTML    = twdcalc.toFixed(2)
                 document.getElementById('twsvmg').value = twsvr.toFixed(2)
 
                 if (sail >= 10) { document.getElementById('voilesautovr').checked = true }
@@ -1157,7 +1161,7 @@
                 trajet = [username, course, y0vr, x0vr, y0vr, x0vr, t0vr, y1, x1, -1, user_id, ari, waypoints, 'maj par main']
                 updateTrajet(username, course, trajet)
 
-                document.getElementById('speedvr').innerHTML = speed.toFixed(2)
+                document.getElementById('speedvr1').innerHTML = speed.toFixed(2)
                 document.getElementById('sailvr').innerHTML = typeVoiles[(sail % 10)]
                 document.getElementById('headingvr').innerHTML = heading.toFixed(2)
                 document.getElementById('staminavr').innerHTML = stamina.toFixed(2)
@@ -1205,19 +1209,25 @@
 
                 //console.log ('ligne2743 '+intlhmn.format(t0vr*1000))
                 t0routage = Math.ceil(t0 / 60) * 60;
-                try { await chercheprogsvr(user_id, course, t0routage) }  // se charge de l affichage
-                catch { console.log('Probleme dans la recuperation de progsvr') }
+                await chercheprogsvr(user_id, course, t0routage)   // se charge de l affichage
 
                 //console.log ('ligne 3599 '+y0vr+'  '+x0vr+ '  '+t0+' '+twsvr+'  '+twavr+' '+polar_id)
                 resvoiles = await cherchevoiles(y0vr, x0vr, t0, twsvr, twavr, polar_id)
 
                 let nowUnix = Math.floor(Date.now()); // Timestamp Unix en M secondes  
-                ecarttemps = nowUnix / 1000 - t0
-                console.log('ecartTemps   ' + ecartTemps + 's')
-                verifierDeltat(ecartTemps)                                             // ca sa marche si je recois des boatinfos 
+                ecartTemps = parseInt(nowUnix / 1000 - t0)
+
+
+                console.log(intlhmn.format(Date.now()) + ' AfficheBoatinfos EcartTemps / dernière MAJ  VR ' + ecartTemps + 's')
+                afficheOverlay(ecartTemps)
+                // ca sa marche si je recois des boatinfos 
 
 
             }
+
+
+
+
 
 
             function affichecoordsdep(latDecimal, lngDecimal) {
@@ -1279,11 +1289,42 @@
 
 
 
+            function updateAutoCentrage(delaiMinutes) {
+                // stop ancien timer
+                if (timerAutoCentrage) {
+                    clearInterval(timerAutoCentrage);
+                    timerAutoCentrage = null;
+                }
+
+                // si 0 → désactivé
+                if (delaiMinutes === 0) {
+                    console.log("Auto-centrage désactivé");
+                    return;
+                }
+
+                const intervalMs = delaiMinutes * 60 * 1000;
+
+                timerAutoCentrage = setInterval(() => {
+                    centrage();
+                }, intervalMs);
+
+                console.log("Auto-centrage toutes les", delaiMinutes, "minutes");
+            }
 
 
 
+            document.getElementById("autoCenterDelay").addEventListener("change", function () {
+                const delai = Number(this.value);
 
+                localStorage.setItem("autoCenterDelay", delai);
+                updateAutoCentrage(delai);
+            });
 
+            // au chargement
+            let timerAutoCentrage = null;
+            const saved = Number(localStorage.getItem("autoCenterDelay") || 0);
+            document.getElementById("autoCenterDelay").value = saved;
+            updateAutoCentrage(saved);
 
 
 
@@ -1440,7 +1481,7 @@
                 //  document.getElementById('twdvr').innerHTML = twdvr.toFixed(2)
                 document.getElementById('twavr').innerHTML = twavr.toFixed(2)
                 //  document.getElementById('rankvr').innerHTML = rankvr
-                document.getElementById('speedvr').innerHTML = speed.toFixed(2)
+                document.getElementById('speedvr1').innerHTML = speed.toFixed(2)
                 document.getElementById('sailvr').innerHTML = typeVoiles[(sail % 10)]
                 document.getElementById('headingvr').innerHTML = heading.toFixed(2)
                 //document.getElementById('staminavr').innerHTML = stamina.toFixed(2)
@@ -1505,13 +1546,12 @@
             //------------------------------------------------------------------------------------  
 
 
-            function verifierDeltat(deltat) {
+            function afficheOverlay(deltat) {
+                //deltat est l ecart temps calculé dans le set interval 
 
-                console.log('Temps depuis la derniere mise a jour   ' + parseInt(ecartTemps) + 's')
+                // console.log(intlhmn.format(Date.now())+' Ecart Temps depuis la derniere mise a jour dans verifier deltaT   ' + parseInt(ecartTemps) + 's')
                 boite = document.querySelector(".boite2");
-
-                // Vérifier si l'élément overlay existe déjà
-                overlay = boite.querySelector(".boite-overlay");
+                overlay = boite.querySelector(".boite-overlay");  // Vérifier si l'élément overlay existe déjà
 
                 if (deltat > 540) {
                     if (!overlay) {
@@ -1521,9 +1561,7 @@
                         boite.appendChild(overlay);
                     }
                 } else {
-                    if (overlay) {
-                        overlay.remove();
-                    }
+                    if (overlay) { overlay.remove(); }
                 }
             }
 
@@ -1615,31 +1653,17 @@
                 // Génère le HTML pour un <select> multiple
 
                 if (ari === null || ari === undefined) { ari = ['Arrivee']; }
-
-                // Deboggage
-                // console.log('On est dans afficheselectarrivee')
-                // console.log('ari  : ' + ari)
-                // console.log (ari)
-                // console.log('waypoints :    ' + waypoints)
-                // console.log( waypoints)
-                // console.log('leginfos dans selectarrivee\n' + leginfos)
-
                 tabValues = waypoints.map(subArray => subArray[1]);
                 tabNoms = waypoints.map(subArray => subArray[1]);
-
                 if (ari == 0) { ari = ['Arrivee'] }
                 tabSelected = ari
                 class1 = 'black11ari'
-
-
-
                 let selectHtml = '<select multiple  id="idarrivee" class="' + class1 + '">';
                 for (let i = 0; i < tabValues.length; i++) {
                     const value = tabValues[i];
                     const readableValue = tabNoms[i];
                     const selected = tabSelected.includes(value) ? ' selected' : ''; // Vérifier si la valeur est sélectionnée       
                     const style = tabSelected.includes(value) ? 'black11wblue' : 'black11'; // Appliquer le style black11grey si l'option est sélectionnée
-
                     selectHtml += `<option value="${value}" class="${style}"${selected}>${readableValue}</option>`;// Ajouter l'élément <option>
                 }
                 selectHtml += '</select>';
@@ -1648,10 +1672,8 @@
                     document.getElementById('iddernierwp').innerHTML = '(' + nomdernierwp + ')'
                 }
                 catch { None }
-
                 // console.log('selectHTML ' + selectHtml)
                 document.getElementById('idselectarrivee').innerHTML = selectHtml
-
                 return selectHtml;
             }
 
@@ -2163,7 +2185,6 @@
 
             async function chercheprogsvr(user_id, course, t0routage) {
                 // console.log('Recherche des Progs\n*********************************')
-                // console.log (' ligne 1277 '+t0routage)
                 progsvrLayer.clearLayers()
                 if (!t0routage) {
                     let nowJS = new Date();
@@ -2172,17 +2193,9 @@
                     t0routage = nowSecArrondi
                 }
 
-
-                // console.log (' ligne 1282 '+t0routage)
-                // console.log (' ligne 1365 user_id'+user_id)
-
                 const url = serveur + "/rechercheprogsvr?user_id=" + user_id + "&course=" + course + "&t0routage=" + t0routage
-                //console.log('ligne 1833  demande de rechercheprogsvr url \n' + url)
-
                 let response = await fetch(url);
-                if (!response.ok) { throw new Error('Problème avec cherche Progsvr ' + response.statusText); }
                 data = await response.json();
-
                 afficheligneprogs(data) // on va l afficher dans leaflet 
 
                 if (data['typeprogs'] == 'progs') { affichetabprogsvr(data) }
@@ -2190,6 +2203,10 @@
                 bloque = 0
 
             }
+
+
+
+
 
 
 
@@ -2272,17 +2289,18 @@
 
             async function cherchevoiles(y0, x0, t0, tws, twa, polar_id) {
 
-                const url = serveur + "/recherchevoiles?y0=" + y0 + "&x0=" + x0 + "&t0=" + t0 + "&tws=" + tws + "&polar_id=" + polar_id
+                const url = serveur + "/recherchevoiles?y0=" + y0 + "&x0=" + x0 + "&t0=" + t0 + "&tws=" + tws + "&polar_id=" + polar_id + '&twa=' + twa
                 //console.log ('url'+url)
                 let response = await fetch(url);
                 try {
                     if (!response.ok) { throw new Error('Problème avec cherchevoiles ' + response.statusText); }
                     resvoiles = await response.json();
-                    // console.log('resvoiles'+resvoiles)
+                    //console.log('resvoiles'+JSON.stringify(resvoiles))
                     // on lance ici directement l affichage pour pouvoir utiliser la fonction dans les mises a jour 
                     twscalc = resvoiles.twscalc
                     twdcalc = resvoiles.twdcalc
                     tabvmg = resvoiles.tabvmg
+                    vitessemax = resvoiles.vitessemax
                     tabrecouvrements = resvoiles.tabrecouvrements
                     // on affiche les valeurs 
                     document.getElementById('twscalc').innerHTML = twscalc.toFixed(2)
@@ -2290,6 +2308,7 @@
                     document.getElementById('vmgmin2').innerHTML = tabvmg[2].toFixed(1)
                     document.getElementById('vmgmax2').innerHTML = tabvmg[4].toFixed(1)
                     document.getElementById('vmax2').innerHTML = tabvmg[6].toFixed(1)
+                    document.getElementById('speedcalc').innerHTML = vitessemax.toFixed(2)
                     affichagerecou(tabrecouvrements)
                     // on en profite pour mettre ajour le lien sur les polaires avec tws et twa 
                     return resvoiles
@@ -2367,7 +2386,7 @@
 
                 let data = await response.json();      // recuperation des donnees de routage
                 message = data.message
-                console.log(' message de retour ' + message)
+                //console.log(' message de retour ' + message)
                 if (message != 'Erreur') {
                     tabroutage = data.arrayroutage2
                     //tabroutage2 = data.arrayroutage
@@ -2641,92 +2660,477 @@
             var waypointsJS = {}; // Stocke les cercles créés pour éviter les doublons
 
 
+            //Nouvelle fonction pour ajouter WP depuiscarte à la fois sur editeur et sur carte
+            function ajouterLigneWpDepuisCarte(lat, lon) {
+                const rowsSansArrivee = wpEditorRows.filter(row => row.nom !== "Arrivee");
 
-            map.on('dblclick', function (e) {
-                var lat = e.latlng.lat;
-                var lon = e.latlng.lng;
-                var couleur = "#FFFF00"; // Jaune par défaut
-                var rayonMi = 0.5;         // ce sont des miles nautiques 
+                let nouveauNom;
+                let numero;
 
-                console.log('lat ' + lat + ' lng ' + lon)
-                console.log('Waypoints avant enregistrement du nouveau ')
-                console.log(waypoints)
-
-                const filtres = waypoints.filter(wp => wp[0] !== 99);     // waypoints sans arrivee 
-
-                console.log('waypoints filtres ' + filtres)
-                let nouveauNom, numero;
-
-                if (filtres.length === 0) {
-                    // Aucun WP présent
+                if (rowsSansArrivee.length === 0) {
                     nouveauNom = "WP1";
                     numero = 1;
-                }
+                } else {
+                    const dernierWP = rowsSansArrivee.reduce((max, row) =>
+                        Number(row.ordre) > Number(max.ordre) ? row : max
+                    );
 
-                else {
-                    // Trouver le waypoint avec l’indice max
-                    const dernierWP = filtres.reduce((max, wp) => wp[0] > max[0] ? wp : max);
-                    const ancienNom = dernierWP[1];
+                    const ancienNom = dernierWP.nom || "WP0";
                     const match = ancienNom.match(/^([A-Za-z]+)(\d+)$/);
-                    console.log('ancien nom ' + ancienNom)
-
-
 
                     if (match) {
                         const prefixe = match[1];
                         numero = parseInt(match[2], 10) + 1;
                         nouveauNom = `${prefixe}${numero}`;
-
-
-
                     } else {
-                        // Si le nom n’est pas du type WP3, on recommence à WP1
-                        nouveauNom = "WP1";
-                        numero = 1;
+                        numero = Number(dernierWP.ordre) + 1;
+                        nouveauNom = `WP${numero}`;
                     }
                 }
 
-                console.log("Nouveau nom :", nouveauNom);
-                console.log("Nouveau Numéro :", numero);
+                const newRow = {
+                    key: nouveauNom,
+                    ordre: numero,
+                    nom: nouveauNom,
+                    lat: Number(lat),
+                    lon: Number(lon),
+                    rayon: 0.5,
+                    couleur: "#ffff00",
+                    selectionne: true
+                };
+
+                wpEditorRows.push(newRow);
+
+                renderWpEditor();
+                creerCercleDepuisRow(newRow);
+
+                afficherMessageWp(`Waypoint ${nouveauNom} ajouté.`, "ok");
+            }
 
 
-                // Creation du nouveau cercle
-                var newCircle = L.circle([lat, lon], {
-                    color: 'black',
-                    fillColor: couleur,
-                    fillOpacity: 0.5,
-                    radius: rayonMi * 1852, //* 1852,    // radius  en metres
-                    draggable: true
-                }).bindTooltip(nouveauNom)
-                    .addTo(WpCirclesLayer);
 
-                newCircle.on('drag', function (event) {
-                    cercleSelectionne = newCircle;
-                    const newLatLng = event.target.getLatLng();
-                    document.getElementById('wpLat').textContent = newLatLng.lat.toFixed(4);
-                    document.getElementById('wpLon').textContent = newLatLng.lng.toFixed(4);
-                    ouvrirEditeurModifWaypoint(newCircle, nouveauNom, couleur);
+
+
+
+
+            async function ajouterWaypointDepuisDblClick(lat, lon) {
+                const wpEditorContainer = document.getElementById("wpEditorContainer");
+
+                const editeurVisible =
+                    wpEditorContainer &&
+                    wpEditorContainer.style.display !== "none" &&
+                    wpEditorRows.length > 0;
+
+                if (!editeurVisible) {
+                    await ouvrirEditeurWP2();
+                }
+
+                ajouterLigneWpDepuisCarte(lat, lon);
+            }
+
+
+
+            async function ajouterWaypointDepuisDblClick(lat, lon) {
+                const wpEditorContainer = document.getElementById("wpEditorContainer");
+
+                const editeurVisible =
+                    wpEditorContainer &&
+                    wpEditorContainer.style.display !== "none" &&
+                    wpEditorRows.length > 0;
+
+                if (!editeurVisible) {
+                    await ouvrirEditeurWP2();
+                }
+
+                ajouterLigneWpDepuisCarte(lat, lon);
+            }
+
+
+
+function creerCercleDepuisRow(row) {
+    const lat = Number(row.lat);
+    const lon = Number(row.lon);
+    const rayonMn = Number(row.rayon);
+    const couleur = row.couleur || "#ffff00";
+    const nom = row.nom;
+
+    if (!Number.isFinite(lat) || !Number.isFinite(lon)) return null;
+    if (!Number.isFinite(rayonMn) || rayonMn < 0) return null;
+
+    // Nettoyage si un cercle de même nom existe déjà
+    supprimerCercleWaypoint(nom);
+
+    const cercle = L.circle([lat, lon], {
+        color: 'black',
+        weight: 0.5,
+        fillColor: couleur,
+        fillOpacity: 0.5,
+        radius: rayonMn * 1852,
+        draggable: true
+    });
+
+    cercle.bindTooltip(nom+ ' Rayon '+radius+ 'Mn');
+    cercle.addTo(WpCirclesLayer);
+
+    cercle.on('click', async function () {
+        cercleSelectionne = cercle;
+        await ouvrirEditeurEtSelectionnerWp(nom);
+    });
+
+    cercle.on('drag', function (event) {
+        cercleSelectionne = cercle;
+
+        const latlng = event.target.getLatLng();
+        const idx = wpEditorRows.findIndex(r => r.nom === nom);
+
+        if (idx !== -1) {
+            wpEditorRows[idx].lat = latlng.lat;
+            wpEditorRows[idx].lon = latlng.lng;
+            mettreAJourLigneTableauDepuisIndex(idx);
+        }
+    });
+
+    waypointsJS[nom] = cercle;
+    return cercle;
+}
+
+
+
+
+
+
+
+            
+
+function majCercleDepuisRow(row, ancienNom = null) {
+    const nom = row.nom;
+    const lat = Number(row.lat);
+    const lon = Number(row.lon);
+    const rayonMn = Number(row.rayon);
+    const couleur = row.couleur || "#ffff00";
+
+    console.log(' dans maj cercle rayonMn'+rayonMn)
+
+    let cercle = null;
+
+    // Cas renommage
+    if (ancienNom && waypointsJS[ancienNom]) {
+        cercle = waypointsJS[ancienNom];
+        delete waypointsJS[ancienNom];
+        waypointsJS[nom] = cercle;
+    } else {
+        cercle = waypointsJS[nom];
+    }
+
+    // Si on n'a pas trouvé le cercle, on nettoie d'abord puis on recrée
+    if (!cercle) {
+        supprimerCercleWaypoint(nom);
+        creerCercleDepuisRow(row);
+        return;
+    }
+
+    if (Number.isFinite(lat) && Number.isFinite(lon)) {
+        cercle.setLatLng([lat, lon]);
+    }
+
+    if (Number.isFinite(rayonMn) && rayonMn >= 0) {
+        rayonMetres=rayonMn * 1852
+        console.log(' rayonMetres '+rayonMetres )
+        cercle.setRadius(rayonMetres);
+    }
+
+    cercle.setStyle({
+        fillColor: couleur
+    });
+
+    cercle.unbindTooltip();
+    cercle.bindTooltip(nom+ ' Rayon '+rayonMn+ 'Mn');
+}
+
+
+
+
+
+
+
+            function supprimerCercleWaypoint(nom) {
+                const cercle = waypointsJS[nom];
+                if (!cercle) return;
+                WpCirclesLayer.removeLayer(cercle);
+                delete waypointsJS[nom];
+            }
+
+
+
+function recreerCercleDepuisRow(row, ancienNom = null) {
+    const nomASupprimer = ancienNom || row.nom;
+
+    // supprimer l'ancien cercle
+    if (waypointsJS[nomASupprimer]) {
+        WpCirclesLayer.removeLayer(waypointsJS[nomASupprimer]);
+        delete waypointsJS[nomASupprimer];
+    }
+
+    // recréer le nouveau cercle
+    creerCercleDepuisRow(row);
+}
+
+
+
+function creerCercleDepuisRow(row) {
+    const lat = Number(row.lat);
+    const lon = Number(row.lon);
+    const rayonMn = Number(row.rayon);
+    const couleur = row.couleur || "#ffff00";
+    const nom = row.nom;
+
+    if (!Number.isFinite(lat) || !Number.isFinite(lon)) return null;
+    if (!Number.isFinite(rayonMn) || rayonMn < 0) return null;
+
+    const cercle = L.circle([lat, lon], {
+        color: 'black',
+        weight: 0.5,
+        fillColor: couleur,
+        fillOpacity: 0.5,
+        radius: (rayonMn * 1852),
+        draggable: true
+    });
+
+    cercle.bindTooltip(nom+ ' Rayon '+rayonMn+ 'Mn');
+    cercle.addTo(WpCirclesLayer);
+
+    cercle.on('click', async function () {
+        cercleSelectionne = cercle;
+        await ouvrirEditeurEtSelectionnerWp(nom);
+    });
+
+    cercle.on('drag', function (event) {
+        cercleSelectionne = cercle;
+
+        const latlng = event.target.getLatLng();
+        const idx = wpEditorRows.findIndex(r => r.nom === nom);
+
+        if (idx !== -1) {
+            wpEditorRows[idx].lat = latlng.lat;
+            wpEditorRows[idx].lon = latlng.lng;
+            mettreAJourLigneTableauDepuisIndex(idx);
+        }
+    });
+
+    waypointsJS[nom] = cercle;
+    return cercle;
+}
+
+
+function onWpInputChange(event) {
+    const input = event.target;
+    const index = Number(input.dataset.index);
+    const field = input.dataset.field;
+
+    const row = wpEditorRows[index];
+    if (!row) return;
+
+    const ancienNom = row.nom;
+
+    let value;
+    if (field === "selectionne") {
+        value = input.checked;
+    } else if (["ordre", "lat", "lon", "rayon"].includes(field)) {
+        value = input.value === "" ? "" : Number(input.value);
+    } else {
+        value = input.value;
+    }
+
+    row[field] = value;
+
+    if (["nom", "lat", "lon", "rayon", "couleur"].includes(field)) {
+        const latOk = Number.isFinite(Number(row.lat));
+        const lonOk = Number.isFinite(Number(row.lon));
+        const rayonOk = Number.isFinite(Number(row.rayon)) && Number(row.rayon) >= 0;
+        const nomOk = String(row.nom || "").trim() !== "";
+
+        if (latOk && lonOk && rayonOk && nomOk) {
+            recreerCercleDepuisRow(row, field === "nom" ? ancienNom : null);
+        }
+    }
+}
+
+
+
+
+
+            // injection des nouvelles coordonnees si drag 
+            function mettreAJourLigneTableauDepuisRow(nom) {
+                const index = wpEditorRows.findIndex(r => r.nom === nom);
+                if (index === -1) return;
+
+                const row = wpEditorRows[index];
+
+                const inputLat = document.querySelector(`#wpEditorContainer input[data-field="lat"][data-index="${index}"]`);
+                const inputLon = document.querySelector(`#wpEditorContainer input[data-field="lon"][data-index="${index}"]`);
+                const inputRayon = document.querySelector(`#wpEditorContainer input[data-field="rayon"][data-index="${index}"]`);
+                const inputCouleur = document.querySelector(`#wpEditorContainer input[data-field="couleur"][data-index="${index}"]`);
+                const inputNom = document.querySelector(`#wpEditorContainer input[data-field="nom"][data-index="${index}"]`);
+
+                if (inputLat) inputLat.value = row.lat.toFixed(5);
+                if (inputLon) inputLon.value = row.lon;
+                if (inputRayon) inputRayon.value = row.rayon;
+                if (inputCouleur) inputCouleur.value = row.couleur;
+                if (inputNom) inputNom.value = row.nom;
+            }
+
+
+            // synchronisation de la carte 
+            function syncCarteDepuisWpEditorRows() {
+                WpCirclesLayer.clearLayers();
+                waypointsJS = {};
+
+                wpEditorRows.forEach(row => {
+                    creerCercleDepuisRow(row);
                 });
 
-                newCircle.on('click', function () {
-                    ouvrirEditeurModifWaypoint(newCircle, nouveauNom, couleur);
+                WpCirclesLayer.addTo(map);
+            }
+
+
+            window.ouvrirEditeurEtSelectionnerWp = ouvrirEditeurEtSelectionnerWp;
+
+            async function ouvrirEditeurEtSelectionnerWp(nomWp) {
+                const wpEditorContainer = document.getElementById("wpEditorContainer");
+                const editeurVisible =
+                    wpEditorContainer &&
+                    wpEditorContainer.style.display !== "none" &&
+                    wpEditorRows.length > 0;
+
+                if (!editeurVisible) {
+                    await ouvrirEditeurWP2();
+                }
+
+                selectionnerLigneWpDansEditeur(nomWp);
+            }
+
+
+            window.selectionnerLigneWpDansEditeur = selectionnerLigneWpDansEditeur;
+            function selectionnerLigneWpDansEditeur(nomWp) {
+                const index = wpEditorRows.findIndex(row => row.nom === nomWp);
+                if (index === -1) {
+                    afficherMessageWp(`Waypoint ${nomWp} introuvable dans l'éditeur.`, "err");
+                    return;
+                }
+
+                document.querySelectorAll("#wpEditorContainer tbody tr").forEach(tr => {
+                    tr.classList.remove("wp-row-selected");
                 });
 
+                const ligne = document.querySelector(`#wpEditorContainer tbody tr[data-index="${index}"]`);
+                if (!ligne) return;
 
-                // ajout du newcircle dans waypointsJS
-                waypointsJS[nouveauNom] = newCircle;
-                var waypointEditor = document.getElementById("waypointEditor");
-                waypointEditor.style.display = "block";
-                waypointEditor.classList.add("visible");
+                ligne.classList.add("wp-row-selected");
+                ligne.scrollIntoView({ behavior: "smooth", block: "nearest" });
 
-                console.log(' ')
-                console.log('on ouvre l editeur de waypoints avec nouveau nom  ' + nouveauNom)
+                const inputNom = ligne.querySelector(`input[data-field="nom"]`);
+                if (inputNom) {
+                    inputNom.focus();
+                    inputNom.select();
+                }
 
-                ouvrirEditeurWaypoint(newCircle, nouveauNom, numero, couleur); // Ouvre l'éditeur avec les parametres 
+                afficherMessageWp(`Waypoint ${nomWp} sélectionné dans l'éditeur.`, "ok");
+            }
 
+
+
+
+            map.on('dblclick', async function (e) {
+                const lat = e.latlng.lat;
+                const lon = e.latlng.lng;
+
+                console.log('dblclick carte lat', lat, 'lon', lon);
+                await ajouterWaypointDepuisDblClick(lat, lon);
 
 
             });
+
+
+
+
+            // map.on('dblclick', function (e) {
+            //     var lat = e.latlng.lat;
+            //     var lon = e.latlng.lng;
+            //     var couleur = "#FFFF00"; // Jaune par défaut
+            //     var rayonMi = 0.5;         // ce sont des miles nautiques 
+
+            //     console.log('lat ' + lat + ' lng ' + lon)
+            //     console.log('Waypoints avant enregistrement du nouveau ')
+            //     console.log(waypoints)
+            //    // ajout
+            //     EditeurWP2()
+            //     ajouterLigneWp2(lat,lon)
+            //    // fin d a jout  
+
+            //     const filtres = waypoints.filter(wp => wp[0] !== 99);     // waypoints sans arrivee 
+
+            //     console.log('waypoints filtres ' + filtres)
+            //     let nouveauNom, numero;
+
+            //     if (filtres.length === 0) {
+            //         // Aucun WP présent
+            //         nouveauNom = "WP1";
+            //         numero = 1;
+            //     }
+
+            //     else {
+            //         // Trouver le waypoint avec l’indice max
+            //         const dernierWP = filtres.reduce((max, wp) => wp[0] > max[0] ? wp : max);
+            //         const ancienNom = dernierWP[1];
+            //         const match = ancienNom.match(/^([A-Za-z]+)(\d+)$/);
+            //         console.log('ancien nom ' + ancienNom)
+            //         if (match) {
+            //             const prefixe = match[1];
+            //             numero = parseInt(match[2], 10) + 1;
+            //             nouveauNom = `${prefixe}${numero}`;
+            //         } else {
+            //             // Si le nom n’est pas du type WP3, on recommence à WP1
+            //             nouveauNom = "WP1";
+            //             numero = 1;
+            //         }
+            //     }
+            //     console.log("Nouveau nom :", nouveauNom);
+            //     console.log("Nouveau Numéro :", numero);
+            //     // Creation du nouveau cercle
+            //     var newCircle = L.circle([lat, lon], {
+            //         color: 'black',
+            //         fillColor: couleur,
+            //         fillOpacity: 0.5,
+            //         radius: rayonMi * 1852, //* 1852,    // radius  en metres
+            //         draggable: true
+            //     }).bindTooltip(nouveauNom)
+            //         .addTo(WpCirclesLayer);
+            //     newCircle.on('drag', function (event) {
+            //         cercleSelectionne = newCircle;
+            //         const newLatLng = event.target.getLatLng();
+            //         document.getElementById('wpLat').textContent = newLatLng.lat.toFixed(4);
+            //         document.getElementById('wpLon').textContent = newLatLng.lng.toFixed(4);
+            //         ouvrirEditeurModifWaypoint(newCircle, nouveauNom, couleur);
+            //     });
+            //     newCircle.on('click', function () {
+            //         ouvrirEditeurModifWaypoint(newCircle, nouveauNom, couleur);
+            //     });
+
+
+            //     // ajout du newcircle dans waypointsJS
+            //     waypointsJS[nouveauNom] = newCircle;
+            //     var waypointEditor = document.getElementById("waypointEditor");
+            //     waypointEditor.style.display = "block";
+            //     waypointEditor.classList.add("visible");
+
+            //     console.log(' ')
+            //     console.log('on ouvre l editeur de waypoints avec nouveau nom  ' + nouveauNom)
+
+            //     ouvrirEditeurWaypoint(newCircle, nouveauNom, numero, couleur); // Ouvre l'éditeur avec les parametres 
+
+
+
+            // });
 
 
 
@@ -2778,6 +3182,22 @@
 
 
                 };
+
+
+                document.getElementById("atteindreWaypoint").onclick = function () {
+                    console.log(' on est dans onclick atteindrewaypoint')
+                    // la fonction ajoutewaypoint2 sauve dans la base et dans localstorage  # ici le rayon sauve est en mn
+                    console.log('lat ' + lat + ' lon ' + lon)
+
+
+
+
+
+
+                };
+
+
+
             }
 
 
@@ -2868,6 +3288,20 @@
                     waypointSauve = true;
                     fermerEditeurWaypoint();
                 };
+
+
+                document.getElementById("atteindreWaypoint").onclick = function () {
+                    console.log(' On est dans atteindre wp ligne 2860')
+
+                    map.setView([lat, lon], Math.max(map.getZoom(), 8));
+                };
+
+
+
+
+
+
+
             }
 
 
@@ -2937,7 +3371,7 @@
             function fermerEditeurWaypoint() {
                 const waypointEditor = document.getElementById("waypointEditor");
                 waypointEditor.style.display = "none";
-                waypointEditor.classList.remove("visible");
+                waypointEditor.classList.remove("visible")
             }
 
             window.fermerEditeurWaypoint = fermerEditeurWaypoint;
@@ -3001,76 +3435,838 @@
                     console.log('nouvelle valeur de ari apres suppression du WP   : ' + ari)
                     console.log('\nnouvelle valeur du tableau des waypoints apres  suppression du WP  ')
                     console.log(waypointsnew)
-
                     afficheselectarrivee(waypointsnew, ari)
                     fermerEditeurWaypoint()
                 }
             });
 
 
+            function affichewaypoints2(wpDict) {   // affiche tous les waypoints à partir du dictionnaire wp
+                console.log("Valeurs des waypoints dans affichewaypoints2 :");
+                console.log(wpDict);
 
+                // Effacer les anciens cercles
+                WpCirclesLayer.clearLayers();
 
-            function affichewaypoints2(personalInfosJS) {   // permet d afficher tous les waypoints  
-                // Effacer les anciens cercles de la carte
-                // Récupérer uniquement les valeurs des waypoints
-                console.log("Valeurs des waypoints  dans affichewaypoints2 :");
-                console.log(personalInfosJS.wp)
-                if (personalInfosJS.wp) {
-                    Object.values(personalInfosJS.wp).forEach(cercleData => {
-
-                        //console.log(cercleData);
-
+                if (wpDict) {
+                    Object.values(wpDict).forEach(cercleData => {
                         let numero = cercleData[0];
                         let nom = cercleData[1];
                         let lat = cercleData[2];
                         let lon = cercleData[3];
-                        let rayon = cercleData[4]; // le rayon recupere est en MN 
-                        let couleur = cercleData[5]
+                        let rayon = cercleData[4];   // en MN
+                        let couleur = cercleData[5];
 
                         let cercle = L.circle([lat, lon], {
-                            color: 'black',           // Couleur du bord
+                            color: 'black',
                             weight: 0.5,
-                            fillColor: couleur,      // Couleur de remplissage
-                            fillOpacity: 0.5,         // Opacité de remplissage
-                            radius: rayon * 1000 / 1.852,    // Rayon en Mn converti en mètres pour l affichage 
-                            draggable: true,          // Rendre le cercle draggable
+                            fillColor: couleur,
+                            fillOpacity: 0.5,
+                            radius: rayon * 1852,   // MN -> mètres
+                            draggable: true,
                             indice: numero
                         });
 
-                        // On lie l ouverture de l'éditeur de waypoint lorsque le cercle est cliqué
-                        cercle.on('click', function () {
-                            console.log('click detecte sur le cercle ')
-                            cercleSelectionne = cercle; // Mettre à jour le cercle sélectionné
-                            rayon = cercle.getRadius() * 1.852 / 1000                            // le rayon recupere est en m  on le transforme en mN
-                            console.log('rayon au moment de louverture de l editeur de cercle ' + rayon)
-                            ouvrirEditeurModifWaypoint(cercle, nom, lat, lon, rayon);
+                        cercle.on('click', async function () {
+                            console.log('click detecte sur le cercle');
+                            cercleSelectionne = cercle;
+                            await ouvrirEditeurEtSelectionnerWp(nom);
                         });
 
-                        // On lie la Gestion des événements pendant le déplacement du cercle
+
+
                         cercle.on('drag', function (event) {
-                            console.log('click detecte sur le cercle ')
-                            console.log('rayon au moment de louverture de l editeur de cercle' + rayon)
-                            cercleSelectionne = cercle; // Mettre à jour le cercle sélectionné
-                            ouvrirEditeurModifWaypoint(cercle, nom, lat, lon, rayon);
-                            newLatLng = event.target.getLatLng();
-                            newlat = newLatLng.lat
-                            newlon = newLatLng.lng
-                            document.getElementById('wpLat').textContent = newLatLng.lat.toFixed(4);
-                            document.getElementById('wpLon').textContent = newLatLng.lng.toFixed(4);
+                            cercleSelectionne = cercle;
 
+                            const latlng = event.target.getLatLng();
+                            const idx = wpEditorRows.findIndex(r => r.nom === nom);
 
+                            if (idx !== -1) {
+                                wpEditorRows[idx].lat = latlng.lat;
+                                wpEditorRows[idx].lon = latlng.lng;
+                                mettreAJourLigneTableauDepuisIndex(idx);
+                            }
+
+                            const wpLat = document.getElementById('wpLat');
+                            const wpLon = document.getElementById('wpLon');
+                            if (wpLat) wpLat.textContent = latlng.lat.toFixed(4);
+                            if (wpLon) wpLon.textContent = latlng.lng.toFixed(4);
                         });
 
-                        cercle.bindTooltip(nom).addTo(WpCirclesLayer); //Ajouter le cercle au LayerGroup
 
-                    });    // fin du foreach 
+
+
+
+
+
+
+                        cercle.bindTooltip(nom+ ' Rayon '+rayon+ 'Mn').addTo(WpCirclesLayer);
+                    });
 
                     WpCirclesLayer.addTo(map);
+                }
+            }
 
-                }// fin du if
-            }   //fin de affichewaypoints2
+            function mettreAJourLigneTableauDepuisIndex(index) {
+                const row = wpEditorRows[index];
+                if (!row) return;
+
+                const inputNom = document.querySelector(`#wpEditorContainer input[data-field="nom"][data-index="${index}"]`);
+                const inputLat = document.querySelector(`#wpEditorContainer input[data-field="lat"][data-index="${index}"]`);
+                const inputLon = document.querySelector(`#wpEditorContainer input[data-field="lon"][data-index="${index}"]`);
+                const inputRayon = document.querySelector(`#wpEditorContainer input[data-field="rayon"][data-index="${index}"]`);
+                const inputCouleur = document.querySelector(`#wpEditorContainer input[data-field="couleur"][data-index="${index}"]`);
+                const inputSelectionne = document.querySelector(`#wpEditorContainer input[data-field="selectionne"][data-index="${index}"]`);
+
+                if (inputNom) inputNom.value = row.nom;
+                if (inputLat) inputLat.value = row.lat;
+                if (inputLon) inputLon.value = row.lon;
+                if (inputRayon) inputRayon.value = row.rayon;
+                if (inputCouleur) inputCouleur.value = row.couleur;
+                if (inputSelectionne) inputSelectionne.checked = !!row.selectionne;
+            }
 
 
+
+
+
+
+
+            //**********************************************************************************************************************************
+            //**********************************************************************************************************************************
+            //**********    Gestion de l editeur global de waypoints                                          ********************************************
+            //**********************************************************************************************************************************
+
+
+            let wpEditorRows = [];
+
+
+            // ==========================================================
+            // Utilitaires
+            // ==========================================================
+
+
+            function afficherMessageWp(message, type = "ok") {
+                const el = document.getElementById("wpEditorMessage");
+                if (!el) return;
+                el.className = `wp-msg ${type}`;
+                el.textContent = message;
+            }
+
+
+            // ==========================================================
+            // Conversions
+            // ==========================================================
+
+            function wpDictToRows(wpDict, ariList = []) {
+                const setAri = new Set(Array.isArray(ariList) ? ariList : []);
+
+                return Object.entries(wpDict)
+                    .map(([key, values]) => {
+                        const [ordre, nom, lat, lon, rayon, couleur] = values;
+
+                        return {
+                            key: key,
+                            ordre: ordre,
+                            nom: nom,
+                            lat: lat,
+                            lon: lon,
+                            rayon: rayon,
+                            couleur: normaliserCouleur(couleur),
+                            selectionne: setAri.has(nom)
+                        };
+                    })
+                    .sort((a, b) => a.ordre - b.ordre);
+            }
+
+
+
+            function rowsToWpDict(rows) {
+                const result = {};
+                for (const row of rows) {
+                    const key = row.nom.trim();
+                    result[key] = [
+                        Number(row.ordre),
+                        row.nom.trim(),
+                        Number(row.lat),
+                        Number(row.lon),
+                        Number(row.rayon),
+                        row.couleur
+                    ];
+                }
+                return result;
+            }
+
+
+
+            function rowsToAri(rows) {
+                //retourne ari = la liste des noms des champs selectionnés
+                return rows
+                    .filter(row => row.selectionne)
+                    .sort((a, b) => Number(a.ordre) - Number(b.ordre))
+                    .map(row => row.nom.trim());
+            }
+
+
+            // ==========================================================
+            // Validation
+            // ==========================================================
+            function validerLigneWp(row) {
+                // verifie si une liste est correctement constituée
+                const erreurs = [];
+                if (!row.nom || row.nom.trim() === "") erreurs.push("nom vide");
+                if (!Number.isFinite(Number(row.ordre))) erreurs.push("ordre invalide");
+                if (!Number.isFinite(Number(row.lat)) || Number(row.lat) < -90 || Number(row.lat) > 90) { erreurs.push("latitude invalide"); }
+                if (!Number.isFinite(Number(row.lon)) || Number(row.lon) < -180 || Number(row.lon) > 180) { erreurs.push("longitude invalide"); }
+                if (!Number.isFinite(Number(row.rayon)) || Number(row.rayon) < 0) { erreurs.push("rayon invalide"); }
+                if (!row.couleur || !/^#[0-9a-f]{6}$/i.test(row.couleur)) { erreurs.push("couleur invalide"); }
+                return erreurs;
+            }
+
+
+            function validerToutesLesLignes(rows) {
+                // repere les erreurs sur toutes les lignes 
+                const erreursGlobales = [];
+                const noms = new Set();
+                rows.forEach((row, i) => {
+                    const erreurs = validerLigneWp(row);
+                    if (erreurs.length > 0) { erreursGlobales.push(`Ligne ${i + 1} : ${erreurs.join(", ")}`); }
+                    const nom = row.nom.trim();
+                    if (noms.has(nom)) { erreursGlobales.push(`Ligne ${i + 1} : nom en double (${nom})`); }
+                    noms.add(nom);
+                });
+                return erreursGlobales;
+            }
+
+
+            // ==========================================================
+            // Rendu
+            // ==========================================================
+            function renderWpEditor() {
+                const container = document.getElementById("wpEditorContainer");
+                if (!container) return;
+
+                const rowsHtml = wpEditorRows.map((row, index) => {
+                    return `
+            <tr data-index="${index}">
+                <td class="td-checkbox">
+                    <input
+                        type="checkbox"
+                        ${row.selectionne ? "checked" : ""}
+                        data-field="selectionne"
+                        data-index="${index}"
+                    >
+                </td>
+
+                <td>
+                    <input
+                        type="number"
+                        step="1"
+                        value="${row.ordre}"
+                        data-field="ordre"
+                        data-index="${index}"
+                    >
+                </td>
+
+                <td>
+                    <input
+                        type="text"
+                        value="${row.nom}"
+                        data-field="nom"
+                        data-index="${index}"
+                    >
+                </td>
+
+                <td>
+                    <input
+                        type="number"
+                        step="any"
+                        value="${row.lat.toFixed(4)}"
+                        data-field="lat"
+                        data-index="${index}"
+                    >
+                </td>
+
+                <td>
+                    <input
+                        type="number"
+                        step="any"
+                        value="${row.lon.toFixed(4)}"
+                        data-field="lon"
+                        data-index="${index}"
+                    >
+                </td>
+
+                <td>
+                    <input
+                        type="number"
+                        step=0.1
+                        value="${row.rayon}"
+                        data-field="rayon"
+                        data-index="${index}"
+                    >
+                </td>
+
+                <td class="td-couleur">
+                    <input
+                        type="color"
+                        value="${row.couleur}"
+                        data-field="couleur"
+                        data-index="${index}"
+                    >
+                </td>
+
+
+            <td>
+            <div class="wp-actions">
+                <button type="button" class="btn-up" data-index="${index}" title="Monter">↑</button>
+                <button type="button" class="btn-down" data-index="${index}" title="Descendre">↓</button>
+                <button type="button" class="btn-center" data-index="${index}" title="Centrer sur la carte">⌖</button>
+                <button type="button" class="btn-del" data-index="${index}" title="Supprimer">✖</button>
+            </div>
+            </td>
+              
+            </tr>
+        `;
+                }).join("");
+                container.innerHTML = `
+        <div class="wp-editor-box">
+            <div class="wp-header">
+                <div class="wp-title">Waypoints Routage     - ( Dblclick pour ajouter un WP ) </div>
+                <span class="close-button" onclick="fermerEditeurWP2()">×</span>
+            </div>
+
+            <div class="wp-table-wrapper">
+                <table class="wp-table">
+
+                    <thead>
+                        <tr>
+                            <th >Sel.</th>
+                            <th>Ordre</th>
+                            <th>Nom</th>
+                            <th>Lat.</th>
+                            <th>Lon.</th>
+                            <th>Rayon</th>
+                            <th>Color</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+
+                    <tbody>
+                        ${rowsHtml}
+                    </tbody>
+                </table>
+            </div>
+            <div class="wp-toolbar">
+  <div class="wp-toolbar-left">
+   
+    <button type="button" id="btnWpTrier">Trier</button>
+    <button type="button" id="btnWpRenumeroter">Renuméroter</button>
+  </div>
+
+  <div class="wp-toolbar-right">
+    <button type="button" id="btnWpSauver" class="btn-save">💾 Enregistrer</button>
+  </div>
+</div>
+            <div id="wpEditorMessage" class="wp-msg"></div>
+        </div>
+    `;
+
+                brancherEvenementsWp();
+            }
+
+
+
+
+            // ==========================================================
+            // Evénements
+            // ==========================================================
+            function brancherEvenementsWp() {
+               
+                document.querySelectorAll("#wpEditorContainer input[data-field]").forEach(input => {
+                    input.addEventListener("input", onWpInputChange);
+                    input.addEventListener("change", onWpInputChangeAndSave);
+                });
+
+
+
+                document.querySelectorAll(".btn-up").forEach(btn => {
+                    btn.addEventListener("click", e => {
+                        const index = Number(e.currentTarget.dataset.index);
+                        monterLigneWp(index);
+                    });
+                });
+
+                document.querySelectorAll(".btn-down").forEach(btn => {
+                    btn.addEventListener("click", e => {
+                        const index = Number(e.currentTarget.dataset.index);
+                        descendreLigneWp(index);
+                    });
+                });
+
+                document.querySelectorAll(".btn-del").forEach(btn => {
+                    btn.addEventListener("click", e => {
+                        const index = Number(e.currentTarget.dataset.index);
+                        supprimerLigneWp(index);
+
+                        // on met à jour la base
+                    });
+                });
+
+                document.querySelectorAll(".btn-center").forEach(btn => {
+                    btn.addEventListener("click", e => {
+                        const index = Number(e.currentTarget.dataset.index);
+                        centrerCarteSurWp(index);
+                    });
+                });
+
+
+
+                document.getElementById("btnWpAjouter")?.addEventListener("click", ajouterLigneWp);
+                document.getElementById("btnWpTrier")?.addEventListener("click", trierLignesWp);
+                document.getElementById("btnWpRenumeroter")?.addEventListener("click", renumeroterLignesWp);
+                document.getElementById("btnWpSauver")?.addEventListener("click", sauverTousWPS);
+                //     const data = getWpEditorData();
+
+                //     if (!data.ok) {
+                //         afficherMessageWp("Erreurs : " + data.erreurs.join(" | "), "err");
+                //         return;
+                //     }
+
+                //     console.log("wp =", data.wp);
+                //     console.log("ari =", data.ari);
+
+                //     afficherMessageWp("Données prêtes à être sauvegardées.", "ok");
+
+                //     typeinfo   ='tabwp'
+                //     typeaction ='modify'
+                //     nom        ='wp'
+                //     valeur=JSON.stringify(data.wp)
+                //     modifpersonalinfos(username, user_id, course, typeinfo, typeaction, nom, valeur) 
+
+
+                //     typeinfo   = "ari"
+                //     typeaction ='modify'
+                //     nom        ='ari'
+                //     valeur     = JSON.stringify(data.ari)
+
+
+                //     modifpersonalinfos(username, user_id, course, typeinfo, typeaction, nom, valeur)
+                //     afficheselectarrivee(waypoints, ari)
+
+                //     affichewaypoints2(data.wp)
+                //     afficherMessageWp("Données Sauvegardées");
+
+
+
+                // });
+
+                function onWpInputChange(event) {
+                    const input = event.target;
+                    const index = Number(input.dataset.index);
+                    const field = input.dataset.field;
+
+                    const row = wpEditorRows[index];
+                    if (!row) return;
+
+                    const ancienNom = row.nom;
+
+                    let value;
+                    if (field === "selectionne") {
+                        value = input.checked;
+                    } else if (["ordre", "lat", "lon", "rayon"].includes(field)) {
+                        value = input.value === "" ? "" : Number(input.value);
+                    } else {
+                        value = input.value;
+                    }
+
+                    row[field] = value;
+                    console.log ('ligne 3880'+JSON.stringify(row))
+
+                    if (["nom", "lat", "lon", "rayon", "couleur"].includes(field)) {
+                        majCercleDepuisRow(row, field === "nom" ? ancienNom : null);
+                    }
+                }
+
+
+
+                async function onWpInputChangeAndSave(event) {
+                    onWpInputChange(event);
+          
+
+
+                    await sauverEditeurWp();
+                }
+
+
+
+
+
+                async function sauverTousWPS() {
+                    const data = getWpEditorData();
+
+                    if (!data.ok) {
+                        afficherMessageWp("Erreurs : " + data.erreurs.join(" | "), "err");
+                        return false;
+                    }
+
+                    try {
+                        console.log("wp =", data.wp);
+                        console.log("ari =", data.ari);
+
+                        // Sauvegarde des waypoints
+                        let typeinfo = "tabwp";
+                        let typeaction = "modify";
+                        let nom = "wp";
+                        let valeur = JSON.stringify(data.wp);
+
+                        await modifpersonalinfos(username, user_id, course, typeinfo, typeaction, nom, valeur);
+
+                        // Sauvegarde de ari
+                        typeinfo = "ari";
+                        typeaction = "modify";
+                        nom = "ari";
+                        valeur = JSON.stringify(data.ari);
+
+                        await modifpersonalinfos(username, user_id, course, typeinfo, typeaction, nom, valeur);
+
+                        // Mise à jour locale si tu veux conserver les dernières valeurs
+                        ari = data.ari;
+
+                        // Rafraîchissements visuels
+                        afficheselectarrivee(waypoints, ari);
+                        affichewaypoints2(data.wp);
+
+                        afficherMessageWp("Données sauvegardées.", "ok");
+                        return true;
+
+                    } catch (err) {
+                        console.error("Erreur sauvegarde éditeur WP :", err);
+                        afficherMessageWp("Erreur lors de la sauvegarde.", "err");
+                        return false;
+                    }
+                }
+
+
+
+
+
+
+                window.sauverEditeurWp = sauverEditeurWp;
+
+                async function sauverEditeurWp() {
+                    const data = getWpEditorData();
+
+                    if (!data.ok) {
+                        afficherMessageWp("Erreurs : " + data.erreurs.join(" | "), "err");
+                        return;
+                    }
+
+                    console.log("wp =", data.wp);
+                    console.log("ari =", data.ari);
+
+                    sauverTousWPS()// ici tu brancheras ta vraie sauvegarde
+
+                    affichewaypoints2(data.wp);
+                    afficherMessageWp("Modifications enregistrées.", "ok");
+                }
+
+
+
+
+
+
+
+
+                function centrerCarteSurWp(index) {
+                    const row = wpEditorRows[index];
+                    if (!row) return;
+                    const lat = Number(row.lat);
+                    const lon = Number(row.lon);
+                    if (!Number.isFinite(lat) || !Number.isFinite(lon)) {
+                        afficherMessageWp("Coordonnées invalides pour ce waypoint.", "err");
+                        return;
+                    }
+
+                    map.setView([lat, lon], Math.max(map.getZoom(), 8));  // Pour Leaflet
+                    afficherMessageWp(`Carte centrée sur ${row.nom}.`, "ok");
+                }
+
+
+                // Bouton provisoire pour tester ce que tu récupères
+                document.getElementById("btnWpTester")?.addEventListener("click", testerRecuperationWp);
+            }// fin de brancher evenements 
+
+
+
+            function onWpInputChange(event) {
+                const input = event.target;
+                const index = Number(input.dataset.index);
+                const field = input.dataset.field;
+
+                let value;
+
+                if (field === "selectionne") {
+                    value = input.checked;
+                } else if (["ordre", "lat", "lon", "rayon"].includes(field)) {
+                    value = input.value === "" ? "" : Number(input.value);
+                } else {
+                    value = input.value;
+                }
+
+                wpEditorRows[index][field] = value;
+                afficherMessageWp("Modification des Données Non sauvegardée");
+
+                // ❌ NE PAS faire render ici
+            }
+
+
+            // ==========================================================
+            // Actions lignes
+            // ==========================================================
+            function ajouterLigneWp() {
+                const maxOrdre = wpEditorRows.length > 0
+                    ? Math.max(...wpEditorRows.map(r => Number(r.ordre) || 0))
+                    : 0;
+
+                const newIndex = wpEditorRows.length + 1;
+
+                wpEditorRows.push({
+                    key: `WP${newIndex}`,
+                    ordre: maxOrdre + 1,
+                    nom: `WP${newIndex}`,
+                    lat: 0,
+                    lon: 0,
+                    rayon: 0.5,
+                    couleur: "#ffff00",
+                    selectionne: true
+                });
+
+                renderWpEditor();
+                afficherMessageWp("Nouveau waypoint ajouté.");
+            }
+
+
+            // fonction de suppression ligne et wp sur la carte +enregistrement 
+
+            function supprimerLigneWp(index) {
+                const row = wpEditorRows[index];
+                if (!row) return;
+
+
+                wpEditorRows.splice(index, 1);
+
+                renderWpEditor();
+                supprimerCercleWaypoint(row.nom);
+                afficherMessageWp("Waypoint supprimé.");
+
+                sauverEditeurWp();
+            }
+
+
+            async function ajouterLigneWpDepuisCarte(lat, lon) {
+                const rowsSansArrivee = wpEditorRows.filter(row => row.nom !== "Arrivee");
+
+                let nouveauNom;
+                let numero;
+
+                if (rowsSansArrivee.length === 0) {
+                    nouveauNom = "WP1";
+                    numero = 1;
+                } else {
+                    const dernierWP = rowsSansArrivee.reduce((max, row) =>
+                        Number(row.ordre) > Number(max.ordre) ? row : max
+                    );
+
+                    const ancienNom = dernierWP.nom || "WP0";
+                    const match = ancienNom.match(/^([A-Za-z]+)(\d+)$/);
+
+                    if (match) {
+                        const prefixe = match[1];
+                        numero = parseInt(match[2], 10) + 1;
+                        nouveauNom = `${prefixe}${numero}`;
+                    } else {
+                        numero = Number(dernierWP.ordre) + 1;
+                        nouveauNom = `WP${numero}`;
+                    }
+                }
+
+                const newRow = {
+                    key: nouveauNom,
+                    ordre: numero,
+                    nom: nouveauNom,
+                    lat: Number(lat),
+                    lon: Number(lon),
+                    rayon: 0.5,
+                    couleur: "#ffff00",
+                    selectionne: true
+                };
+
+                wpEditorRows.push(newRow);
+
+                renderWpEditor();
+                creerCercleDepuisRow(newRow);
+                afficherMessageWp(`Waypoint ${nouveauNom} ajouté.`, "ok");
+
+                await sauverEditeurWp();
+            }
+
+
+
+
+
+
+
+
+            async function monterLigneWp(index) {
+                if (index <= 0) return;
+                [wpEditorRows[index - 1], wpEditorRows[index]] = [wpEditorRows[index], wpEditorRows[index - 1]];
+                renderWpEditor();
+                await sauverEditeurWp();
+            }
+
+            async function descendreLigneWp(index) {
+                if (index >= wpEditorRows.length - 1) return;
+                [wpEditorRows[index + 1], wpEditorRows[index]] = [wpEditorRows[index], wpEditorRows[index + 1]];
+                renderWpEditor();
+                await sauverEditeurWp();
+            }
+
+
+            async function trierLignesWp() {
+                wpEditorRows.sort((a, b) => Number(a.ordre) - Number(b.ordre));
+                renderWpEditor();
+                syncCarteDepuisWpEditorRows();
+                afficherMessageWp("Tri par ordre effectué.");
+                await sauverEditeurWp();
+            }
+
+
+            async function renumeroterLignesWp() {
+                wpEditorRows.sort((a, b) => Number(a.ordre) - Number(b.ordre));
+                wpEditorRows.forEach((row, i) => {
+                    row.ordre = i + 1;
+                });
+                renderWpEditor();
+                syncCarteDepuisWpEditorRows();
+                afficherMessageWp("Waypoints renumérotés.");
+                await sauverEditeurWp();
+            }
+
+
+
+            // ==========================================================
+            // Récupération des données
+            // ==========================================================
+            function getWpEditorData() {
+                const erreurs = validerToutesLesLignes(wpEditorRows);
+
+                return {
+                    ok: erreurs.length === 0,
+                    erreurs: erreurs,
+                    wp: rowsToWpDict(wpEditorRows),
+                    ari: rowsToAri(wpEditorRows)
+                };
+            }
+
+            // Fonction juste pour test console
+            function testerRecuperationWp() {
+                const data = getWpEditorData();
+
+                if (!data.ok) {
+                    afficherMessageWp("Erreurs : " + data.erreurs.join(" | "), "err");
+                    console.log("Erreurs validation :", data.erreurs);
+                    return;
+                }
+
+                afficherMessageWp("Données récupérées dans la console.", "ok");
+                console.log("wp =", data.wp);
+                console.log("ari =", data.ari);
+            }
+
+
+            // ==========================================================
+            // Fermeture
+            // ==========================================================
+            function fermerEditeurWP2() {
+                document.getElementById("wpEditorContainer").style.display = "none";
+            }
+
+
+
+
+
+
+            // ==========================================================
+            // Initialisation
+            // ==========================================================
+
+
+            window.EditeurWP2 = () => { ouvrirEditeurWP2() }
+            async function ouvrirEditeurWP2() {
+                console.log('OuvrirEditeurWP2  pour ' + username + ' id  ' + user_id + ' course ' + course)
+                // On va chercher la valeur des waypoints dans peronalinfos
+                personalInfosStr = await recherchepersonalinfos(username, user_id, course)
+                personalInfosJS = JSON.parse(personalInfosStr);
+                console.log('Recuperation de personalInfosStr' + personalInfosStr)
+
+                let wpDict = personalInfosJS.wp
+                let ariList = personalInfosJS.ari
+
+                console.log("wpDict brut =", wpDict);
+                console.log("ariList brut =", ariList);
+                console.log("Object.entries(wpDict) =", Object.entries(wpDict));
+                console.log("Premier WP =", Object.entries(wpDict)[0]);
+
+                const wpEditorContainer = document.getElementById("wpEditorContainer");
+                wpEditorContainer.style.display = "block";
+                document.getElementById("wpEditorContainer").classList.add("visible");
+
+                wpEditorRows = wpDictToRows(wpDict, ariList);
+                renderWpEditor();
+            }
+
+
+
+
+
+
+
+
+
+
+
+            //         window.EditeurWP2 = () => { ouvrirEditeurWP2() }
+            // async function ouvrirEditeurWP2()
+            //         // Fonction pour ouvrir l'éditeur de routes
+            //         {   console.log('OuvrirEditeurWP2  pour '+username+' id  '+user_id+ ' course '+course)                
+            //             // On va chercher la valeur des waypoints dans peronalinfos
+            //             personalInfosStr = await recherchepersonalinfos(username, user_id, course)
+            //             personalInfosJS = JSON.parse(personalInfosStr); 
+            //             console.log('Recuperation de personalInfosStr' + personalInfosStr)
+
+            //            let  wp= personalInfosJS.wp
+            //            let  ari= personalInfosJS.ari
+
+            //             console.log('wp ' + wp)
+            //             console.log('ari ' + ari)
+            //             wpEditorRows = wpDictToRows(wp);
+            //             renderWpEditor();
+
+            //             const wpEditorContainer = document.getElementById("wpEditorContainer");
+            //             wpEditorContainer.style.display = "block";
+            //             document.getElementById("wpEditorContainer").classList.add("visible");
+            //         };
+
+
+
+
+
+            window.fermerEditeurWP2 = () => {
+                const wpEditorContainer = document.getElementById("wpEditorContainer");
+                wpEditorContainer.style.display = "none";
+                wpEditorContainer.classList.remove("visible");
+            }
 
 
 
@@ -3112,15 +4308,6 @@
                     visible: false
                 };
             }
-
-
-
-
-
-
-
-
-
 
 
 
@@ -3204,60 +4391,6 @@
             };
 
 
-            // window.afficherRoute = function (i) {
-
-            //     console.log('indice i ' + i);
-            //     if (i < 0 || i >= routes.length) {
-            //         console.error("Index invalide :", i);
-            //         return;
-            //     }
-
-            //     let route = routes[i];
-            //     if (!route) {
-            //         console.error("Route inexistante à l'indice", i, "routes[i] =", route);
-            //         return;
-            //     }
-
-            //     // Si le layer n'existe pas encore, on le crée
-            //     if (!route.layer) {
-            //         route.layer = L.layerGroup();
-            //         route.visible = false;
-            //     }
-
-            //     route.layer.clearLayers();
-
-            //     // ✅ On essaie d'abord route.coords (format [lat, lon])
-            //     let coords = route.coords;
-
-            //     // Si pas de coords, on tente de les reconstruire à partir de polyline
-            //     if ((!coords || !coords.length) && Array.isArray(route.polyline)) {
-            //         // Si polyline est du type [idx, x, lat, lon, ...]
-            //         if (Array.isArray(route.polyline[0]) && route.polyline[0].length >= 4) {
-            //             coords = route.polyline.map(row => [row[2], row[3]]);
-            //         } else {
-            //             // Sinon on suppose que polyline est déjà un tableau de [lat, lon]
-            //             coords = route.polyline;
-            //         }
-            //     }
-
-            //     if (!coords || !coords.length) {
-            //         console.error("Pas de coordonnées valides pour la route", route);
-            //         return;
-            //     }
-
-            //     const poly = L.polyline(coords, { color: route.couleur, weight: 2 });
-            //     poly.addTo(route.layer);
-
-            //     if (!route.visible) {
-            //         route.layer.addTo(map);
-            //         route.visible = true;
-            //     }
-            // };
-
-
-
-
-
 
             window.masquerRoute = function (i) {
                 if (i < 0 || i >= routes.length) return;
@@ -3302,69 +4435,6 @@
                 return `${usernameRoutage} ${jour}/${mois} ${heure}:${minute}`;
             }
 
-            // function genererNomRoutage() {
-
-            //     if (usernameRoutage === undefined) {usernameRoutage='Routage non calculé'}
-            //     console.log ('usernameRoutage '+usernameRoutage)
-            //     let now = new Date();
-            //     let jour = String(now.getDate()).padStart(2, '0');
-            //     let mois = String(now.getMonth() + 1).padStart(2, '0'); // Les mois commencent à 0
-            //     let heure = String(now.getHours()).padStart(2, '0');
-            //     let minute = String(now.getMinutes()).padStart(2, '0');
-            //    // document.getElementById('nomRoutage').value=  `${username}  ${jour}/${mois} ${heure}:${minute}`
-            //     return `${usernameRoutage}     <br>  ${jour}/${mois} ${heure}:${minute}`;
-            // }
-
-
-
-
-
-            // async function sauveRouteServeur2() {
-
-            //     console.log ('la route est sauvee')
-            //     typeinfo = 'routage';
-            //     typeaction = 'insert';
-            //     console.log('Sauvegarde de la route sur le serveur dans personalinfos2');
-            //     nbRoutes = routes.length
-            //     let color = colorhex[nbRoutes % colorhex.length];
-            //     console.log(color)
-
-            //     let nomRoutage = document.getElementById('nomRoutage').value;
-
-            //     // Vérification des valeurs avant de sauvegarder
-            //     if (!nomRoutage || !eta || !dureeparcours || !polyglobal) {
-            //         alert("Données incomplètes pour sauvegarder la route.");
-            //         return;
-            //     }
-
-            //     // Création de l'objet JSON pour la nouvelle route
-            //     let nouvelleRoute = {
-            //         nom: nomRoutage,
-            //         eta: eta,
-            //         duree: dureeparcours,
-            //         couleur: color,
-            //         polyline: tabroutage,
-            //         coords: tabroutage    // pour affichage immédiat
-
-            //     };
-
-            //     // ⚠️ important pour l’affichage
-            //     nouvelleRoute.layer = L.layerGroup();  // layer dédié à cette route
-            //     nouvelleRoute.visible = false;        // pas encore affichée
-
-            //     routes.push(nouvelleRoute);
-            //     mettreAJourTableau();
-
-            //     try {
-            //         let message = await modifpersonalinfos(username, user_id, course, typeinfo, typeaction, nomRoutage, JSON.stringify(nouvelleRoute));
-            //         console.log('Sauvegarde réussie : ', message);
-            //         alert('Route sauvegardée avec succès !');
-
-            //     } catch (error) {
-            //         console.error('Erreur lors de la sauvegarde : ', error);
-            //         alert('Échec de la sauvegarde : ' + error.message);
-            //     }
-            // }
 
             async function sauveRouteServeur2() {
 
@@ -3438,72 +4508,6 @@
             }
 
 
-            // async function sauveRouteServeur2() {
-
-            //     console.log('la route est sauvee');
-            //     typeinfo = 'routage';
-            //     typeaction = 'insert';
-            //     console.log('Sauvegarde de la route sur le serveur dans personalinfos2');
-
-            //     nbRoutes = routes.length;
-            //     let color = colorhex[nbRoutes % colorhex.length];
-            //     console.log(color);
-
-            //     let nomRoutage = document.getElementById('nomRoutage').value;
-
-            //     // Vérification des valeurs avant de sauvegarder
-            //     if (!nomRoutage || !eta || !dureeparcours || !polyglobal) {
-            //         alert("Données incomplètes pour sauvegarder la route.");
-            //         return;
-            //     }
-
-            //     // ✅ Construire coords exactement comme au chargement
-            //     const coords = Array.isArray(tabroutage)
-            //         ? tabroutage.map(row => [row[2], row[3]])
-            //         : [];
-
-            //     let nouvelleRoute = {
-            //         nom: nomRoutage,
-            //         eta: eta,
-            //         duree: dureeparcours,
-            //         couleur: color,
-            //         polyline: tabroutage,  // tableau complet (avec les autres infos)
-            //         coords: coords         // juste [lat, lon] pour Leaflet
-            //     };
-
-            //     // Layer dédié à cette route
-            //     nouvelleRoute.layer = L.layerGroup();
-            //     nouvelleRoute.visible = false;
-
-            //     // Ajout local + mise à jour de l’UI
-            //     routes.push(nouvelleRoute);
-            //     mettreAJourTableau();
-
-            //     try {
-            //         let message = await modifpersonalinfos(
-            //             username,
-            //             user_id,
-            //             course,
-            //             typeinfo,
-            //             typeaction,
-            //             nomRoutage,
-            //             JSON.stringify(nouvelleRoute)
-            //         );
-            //         console.log('Sauvegarde réussie : ', message);
-            //         alert('Route sauvegardée avec succès !');
-
-            //     } catch (error) {
-            //         console.error('Erreur lors de la sauvegarde : ', error);
-            //         alert('Échec de la sauvegarde : ' + error.message);
-            //     }
-            // }
-
-
-
-
-
-
-
 
 
             function mettreAJourTableau() {
@@ -3529,17 +4533,14 @@
         <tr>
             
             <td class="colDouble">${formaterNomRoutagePourTableau(route.nom)}</td>
-
             <td>${intlhmn.format(route.eta * 1000)}</td>
             <td>${formatSeconds(route.duree)}</td>      
-
             <td><input type="color" value="${route.couleur}" oninput="changerCouleurRoute(${i}, this.value)"></td>  
             <td><button onclick="afficherRoute(${i})">Afficher</button></td>
-
             <td><button onclick="masquerRoute(${i})">Masquer</button></td>
             <td><button onclick="supprimerRoute(${i})">Supprimer</button></td>
             <td><button onclick="exportRouteAsGPX(${i})">Export GPX</button></td>
-           
+      
 
         </tr>`;
                 }
@@ -3547,15 +4548,6 @@
                 texte += `</table>`;
                 document.getElementById('tableroutages').innerHTML = texte;
             }
-
-
-
-            //<td><button onclick="exportRouteAsCSV(${i})">Export CSV</button></td>
-
-
-
-
-
 
 
 
@@ -3576,27 +4568,7 @@
                 return /[",\n\r]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
             }
 
-            /**
-             * Exporte tabroutage en CSV avec colonnes:
-             * Date, Latitude, Longitude, Heading, Speed, SailSet, TWA, TWD, TWS, STAMINA, BOOST
-             *
-             * Indices (0-based) d'après ton message :
-             * Date delta sec -> col 1
-             * Lat -> col 2
-             * Lon -> col 3
-             * TWA -> col 5
-             * Heading -> col 6
-             * Speed -> col 9
-             * SailSet -> col 10
-             * BOOST -> col 11
-             * TWS -> col 12
-             * TWD -> col 13
-             * STAMINA -> col 14
-             *
-             * t0: timestamp de départ (en secondes unix ou ms, géré ci-dessous)
-             * race: int 3 digits
-             * v: préfixe string (ex "vr_" ou "v")
-             */
+
             window.exportRoutageAsCSV = function (tabroutage, t0, race, v = "v") {
                 if (!Array.isArray(tabroutage) || tabroutage.length === 0) {
                     console.warn("tabroutage vide");
@@ -3673,21 +4645,6 @@
 
 
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
             window.changerCouleurRoute = async function (i, nouvelleCouleur) {
                 console.log(`Changement de couleur pour la route ${routes[i].nom} -> ${nouvelleCouleur}`);
 
@@ -3730,9 +4687,9 @@
 
             function recupereRoutes(personalInfosJS) {
                 routes = [];
-                console.log('**************************************');
-                console.log('on est dans recupereRoutes');
-                console.log('**************************************');
+                //console.log('**************************************');
+                console.log('On est dans recupereRoutes');
+                //console.log('**************************************');
 
                 if (!personalInfosJS || !personalInfosJS.routage) return;
 
@@ -3770,86 +4727,6 @@
 
                 mettreAJourTableau();
             }
-
-
-
-
-
-            // function recupereRoutes(personalInfosJS) {
-            //     routes = [];  // Réinitialisation avant de charger de nouvelles routes
-            //     console.log('**************************************')
-            //     console.log('on est dans recupereRoutes')
-            //     console.log('**************************************')
-
-
-
-
-            //     if (!personalInfosJS || !personalInfosJS.routage) return;
-
-            //     let raw = personalInfosJS.routage;
-
-            //     // 1) Si routage est lui-même une chaîne JSON globale, parse-la
-            //     if (typeof raw === 'string') {
-            //         try {
-            //             raw = JSON.parse(raw);
-            //         } catch (e) {
-            //             console.error('routage global invalide:', e);
-            //             return;
-            //         }
-            //     }
-
-            //     // 2) Parcours des entrées. Chaque valeur peut être soit un objet, soit une chaîne JSON.
-            //     for (const [key, val] of Object.entries(raw)) {
-            //         let obj = val;
-            //         if (typeof obj === 'string') {
-            //             try {
-            //                 obj = JSON.parse(obj); // <-- ICI le double parse
-            //             } catch (e) {
-            //                 console.warn('Entrée routage non parsable pour', key, e);
-            //                 continue;
-            //             }
-            //         }
-
-            //         // Sécurise les champs
-            //         const nom = obj.nom ?? key;
-            //         const eta = obj.eta ?? null;
-            //         const duree = obj.duree ?? null;
-            //         const couleur = obj.couleur ?? '#3388ff';
-
-            //         // Ta "polyline" actuelle est un tableau de lignes riches.
-            //         // Si tu veux dessiner, on extrait [lat, lon] depuis indices 2 et 3.
-            //         const coords = Array.isArray(obj.polyline) ? obj.polyline.map(row => [row[2], row[3]]) : [];
-
-            //         // chaque route a son propre layer
-
-            //         const layer = L.layerGroup();
-
-            //         routes.push({
-            //             nom,
-            //             eta,
-            //             duree,
-            //             couleur,
-            //             coords,           // prêt pour Leaflet
-            //             layer,
-            //             visible: false
-            //             // polylineRaw: obj.polyline, // si tu veux garder les colonnes complètes
-            //         });
-            //     }
-
-
-
-            //     //console.log("Routes chargées :", routes);
-            //     mettreAJourTableau(); // ✅ Mise à jour de l'affichage avec les données chargées
-            // }
-
-
-
-
-
-
-
-
-
 
 
 
@@ -4032,16 +4909,7 @@
 
                 });
 
-
-
-
-
-
                 fleetMarkers.addTo(map)
-
-
-
-
 
             }
 
@@ -4279,7 +5147,6 @@
 
                 if (currentPoints.length === 2) {
                     if (currentPolyline) layerBarrieres.removeLayer(currentPolyline);
-
                     currentPolyline = L.polyline(currentPoints, { color: 'red' }).addTo(layerBarrieres);
                     currentPolyline.editing?.enable?.(); // pour activer l'édition si Leaflet.Editable ou Leaflet.Draw est intégré
                     layerBarrieres.addTo(map)
@@ -4353,8 +5220,8 @@
             // === Afficher les barrières au chargement ===
             function afficheBarrieres(personalInfosJS) {
 
-                console.log('On est dans affichebarrieres ')
-                console.log(' personalInfosJS ' + personalInfosJS)
+                console.log('Affichage des barrieres ')
+                //console.log(' personalInfosJS ' + personalInfosJS)
                 layerBarrieres.clearLayers();
                 barrieresPolylines = {};
                 listeBarrieres = [];
@@ -4906,16 +5773,16 @@
 
                 console.log('personalinfos  issues du serveur \n' + personalInfosStr)
 
-                affichewaypoints2(personalInfosJS)
+                affichewaypoints2(personalInfosJS.wp)
                 afficheZonesExclusions(personalInfosJS)
                 afficheBarrieres(personalInfosJS)
                 recupereRoutes(personalInfosJS)
 
+                //nomsWaypoints = waypoints.map(item => item[1]);
+                ari = personalInfosJS.ari
+                console.log('ari' + ari)
                 waypoints = Object.values(personalInfosJS.wp).sort((a, b) => a[0] - b[0]);
-                nomsWaypoints = waypoints.map(item => item[1]);
-                // ari=personalInfosJS['ari']                         // Pour l instant on va utiliser ari de memoiretrajets et non celui de personalinfos 
 
-                // console.log('ligne 3971 waypoints ' + waypoints + ' ari ' + ari)
                 afficheselectarrivee(waypoints, ari)// on affiche le select arrivee avec les waypoints et ceux selectionnes  contenus dans localstorage
 
 
@@ -4956,8 +5823,6 @@
 
                 // On va chercher les donnees les plus recentes sur le bateau 
                 boatinfosdata = await chercheboatinfos(username, course)
-
-
                 boatinfosJSON = JSON.parse(boatinfosdata.result)
                 //console.log('boatinfosdata\n' + boatinfosdata.result)
 
@@ -4989,7 +5854,7 @@
 
 
 
-                console.log('boatinfosdata ' + boatinfosdata)
+                //console.log('boatinfosdata ' + boatinfosdata)
 
                 //    console.log (`boatinfosdata recuperees \n********************\n`)
                 //    console.log ('boatinfosdata ' +boatinfosdata)
@@ -5013,7 +5878,7 @@
 
                 afficheboatinfos(boatinfosdata)
 
-
+                centrage()
                 // on va chercher progsvr       qui donne la dernière  programmations enregistrées pour le user et la course 
                 try { await chercheprogsvr(user_id, course, t0routage) }
                 catch { console.log('Probleme dans la recuperation de progsvr') }
@@ -5210,7 +6075,7 @@
 
                     //valable dans les 2 cas
                     updateTrajet(username, course, trajet)              // sauve le trajet et le place en premier  
-                    affichewaypoints2(personalInfosJS)
+                    affichewaypoints2(personalInfosJS.wp)
                     //affichewaypoints(waypoints)
                     affichecoordsdep(y0, x0)
                     affichecoordsari(y1, x1)
@@ -5339,7 +6204,7 @@
                 personalInfosJS = JSON.parse(personalInfosStr);
                 console.log(`personalInfos  pour ${username} sur la course ${course}\n*************************************************\n${personalInfosStr}`)
 
-                affichewaypoints2(personalInfosJS)
+                affichewaypoints2(personalInfosJS.wp)
                 waypoints = Object.values(personalInfosJS.wp).sort((a, b) => a[0] - b[0]);
                 nomsWaypoints = waypoints.map(item => item[1]);
 
@@ -5973,6 +6838,8 @@
                     nom = 'ari'
                 valeur = ari
 
+                console.log(' Ligne 6312 ari' + ari)
+
                 message = modifpersonalinfos(username, user_id, course, typeinfo, typeaction, nom, valeur)
                 //console.log(message)
 
@@ -6214,11 +7081,13 @@
 
             //Changement sur le twsvmg
             var twsvmg = document.getElementById('twsvmg')
+            var twavr = document.getElementById('twavr')
             twsvmg.addEventListener("change", function (evt) {
                 console.log('Changement detecte sur twsvmg')
                 twsvmg = document.getElementById('twsvmg').value
                 console.log('changement du vent tws= ' + twsvmg)
                 tws10vmg = parseInt(Math.round(twsvmg * 10))
+                console.log('twavr', twavr)
                 resvoiles = cherchevoiles(y0vr, x0vr, t0vr, twsvmg, twavr, polar_id)
 
 
@@ -6605,10 +7474,15 @@
                 console.log('Tolerance hvmg ' + tolerancehvmg)
                 console.log('RetardPeno     ' + retardpeno)
 
-                ari = Array.from(idarrivee.selectedOptions).map(option => option.value);
+                // console.log (' ari en ligne 7398 ' +ari)
+                // ari = Array.from(idarrivee.selectedOptions).map(option => option.value); // si on prend sur select ari 
+                console.log(' ari en ligne 7400 ' + ari)
+
                 if (ari == []) { ari = ['Arrivee']; }    //Si on a oublié de cocher une case       
 
                 console.log('ligne 4364 ari ' + ari)
+
+
                 heuredepart = document.getElementById('datetime').value     // on recupere l heure de depart 
                 console.log("Valeurs des WP selectionnés : ari = ", ari);
                 console.log('y0, ' + y0 + ' x0 ' + x0)
@@ -7613,9 +8487,11 @@
             window.centrage = () => {
                 try {
                     map.panTo([y0vr, x0vr])
+                    console.log(intlhmn.format(Date.now()) + ' Centrage ')
                 }
                 catch { console.log('Centrage pas possible') }
             }
+
 
 
             window.copyLatLonToClipboard = async (lat, lon) => {
@@ -8097,7 +8973,7 @@
 
                 console.log('personalinfos  issues du serveur ' + personalInfosStr)
 
-                affichewaypoints2(personalInfosJS)
+                affichewaypoints2(personalInfosJS.wp)
                 afficheZonesExclusions(personalInfosJS)
                 afficheBarrieres(personalInfosJS)
                 recupereRoutes(personalInfosJS)
@@ -8176,10 +9052,14 @@
             //setInterval(function(){  update(username,course,bloque)        ;}, 20000);      // update2 toutes les 20s sauf si bloque=1
 
             setInterval(function () {
-                let nowMSec = nowJS.getTime()
-                ecartTemps = (nowMSec - lastCalcDate) / 1000;
-                console.log('ecartTemps' + ecartTemps);
-                verifierDeltat(ecartTemps);
+
+                let nowJS = new Date();
+                let nowSec = nowJS.getTime() / 1000;
+
+
+                var ecartTemps = parseInt((nowSec - lastCalcDate / 1000));
+                console.log('EcartTemps depuis la dernière mise à jour VR ' + ecartTemps);
+                if (ecartTemps > 600) { console.log('Ecart Temps>600 => Overlay'); afficheOverlay(ecartTemps) }
             }, 60000);      //         toutes les 60s
 
 

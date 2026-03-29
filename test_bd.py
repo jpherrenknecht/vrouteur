@@ -556,8 +556,8 @@ def modifpersonalinfos2():
     cursor = conn.cursor()
     username='Takron-BSP'
 
-    course='784.1'
-    personalinfos={"username": "Takron-BSP", "course": "784.1", "ari": ["Arrivee"],\
+    course='774.1'
+    personalinfos={"username": "Takron-BSP", "course": "774.1", "ari": ["Arrivee"],\
     "wp": {"Arrivee": [99, "Arrivee", -0.7386612, -48.33982, 0, "yellow"], "WP1": [1, "WP1", 27.132479801022896, -16.495971679687504, 0.5, "#ffff00"]}, "exclusions": {},\
     "trajets": {}, "tolerancehvmg": 0, \
     "barrieres": {}}
@@ -574,7 +574,7 @@ def modifpersonalinfos2():
     pg_pool.putconn(conn)  
     return None
 
-
+modifpersonalinfos2()
 
 #############################################################################################""
 # Fin de Modif personalinfos  

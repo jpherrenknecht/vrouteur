@@ -2,6 +2,8 @@ import time
 import os
 import math
 from datetime import datetime,timezone
+from cachetools import TTLCache
+from threading import Lock
 import torch
 import numpy as np
 import json
@@ -953,45 +955,78 @@ def smoothTo(t):
 
 filename='/home/jp/staticLocal/cumsum/sequenceglobale.pt'
 sequences2 = torch.load(filename,map_location="cuda:0")                     # sequences2 fait 87 Mo imp
-cumsumx = torch.cumsum(sequences2, dim=0)      
+cumsumx = torch.cumsum(sequences2, dim=0)    
+cache_cartes = TTLCache(maxsize=1000, ttl=5 * 24 * 60 * 60)
+cache_lock = Lock()
 
-def get_carte(pos, zoom_x, zoom_y):
-    '''Cherche si la carte a deja ete chargee dans le cache '''
-    ''' La charge depuis la carte ou depuis les fichiers  '''
-    lat, lon = int(pos[0]), int(pos[1])
+
+# def get_carte(lat,lon, zoom_x=3, zoom_y=4):
+#     '''Cherche si la carte a deja ete chargee dans le cache '''
+#     ''' La charge depuis la carte ou depuis les fichiers  '''
+#     lat, lon = int(lat, int(lon))
+
+
+#     cle = (lat, lon)
+    
+    
+#     with cache_lock:
+#         if cle in cache_cartes:
+#             return cache_cartes[cle]
+#     # Si non trouvé (ou expiré), on recharge la carte
+#     carte = fcarte(lat, lon, zoom_x, zoom_y)
+#     with cache_lock:
+#         cache_cartes[cle] = carte
+#     return carte
+
+
+
+def get_carte3 (lat, lon):
+    #la cle est un multiple de 10
     cle = (lat, lon)
     with cache_lock:
         if cle in cache_cartes:
             return cache_cartes[cle]
-    # Si non trouvé (ou expiré), on recharge la carte
-    carte = fcarte((lat, lon), zoom_x, zoom_y)
+
+    # Calcul ou chargement de la carte (taille fixe de 10x10)
+    carte = fcarte3(lat, lon)       # dans fonctions2025
+
     with cache_lock:
         cache_cartes[cle] = carte
+
     return carte
 
 
-def fcarte(pos,deltalat=3,deltalon=4):
 
-    ''' donne la polyligne correspondant a la carte autour du point '''
-    ''' necessite les fonctions assemble_masques contourterre3 et chainesegments'''
-    lat=pos[0]
-    lon=pos[1]
-    latmin=int(lat-deltalat)
-    latmax=int(lat+deltalat)    
-    lonmin=int(lon-deltalon)
-    lonmax=int(lon+deltalon)
-    masque_global, lat0, lon0 = assemble_masques(latmin,latmax,lonmin,lonmax)
-    resolutionlat=abs(latmax-latmin)
-    resolutionlon=abs(lonmax-lonmin) 
-    segments = contour_terre3(masque_global, lat0, lon0,resolutionlat,resolutionlon)
-    polylignes = chaine_segments(segments)
-    return polylignes
+def fcarte3(lat,lon):
+    '''Charge la carte des offsets directement  
+     transforme en coordonnees et renvoie le tableau de coordonnees'''   
+
+    lat0=int(10*(lat//10) +10)
+    lon0=int(10*(lon//10))
+    # print (lat0,lon0)
+    filename='maps2/carteoffset_'+str(lat0)+'_'+str(lon0)+'.npy'
+    print('**********************************************')
+    print ('filename ',filename)
+
+
+    # filename='carteoffset_'+str(lat0)+'_'+str(lon0)+'.npy'
+    # on recharge le numpy pour voir que la sauvegarde est correcte
+    offsets = np.load(filename)                                # matrice des offsets
+
+    pas = 1/730                                              # un pas = 1/730 °
+    # on va transformer le fichier numpy d'offsets en coordonnees 
+    coords = np.empty_like(offsets, dtype=np.float32)
+    coords[..., 0] = lat0 - offsets[..., 0].astype(np.float32) * pas    # latitude diminue vers le sud
+    coords[..., 1] = lon0 + offsets[..., 1].astype(np.float32) * pas    # longitude augmente vers l’est
+    return coords 
+
 
 
 def assemble_masques(lat_min, lat_max, lon_min, lon_max):
+    ''' Assemble les masques entre les lats et lons min et max'''
+
     latitudes = range(math.floor(lat_max), math.ceil(lat_min), -1)
-    longitudes = range(math.floor(lon_min), math.ceil(lon_max))
-    
+    longitudes = range(math.floor(lon_min), math.ceil(lon_max))  
     masques = []
     for lat in latitudes:
         ligne = []
@@ -1009,9 +1044,9 @@ def assemble_masques(lat_min, lat_max, lon_min, lon_max):
 
 
 def contour_terre3(mask_np, lat0, lon0, resolution_lat, resolution_lon):
+    '''Transforme les masques en polylignes '''
     mask = torch.tensor(mask_np, dtype=torch.uint8, device='cuda')
     padded = torch.nn.functional.pad(mask, (1, 1, 1, 1), mode='constant', value=0)
-
     left = padded[1:-1, :-2]
     right = padded[1:-1, 2:]
     top = padded[:-2, 1:-1]
@@ -1120,24 +1155,24 @@ def chargeMasque (y0,x0):
     return mask 
 
 
-def assemble_masques(lat_min, lat_max, lon_min, lon_max):
-    latitudes = range(math.floor(lat_max), math.ceil(lat_min), -1)
-    longitudes = range(math.floor(lon_min), math.ceil(lon_max))
+# def assemble_masques(lat_min, lat_max, lon_min, lon_max):
+#     latitudes = range(math.floor(lat_max), math.ceil(lat_min), -1)
+#     longitudes = range(math.floor(lon_min), math.ceil(lon_max))
     
-    masques = []
-    for lat in latitudes:
-        ligne = []
-        for lon in longitudes:
-            try:
-                mask = chargeMasque(lat, lon)
-            except Exception as e:
-                print(f"Erreur en chargeant masque {lat},{lon} : {e}")
-                mask = np.zeros((730,730), dtype=np.uint8)
-            ligne.append(mask)
-        masques.append(np.concatenate(ligne, axis=1))
-    masque_global = np.concatenate(masques, axis=0)
+#     masques = []
+#     for lat in latitudes:
+#         ligne = []
+#         for lon in longitudes:
+#             try:
+#                 mask = chargeMasque(lat, lon)
+#             except Exception as e:
+#                 print(f"Erreur en chargeant masque {lat},{lon} : {e}")
+#                 mask = np.zeros((730,730), dtype=np.uint8)
+#             ligne.append(mask)
+#         masques.append(np.concatenate(ligne, axis=1))
+#     masque_global = np.concatenate(masques, axis=0)
     
-    return masque_global, latitudes[0], longitudes[0]
+#     return masque_global, latitudes[0], longitudes[0]
 
 
 def prepare_segments(polygons):
@@ -1167,8 +1202,10 @@ def terremer(lat,lon):
     indice = indicelat + p * indicelon # Indice unique
     idx = torch.searchsorted(cumsumx, indice, right=True) - 1
     return idx%2
-
+ 
+   
 def decoupe_latlon(lat_lon, seuil=0.01):
+   
     ''' permet de decouper les isochrones a la rencontre avec les terres ,plus le seuil est petit , plus on coupe au niveau des terres'''
     # Calcul des écarts successifs
     diffs = torch.abs(lat_lon[1:] - lat_lon[:-1])
@@ -1185,6 +1222,97 @@ def decoupe_latlon(lat_lon, seuil=0.01):
     ]
 
     return sub_arrays
+
+
+def construit_dico_isochrones_1sur6(isoglobal: torch.Tensor, seuil=0.01):
+    dico_isochrones = {}
+    if isoglobal.shape[0] == 0:
+        return dico_isochrones
+
+    iso_col = isoglobal[:, 0]
+    idx_change = torch.where(iso_col[1:] != iso_col[:-1])[0] + 1
+
+    bornes = torch.cat([
+        torch.tensor([0], device=isoglobal.device),
+        idx_change,
+        torch.tensor([isoglobal.shape[0]], device=isoglobal.device)
+    ])
+
+    for k in range(len(bornes) - 1):
+        start = int(bornes[k].item())
+        end = int(bornes[k + 1].item())
+
+        bloc = isoglobal[start:end]
+        iso = int(bloc[0, 0].item())
+
+        if iso % 6 != 0:
+            continue
+
+        lat_lon = bloc[:, [3, 4]]
+        segs = decoupe_latlon_folium(lat_lon, seuil=seuil)
+
+        if segs:
+            dico_isochrones[iso] = segs
+
+    return dico_isochrones
+
+
+
+
+def decoupe_latlon_folium(points: torch.Tensor, seuil=0.01):
+    """
+    Retourne uniquement les segments de longueur >= 2,
+    directement prêts pour folium.PolyLine(...)
+    """
+    n = points.shape[0]
+    if n < 2:
+        return []
+
+    diffs = torch.abs(points[1:] - points[:-1])
+    sauts = (diffs > seuil).any(dim=1)
+    coupures = (torch.nonzero(sauts, as_tuple=False).flatten() + 1).tolist()
+
+    res = []
+    start = 0
+
+    for end in coupures:
+        if end - start >= 2:
+            res.append(points[start:end].detach().cpu().tolist())
+        start = end
+
+    if n - start >= 2:
+        res.append(points[start:n].detach().cpu().tolist())
+
+    return res
+
+
+
+def decoupe_latlon_fast(lat_lon, seuil=0.01):
+    n = lat_lon.size(0)
+    if n == 0:
+        return []
+    if n == 1:
+        return [lat_lon.tolist()]
+
+    # écart max entre deux points consécutifs sur lat/lon
+    diffs = (lat_lon[1:] - lat_lon[:-1]).abs()
+    sauts = torch.nonzero(diffs.amax(dim=1) > seuil, as_tuple=False).flatten()
+
+    if sauts.numel() == 0:
+        return [lat_lon.tolist()]
+
+    split_indices = torch.cat([
+        torch.tensor([0], device=lat_lon.device),
+        sauts + 1,
+        torch.tensor([n], device=lat_lon.device)
+    ])
+
+    return [
+        lat_lon[int(split_indices[i].item()):int(split_indices[i+1].item())].tolist()
+        for i in range(split_indices.numel() - 1)
+    ]
+
+
 
 
 def ajouter_croix(m, lat, lon, taille, couleur='red', tooltip=None, popup=None):

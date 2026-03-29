@@ -2842,3 +2842,49 @@ function fmt(n, d) {   // pour reduire le nombre de decimales
   const x = Number(n);
   return Number.isFinite(x) ? x.toFixed(d) : "";
 }
+
+// fonctions pour editeur WP
+//______________________________
+
+
+function escapeHtml(value) {
+  return String(value ?? "")
+    .replaceAll("&", "&amp;")
+    .replaceAll("<", "&lt;")
+    .replaceAll(">", "&gt;")
+    .replaceAll('"', "&quot;")
+    .replaceAll("'", "&#039;");
+}
+
+function normaliserCouleur(couleur) {
+  if (!couleur) return "#ffff00";
+  const c = String(couleur).trim().toLowerCase();
+
+  const couleursConnues = {
+    yellow: "#ffff00",
+    red: "#ff0000",
+    green: "#008000",
+    blue: "#0000ff",
+    white: "#ffffff",
+    black: "#000000",
+    orange: "#ffa500",
+    purple: "#800080"
+  };
+
+  if (couleursConnues[c]) return couleursConnues[c];
+  if (/^#[0-9a-f]{6}$/i.test(c)) return c;
+
+  return "#ffff00";
+}
+
+
+function arrondir5(x) {
+    return Math.round(x * 1e5) / 1e5;
+}
+
+function normalizeLatLon(latlng) {
+    return {
+        lat: Math.round(latlng.lat * 1e5) / 1e5,
+        lon: Math.round(latlng.lng * 1e5) / 1e5
+    };
+}
