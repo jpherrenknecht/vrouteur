@@ -2026,7 +2026,7 @@ def charger_donnees(course):
         for i, zone in enumerate(zones, start=1):
             base = zone.get("name", "zone")
             name = f"{base}_{i}"
-            vertices = [[pt["lat"], lon_to_360( pt["lon"])] for pt in zone["vertices"]]
+            vertices = [[pt["lat"],  pt["lon"]] for pt in zone["vertices"]]
             tabexclusions[name] = vertices
         # try:
         #     for zone in zones:
@@ -2179,17 +2179,16 @@ def rechercheDonneesCourseUser( user_id,course):
     gateGroupCounters   = boatinfosbs['gateGroupCounters']
     legStartDate        = boatinfosbs['legStartDate']
     
-    # print ('state',state)
+    print ('state',state)
     
     if state=='waiting':
         # si le state est waiting on a seulement un heading et legstartdate     
         lastCalcDate         = boatinfosbs['legStartDate']   # normalement deja recupere en dessus 
         t0=legStartDate/1000
         dtig=t0-tigGFS
-        tws,twd = gfs_interpolateur_np(dtig,y0vr,x0vr)
-
+        twsvr,twdvr = gfs_interpolateur_np(dtig,y0vr,x0vr)        
         capvr     = headingvr
-        twavr     = ftwao(capvr,twd)
+        twavr     = ftwao(capvr,twdvr)
       
         twaAutovr =twavr
         # print ('Depart en attente le  {} avec tws {:6.2f} ,twd {:6.2f} ,cap {:6.2f} ,twa {:6.2f}'.format(time.strftime(" %d %b %H:%M ",time.localtime(t0)),twsvr,twdvr,headingvr,twavr))
@@ -3215,7 +3214,11 @@ def rechercheprogsvr():
     positionvr      = session.positionvr
     boatinfos       = session.boatinfos
     positionvr_np   = positionvr.detach().cpu().numpy()
-    lastCalcDateBI= int(boatinfos['bs']['lastCalcDate']/1000)
+    try:
+        lastCalcDateBI= int(boatinfos['bs']['lastCalcDate']/1000)
+    except:
+        lastCalcDateBI=time.time()
+
     print ('boatinfos dans rechercheprogsvr\n ',boatinfos)
 
     date,origine,programmations = extraitprogrammations (boatinfos,user_id,course)      # va chercher dans la table 
@@ -4250,7 +4253,9 @@ class RoutageSession:                                                  # version
         # print ('selfexclusionsVR',self.exclusionsVR) 
 
         # pos=(self.posStartVR['y0'],self.posStartVR['x0'])
-        # self.carte=fcarte(pos)      # renvoie une multipolyline      
+        # self.carte=fcarte(pos)      # renvoie une multipolyline   
+        print()
+        print ('selfexclusionsVR \n',self.exclusionsVR)    
         self.exclusionsVR.update(self.exclusionsperso)          # on rajoute exclusionsperso à exclusions VR 
 
         # print ('selfexclusionsVR apres integration des exclusions perso ',self.exclusionsVR)        
@@ -4266,9 +4271,10 @@ class RoutageSession:                                                  # version
         except : 
             self.exclusions = {}
 
-            
+        print ('selfexclusions \n',self.exclusions)   
 
-        self.segments = prepare_segments(self.exclusions)  # [S, 4] segments [x1, y1, x2, y2]        
+        self.segments = prepare_segments(self.exclusions)  # [S, 4] segments [x1, y1, x2, y2]  
+        print ('\nself.segments\n',self.segments)      
         # except:
         #     self.segments=[]
         # self.isodepart                    = calculeIsoDepart(self.posStartVR,self.polairesglobales10to,self.carabateau) # tient compte du state waiting si necessaire
@@ -4953,12 +4959,11 @@ class RoutageSession:                                                  # version
         iso[:,12]=terremer(iso[:,3],iso[:,4])                                   #on stocke le resultat terre mer en 12   
         mask   = iso[:,12]!=0
         iso    = iso[mask]                                                      # on garde les points pour lesquels iso[:,12]==1 
-        try:
+       
             # elimination des points dans les zones d exclusion 
-            maskexclu = points_in_any_polygon_vectorized(iso[:,3],iso[:,4], self.segments)
-            iso    = iso[~maskexclu] 
-        except:
-            None
+        maskexclu = points_in_any_polygon_vectorized(iso[:,3],iso[:,4], self.segments)
+        iso    = iso[~maskexclu] 
+       
         
         try:
             # calcul des barrieres et elimination des trajets traversant les barrieres

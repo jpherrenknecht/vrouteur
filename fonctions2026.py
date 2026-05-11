@@ -1175,21 +1175,54 @@ def chargeMasque (y0,x0):
 #     return masque_global, latitudes[0], longitudes[0]
 
 
-def prepare_segments(polygons):
+def prepare_segments(polygons, device="cuda", dtype=torch.float32):
     segments = []
+
     for poly in polygons.values():
         if poly.numel() == 0:
-            continue  # ignore les polygones vides
+            continue
+
+        # 👉 s'assurer que le polygon est sur le bon device
+        poly = poly.to(device=device, dtype=dtype)
+
         if not torch.all(poly[0] == poly[-1]):
             poly = torch.cat([poly, poly[0:1]], dim=0)
-        segs = torch.stack([poly[:-1], poly[1:]], dim=1).reshape(-1, 4)  # [x1, y1, x2, y2]
+
+        segs = torch.stack([poly[:-1], poly[1:]], dim=1).reshape(-1, 4)
         segments.append(segs)
 
     if segments:
         return torch.cat(segments, dim=0)
     else:
-        return torch.empty((0, 4), dtype=torch.float32)
+        return torch.empty((0, 4), device=device, dtype=dtype)
 
+
+def points_in_any_polygon_vectorized(lat, lon, segments):
+    # lat, lon: [N] (1D tensors)
+    # segments: [S, 4] where each row is [x1, y1, x2, y2] i.e. [lon1, lat1, lon2, lat2]
+
+    # reshape en colonnes pour broadcasting
+    x = lon.view(-1, 1)  # [N, 1]
+    y = lat.view(-1, 1)  # [N, 1]
+
+    x1 = segments[:, 0].view(1, -1)  # [1, S]
+    y1 = segments[:, 1].view(1, -1)
+    x2 = segments[:, 2].view(1, -1)
+    y2 = segments[:, 3].view(1, -1)
+
+    # condition 1 : le rayon croise verticalement le segment
+    cond1 = ((y1 > y) != (y2 > y))  # shape [N, S]
+
+    # calcul de l'intersection horizontale
+    slope = (x2 - x1) / (y2 - y1 + 1e-10)
+    xinters = x1 + (y - y1) * slope  # shape [N, S]
+
+    # condition 2 : le point est avant l’intersection
+    cond2 = x < xinters
+
+    # on compte les croisements et on applique la règle impair/pair
+    mask = torch.sum((cond1 & cond2), dim=1) % 2 == 1  # [N]
+    return mask
 
 def terremer(lat,lon):
     ''' lat lon sont des tenseurs '''

@@ -222,6 +222,7 @@
         var y1;                           // derniers coordonnés de l 'arrivee 
         var x1;
         var dep;                          // valeur de depart
+        var lastCalcDate ;
 
         var Source;
 
@@ -3234,7 +3235,7 @@ function onWpInputChange(event) {
                 console.log('ari apres ajout waypoint ' + ari)
 
 
-                afficheselectarrivee(newwaypoints, ari)
+                //afficheselectarrivee(newwaypoints, ari)
 
             }
 
@@ -3359,7 +3360,7 @@ function onWpInputChange(event) {
 
                 updateTrajet2(trajet)
 
-                afficheselectarrivee(waypoints, ari)
+                //afficheselectarrivee(waypoints, ari)
 
             }
 
@@ -3435,7 +3436,7 @@ function onWpInputChange(event) {
                     console.log('nouvelle valeur de ari apres suppression du WP   : ' + ari)
                     console.log('\nnouvelle valeur du tableau des waypoints apres  suppression du WP  ')
                     console.log(waypointsnew)
-                    afficheselectarrivee(waypointsnew, ari)
+                   // afficheselectarrivee(waypointsnew, ari)
                     fermerEditeurWaypoint()
                 }
             });
@@ -3934,7 +3935,7 @@ function onWpInputChange(event) {
                         ari = data.ari;
 
                         // Rafraîchissements visuels
-                        afficheselectarrivee(waypoints, ari);
+                        //afficheselectarrivee(waypoints, ari);
                         affichewaypoints2(data.wp);
 
                         afficherMessageWp("Données sauvegardées.", "ok");
@@ -4185,15 +4186,6 @@ function onWpInputChange(event) {
             }
 
 
-            // ==========================================================
-            // Fermeture
-            // ==========================================================
-            function fermerEditeurWP2() {
-                document.getElementById("wpEditorContainer").style.display = "none";
-            }
-
-
-
 
 
 
@@ -4202,7 +4194,28 @@ function onWpInputChange(event) {
             // ==========================================================
 
 
-            window.EditeurWP2 = () => { ouvrirEditeurWP2() }
+            window.EditeurWP2 = () => {toggleEditeurWP2() }
+            
+
+
+
+            function toggleEditeurWP2() {
+
+                const el = document.getElementById("wpEditorContainer");
+                console.log ('On est dans toggle ')
+                const isVisible = window.getComputedStyle(el).display !== "none";
+
+                if (isVisible) {
+
+                     console.log ('On est dans isVisible')
+                    fermerEditeurWP2();
+                } else {
+
+                    ouvrirEditeurWP2();
+                }
+}
+
+
             async function ouvrirEditeurWP2() {
                 console.log('OuvrirEditeurWP2  pour ' + username + ' id  ' + user_id + ' course ' + course)
                 // On va chercher la valeur des waypoints dans peronalinfos
@@ -4225,6 +4238,9 @@ function onWpInputChange(event) {
                 wpEditorRows = wpDictToRows(wpDict, ariList);
                 renderWpEditor();
             }
+
+
+
 
 
 
@@ -5783,7 +5799,7 @@ function onWpInputChange(event) {
                 console.log('ari' + ari)
                 waypoints = Object.values(personalInfosJS.wp).sort((a, b) => a[0] - b[0]);
 
-                afficheselectarrivee(waypoints, ari)// on affiche le select arrivee avec les waypoints et ceux selectionnes  contenus dans localstorage
+               //afficheselectarrivee(waypoints, ari)// on affiche le select arrivee avec les waypoints et ceux selectionnes  contenus dans localstorage
 
 
 
@@ -6079,7 +6095,7 @@ function onWpInputChange(event) {
                     //affichewaypoints(waypoints)
                     affichecoordsdep(y0, x0)
                     affichecoordsari(y1, x1)
-                    afficheselectarrivee(waypoints, ari)   // on remet a jour le selectari 
+                    //afficheselectarrivee(waypoints, ari)   // on remet a jour le selectari 
                     map.panTo([y0, x0])
 
                 }  // fin du cas ou il y a des boatinfos 
@@ -6104,7 +6120,7 @@ function onWpInputChange(event) {
                         affichewaypoints(waypoints)
                         affichecoordsdep(y0, x0)
                         affichecoordsari(y1, x1)
-                        afficheselectarrivee(waypoints, ari)   // on remet a jour le selectari 
+                        //afficheselectarrivee(waypoints, ari)   // on remet a jour le selectari 
                         map.panTo([y0, x0])
                     }
 
@@ -6220,7 +6236,7 @@ function onWpInputChange(event) {
                 console.log('valeur de ari dans changementcourse : ' + ari)
 
 
-                afficheselectarrivee(waypoints, ari)// on affiche le select arrivee avec les waypoints et ceux selectionnes  
+                //afficheselectarrivee(waypoints, ari)// on affiche le select arrivee avec les waypoints et ceux selectionnes  
                 // ici on peut afficher les coordonnneses du dernier wp selectionné qui est le dernier element de ari 
                 nomdernierwp = ari[ari.length - 1]                                        // nom du dernier wp
                 waypoint = waypoints.find(waypoints => waypoints[1] === nomdernierwp) // on le recherche dans la liste 
@@ -6329,7 +6345,7 @@ function onWpInputChange(event) {
                 updateTrajet(username, course, trajet)    // sauve le trajet pour la prochaine fois 
                 document.getElementById('iddepart').selectedIndex = 0     // inconnu selectdepart sur coordonnnees 
                 affichecoordsdep(y0, x0)
-                afficheselectarrivee(waypoints, ari)
+                //afficheselectarrivee(waypoints, ari)
                 affichecoordsari(y1, x1)
                 // valeurs arbitraires pour l affichage du bateau 
                 twsvr = 10
@@ -6844,7 +6860,7 @@ function onWpInputChange(event) {
                 //console.log(message)
 
                 console.log(ari)
-                afficheselectarrivee(waypoints, ari)
+                //afficheselectarrivee(waypoints, ari)
 
 
                 if (ari.length > 0) {
@@ -8983,7 +8999,7 @@ function onWpInputChange(event) {
                 // ari=personalInfosJS['ari']                         // Pour l instant on va utiliser ari de memoiretrajets et non celui de personalinfos 
 
                 // console.log('ligne 3971 waypoints ' + waypoints + ' ari ' + ari)
-                afficheselectarrivee(waypoints, ari)// on affiche le select arrivee avec les waypoints et ceux selectionnes  contenus dans 
+                //afficheselectarrivee(waypoints, ari)// on affiche le select arrivee avec les waypoints et ceux selectionnes  contenus dans 
 
 
                 if (typeof ari === "undefined") {
@@ -9055,7 +9071,12 @@ function onWpInputChange(event) {
 
                 let nowJS = new Date();
                 let nowSec = nowJS.getTime() / 1000;
-
+                   
+                if (lastCalcDate ==null) {
+                    console.log("lastCalcDate est undefined");
+                }
+           
+           
 
                 var ecartTemps = parseInt((nowSec - lastCalcDate / 1000));
                 console.log('EcartTemps depuis la dernière mise à jour VR ' + ecartTemps);
