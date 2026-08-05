@@ -372,75 +372,308 @@ for i in range (21):
 # Zone commentee 
 ###############################################""
 
-        # print (polairesjson)
+        print (polairesjson)
 
-        # #############  Transformation en npy #################################################################
+        #############  Transformation en npy #################################################################
 
-        # stringPolairestoNpy(polairesjson)
+        stringPolairestoNpy(polairesjson)
 
 
 
-        # ##################################################################################################""
-        # ################    Test des valeurs               ###############################################""
-        # ##################################################################################################""e
+        ##################################################################################################""
+        ################    Test des valeurs               ###############################################""
+        ##################################################################################################""e
 
-        # # chargement des valeurs 
-        # basedirnpy='/home/jp/staticLocal/npy/'
-        # filenamelocal1='polairesglobales10_'+str(polar_id)+'.npy'
-        # filename1=basedirnpy+filenamelocal1
-        # with open(filename1,'rb')as f:
-        #         polairesglobales10 = np.load(f)
+        # chargement des valeurs 
+        basedirnpy='/home/jp/staticLocal/npy/'
+        filenamelocal1='polairesglobales10_'+str(polar_id)+'.npy'
+        filename1=basedirnpy+filenamelocal1
+        with open(filename1,'rb')as f:
+                polairesglobales10 = np.load(f)
             
-        # filenamelocal2='vmg10_'+str(polar_id)+'.npy'
-        # filename2=basedirnpy+filenamelocal2
-        # with open(filename2,'rb')as f:
-        #         tabvmg10 = np.load(f)   
+        filenamelocal2='vmg10_'+str(polar_id)+'.npy'
+        filename2=basedirnpy+filenamelocal2
+        with open(filename2,'rb')as f:
+                tabvmg10 = np.load(f)   
 
 
 
 
-        # print ('\n******************************************************************')
-        # print ('Test sur polaires ',polairesjson['label'])
-        # twa=55
-        # tws=12.1
-        # typeVoiles = ['jib', 'Spi', 'Staysail', 'LightJib', 'Code0', 'HeavyGnk', 'LightGnk']
-        # voile=typeVoiles[int(polairesglobales10[8,int(tws*10),int(twa*10)])]
-        # print ('pour twa= {} tws= {} voile {} vitesse = {:6.3f} '.format(twa,tws,voile,polairesglobales10[7,int(tws*10),int(twa*10)]))
-        # print()
-        # for i in range (len (typeVoiles)):
-        #     voile=typeVoiles[i]
-        #     print ('pour twa= {} tws= {} voile {:15} vitesse = {:6.3f} '.format(twa,tws,voile,polairesglobales10[i,int(tws*10),int(twa*10)]))
+        print ('\n******************************************************************')
+        print ('Test sur polaires ',polairesjson['label'])
+        twa=55
+        tws=12.1
+        typeVoiles = ['jib', 'Spi', 'Staysail', 'LightJib', 'Code0', 'HeavyGnk', 'LightGnk']
+        voile=typeVoiles[int(polairesglobales10[8,int(tws*10),int(twa*10)])]
+        print ('pour twa= {} tws= {} voile {} vitesse = {:6.3f} '.format(twa,tws,voile,polairesglobales10[7,int(tws*10),int(twa*10)]))
+        print()
+        for i in range (len (typeVoiles)):
+            voile=typeVoiles[i]
+            print ('pour twa= {} tws= {} voile {:15} vitesse = {:6.3f} '.format(twa,tws,voile,polairesglobales10[i,int(tws*10),int(twa*10)]))
 
 
 
 
-        # print ('valeur attendue pour imoca foils :  13.45,13.044,1.170,9.870,13.450,12.203,0,0')
-        # print ('******************************************************************\n')
+        print ('valeur attendue pour imoca foils :  13.45,13.044,1.170,9.870,13.450,12.203,0,0')
+        print ('******************************************************************\n')
 
-        # print ('Test sur Vmg ')
-        # tws=12.1
-        # tabvmg       = tabvmg10[int(tws*10)]
-        # print('tabvmg \n',tabvmg)
-        # print('valeurs attendues tws 12.1 ,vmb pres  8.825478  angle 45 vmg vent arriere -10.182713 angle : 140          vmax 15.680747 angle 105 ')
+        print ('Test sur Vmg ')
+        tws=12.1
+        tabvmg       = tabvmg10[int(tws*10)]
+        print('tabvmg \n',tabvmg)
+        print('valeurs attendues tws 12.1 ,vmb pres  8.825478  angle 45 vmg vent arriere -10.182713 angle : 140          vmax 15.680747 angle 105 ')
 
-# Zone commentee 
-###############################################""
 
     except:
         None
 
 
+# calcul pour les references definies 
+
 # refbateaux=[3,4,5,6,7,9,10,11,13,14,16,18,19,20,21]
-# for i in range (len(refbateaux)):
+# for polar_id in refbateaux:
 #     try:
-#         print('calcul des polaires pour le bateau ',refbateaux[i])
+#         print('calcul des polaires pour le bateau ',polar_id)     
+
+#         timestamp,polar_id,polairesjsonstr= rechercheTablePolaires( polar_id)                       # nouvelle version
         
-#         res=rechercheTablePolaires(refbateaux[i])
-
-
-
-#         print(res)
-#         stringpolaires=str(res)
-#         stringPolairestoNpy(stringpolaires)
+          
+#         polairesjson=json.loads(polairesjsonstr) 
+#         polairesjson=json.loads(polairesjson)    
+#         stringPolairestoNpy(polairesjson)
 #     except:
-#          print('le bateau n est pas repertorié dans la base de donnees ',refbateaux[i])
+#         print('le bateau n est pas repertorié dans la base de donnees ',refbateaux[i])
+
+
+
+
+
+
+# on va faire le calcul avec l interpolation pour le bateau 3
+polar_id=2    # (2 = figaro)
+print('calcul des polaires pour le bateau ',polar_id)     
+
+timestamp,polar_id,polairesjsonstr= rechercheTablePolaires( polar_id)                       # nouvelle version
+
+    
+polairesjson=json.loads(polairesjsonstr) 
+polairesjson=json.loads(polairesjson)  
+
+
+dirpolaires='/home/jp/staticLocal/npy/'
+    # polairesjson=eval(stringpolaires)
+_id            = polairesjson['_id']
+tabtwsvr       = np.asarray(polairesjson['tws'])                                            
+tabtwavr       = np.asarray(polairesjson['twa'])
+nbtws          = len(tabtwsvr)
+nbtwa          = len(tabtwavr)
+bateau         = polairesjson['label']
+# coeffboat      = polairesjson['coeffboat']
+nbvoiles       = len(polairesjson['sail'])
+typevoile      = []
+print (polairesjson)
+print()
+print (bateau)
+print()
+toutespolaires = np.zeros((nbtwa,nbtws,nbvoiles))
+
+
+
+polar_id                    = polairesjson['_id']
+label                       = polairesjson['label']                               # type du bateau
+
+globalSpeedRatio            = polairesjson['globalSpeedRatio']
+
+foilSpeedRatio              = polairesjson['foil']['speedRatio']
+autoSailChangeTolerance     = polairesjson["autoSailChangeTolerance"]
+badSailTolerance            = polairesjson["badSailTolerance"]
+iceSpeedRatio               = polairesjson['iceSpeedRatio']
+maxSpeed                    = polairesjson['maxSpeed']
+twaMin                      = polairesjson['foil']['twaMin']
+twaMax                      = polairesjson['foil']['twaMax']
+twaMerge                    = polairesjson['foil']['twaMerge']
+twsMin                      = polairesjson['foil']['twsMin']
+twsMax                      = polairesjson['foil']['twsMax']
+twsMerge                    = polairesjson['foil']['twsMerge']
+speedRatio                  = polairesjson['foil']['speedRatio']
+hull                        = polairesjson['hull']['speedRatio']
+lws                         = polairesjson['winch']['lws']
+hws                         = polairesjson['winch']['hws']
+lwtimer                     = polairesjson['winch']['sailChange']['pro']['lw']['timer']
+hwtimer                     = polairesjson['winch']['sailChange']['pro']['hw']['timer']
+lwratio                     = polairesjson['winch']['sailChange']['pro']['lw']['ratio']
+hwratio                     = polairesjson['winch']['sailChange']['pro']['hw']['ratio']
+tackprolwtimer              = polairesjson['winch']['tack']['pro']['lw']['timer']
+tackprolwratio              = polairesjson['winch']['tack']['pro']['lw']['ratio']
+tackprohwtimer              = polairesjson['winch']['tack']['pro']['hw']['timer']
+tackprohwratio              = polairesjson['winch']['tack']['pro']['hw']['ratio']
+gybeprolwtimer              = polairesjson['winch']['gybe']['pro']['lw']['timer']
+gybeprolwratio              = polairesjson['winch']['gybe']['pro']['lw']['ratio']
+gybeprohwtimer              = polairesjson['winch']['gybe']['pro']['hw']['timer']
+gybeprohwratio              = polairesjson['winch']['gybe']['pro']['hw']['ratio']
+    
+
+
+
+    # recuperation d'un tableau des polaires 
+tabtws                      = np.asarray(polairesjson['tws'])                                            
+tabtwa                      = np.asarray(polairesjson['twa'])
+nbvoiles                    = len(polairesjson['sail'])
+toutespolaires              = np.zeros((len(tabtwa),len(tabtws),nbvoiles))
+for i in range(nbvoiles) :
+    typevoile.append( polairesjson['sail'][i]['name'])
+    toutespolaires[:,:,i] = polairesjson['sail'][i]['speed']
+    polairesmax           = globalSpeedRatio *np.amax(toutespolaires,axis=2) 
+
+coeffboat                   = tabCoeffboat[polar_id]['stamina']
+
+carabateau={ "polar_id":polar_id,'typevoile':typevoile, "label":label,"globalSpeedRatio":globalSpeedRatio,"foilSpeedRatio":foilSpeedRatio,"coeffboat":coeffboat,\
+        "iceSpeedRatio":iceSpeedRatio,"autoSailChangeTolerance":autoSailChangeTolerance,"badSailTolerance":badSailTolerance,\
+        "maxSpeed":maxSpeed,"twaMin":twaMin,"twaMax":twaMax,"twaMerge":twaMerge,"twsMin":twsMin,"twsMax":twsMax,"twsMerge":twsMerge,\
+        "hull":hull,'lws': lws ,'hws':hws, "lwtimer":lwtimer,"hwratio": hwratio ,"hwtimer":hwtimer,"lwratio":lwratio,\
+        "lwtimer":lwtimer,"tackprolwtimer":tackprolwtimer,"tackprolwratio":tackprolwratio,"tackprohwtimer":tackprohwtimer,\
+        "tackprohwratio":tackprohwratio,"gybeprolwtimer":gybeprolwtimer,"gybeprolwratio":gybeprolwratio,\
+                "gybeprohwtimer":gybeprohwtimer,"gybeprohwratio":gybeprohwratio,'typevoile':typevoile,'tabtws':tabtws,'tabtwa':tabtwa,'polairesmax':polairesmax}
+
+
+
+
+  
+
+
+print (len(tabtwsvr))
+print(len(tabtwavr))
+print (polairesmax)
+
+print (polairesmax.shape)
+
+
+
+print ('tabtwsvr',tabtwsvr)
+print ('tabtwavr',tabtwavr)
+
+
+
+
+import numpy as np
+
+def interp_polaire(tws, twa, carabateau):
+    """
+    Interpolation bilinéaire dans un tableau de polaires.
+
+    tabtwsvr    : valeurs de TWS, colonnes
+    tabtwavr    : valeurs de TWA, lignes
+    polairesmax : tableau 2D [len(tabtwavr), len(tabtwsvr)]
+    tws, twa    : valeurs à interpoler
+    """
+    tabtws = carabateau['tabtws']
+    tabtwa = carabateau['tabtwa']
+    polairesmax=carabateau['polairesmax']
+    hull=carabateau['hull']
+
+    
+    tabtws = np.asarray(tabtws, dtype=float)
+    tabtwa = np.asarray(tabtwa, dtype=float)
+    P      = np.asarray(polairesmax, dtype=float)
+
+    # On limite aux bornes disponibles
+    tws = np.clip(tws, tabtws[0], tabtws[-1])
+    twa = np.clip(abs(twa), tabtwa[0], tabtwa[-1])
+
+    # Indices encadrants TWS
+    j1 = np.searchsorted(tabtws, tws)
+    j0 = max(0, j1 - 1)
+    j1 = min(j1, len(tabtws) - 1)
+
+    # Indices encadrants TWA
+    i1 = np.searchsorted(tabtwa, twa)
+    i0 = max(0, i1 - 1)
+    i1 = min(i1, len(tabtwa) - 1)
+
+    tws0, tws1 = tabtws[j0], tabtws[j1]
+    twa0, twa1 = tabtwa[i0], tabtwa[i1]
+
+    # Coefficients d'interpolation
+    if tws1 == tws0:
+        wtws = 0.0
+    else:
+        wtws = (tws - tws0) / (tws1 - tws0)
+
+    if twa1 == twa0:
+        wtwa = 0.0
+    else:
+        wtwa = (twa - twa0) / (twa1 - twa0)
+
+    # Valeurs aux 4 coins
+    v00 = P[i0, j0]
+    v01 = P[i0, j1]
+    v10 = P[i1, j0]
+    v11 = P[i1, j1]
+
+    # Interpolation bilinéaire
+    v0 = v00 * (1 - wtws) + v01 * wtws
+    v1 = v10 * (1 - wtws) + v11 * wtws
+    res=hull*(v0 * (1 - wtwa) + v1 * wtwa)
+    print ('res',res)
+    print ('coeff',foil(twa,tws,carabateau))
+    speed=foil(twa,tws,carabateau)*res
+    return speed
+
+
+
+
+def foil(twa,tws,carabateau):
+    '''calcule le coeff des foils en fonction de la twa et tws'''
+    speedRatio= carabateau['foilSpeedRatio']
+    twaMin=carabateau['twaMin']
+    twaMax=carabateau['twaMax']
+    twaMerge=carabateau['twaMerge']
+    twsMin=carabateau['twsMin']
+    twsMax=carabateau['twsMax']
+    twsMerge=carabateau['twsMerge']
+
+    print ('speedRatio',speedRatio)
+    print ( twaMin,    twaMax,    twaMerge, twsMin,  twsMax,twsMerge)
+
+
+    if ((twa>twaMin-twaMerge)and(twa<twaMax+twaMerge)and(tws>twsMin-twsMerge)and(tws<twsMax+twsMerge)):
+        if (twa>twaMin-twaMerge) and (twa<(twaMin)):
+            coeff1=(twa-twaMin+twaMerge)/twaMerge
+        else :
+            coeff1=1
+        if (twa>(twaMax)) and (twa<(twaMax+twaMerge)):
+            coeff2=(twaMax+twaMerge-twa)/twaMerge
+            # print(' en 10 coeff2', coeff2)
+        else :
+            coeff2=1  
+            
+        if (tws>twsMin-twsMerge) and (tws<(twsMin)):
+            coeff3=(tws-twsMin+twsMerge)/twsMerge
+        else :
+            coeff3=1  
+        if (tws>(twsMax)) and (tws<(twsMax+twsMerge)):
+            coeff4=(twsMax+twsMerge-tws)/twsMerge
+        else :
+            coeff4=1  
+
+        # print ('coeffs',coeff1,coeff2,coeff3,coeff4)    
+        coeff=1+(speedRatio-1)*coeff1*coeff2*coeff3*coeff4
+    else :
+        coeff=1    
+    #print ('Coeff  foils : ',coeff )
+    return coeff
+
+
+
+
+
+tws=12
+twa=90
+
+speed= interp_polaire(tws, twa, carabateau)
+#speed *= foil( twa, tws, carabateau)
+
+print (speed)
+
+# stringPolairestoNpy(polairesjson)
+  

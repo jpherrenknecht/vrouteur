@@ -2008,9 +2008,19 @@ function addBoatMarker(Layer, name, lat, lon, options = {}) {
           twd = null,
           tws = null,
           sail =null
+		   } = options;
 
+const boatinfosnotme = {
+    twa: twa,
+    tws: tws,
+    twd: twd,
+    heading: heading,
+    speed: speed,
+    sail: sail
+};
+const boatinfosStr = encodeURIComponent(JSON.stringify(boatinfosnotme));
+//console.log ('boatinfosStr'+boatinfosStr)
 
-        } = options;
 	
   var sailtxt= typeVoiles[(sail % 10) - 1]
   var position = toDMSString(lat, lon)
@@ -2050,43 +2060,27 @@ function addBoatMarker(Layer, name, lat, lon, options = {}) {
   // Popup enrichi avec toutes les infos
 
 
- 
-marker.bindPopup(`
+marker.bindPopup(
 
-  <div class="tooltip-bateau">
+	
+	` <div class="tooltip-bateau">
     <b>${name}  - ${intlhmn.format(t0)} <br>
 	${position}</b><br>
     HDG: ${heading.toFixed(2)} -- TWA: ${twa?.toFixed(2) ?? "-"} - Speed: ${speed?.toFixed(2) ?? "-"} nds<br>
     TWD: ${twd?.toFixed(2) ?? "-"} -- TWS: ${tws?.toFixed(2) ?? "-"} - Sail: ${sailtxt ?? "-"}<br>
-  
-    
     <a href="javascript:void(0);" onclick="copyLatLonToClipboard(${lat}, ${lon})">   Coordonnées dans presse papier  </a><br>
-
-	<a href="javascript:void(0);" onclick="autreRoutage(
-	
-	
+	<a href="javascript:void(0);" onclick="autreRoutage(	
     '${encodeURIComponent(name)}',
      ${lat},
      ${lon},
      ${t0},
     '${encodeURIComponent(JSON.stringify(waypoints))}',
     '${encodeURIComponent(JSON.stringify(ari))}',
-    '${cocheexclusions}'
-
-
+    '${cocheexclusions}',
+	 '${boatinfosStr}'
 	
 	
-	
-	)">  Routage de ${name}  </a><br>
-
-
-
-
-
-
-	
-  </div>
-`);
+	)">  Routage de ${name} </a><br></div>`);
 
 
 //<a href="javascript:void(0);" onclick="autreroutage(${name},${lat}, ${lon}, ${heuredepart},${waypoints},${ ari}, ${cocheexclusions})">   Router ${name}  </a>
@@ -2112,6 +2106,11 @@ function deplacement(lat, lon, cap, dist) {
     let lon2 = lon - dist * Math.sin(cap * rad) / Math.cos(lat * rad);
     return [lat2, lon2];
 }
+
+
+
+
+
 
 function fleche4(cible, cap, l, couleur, map) {
     let [y, x] = cible;
@@ -2732,9 +2731,7 @@ function afficheRoutageStandard(tabroutage, map, routageLayer, colors, options =
     const tws = tabroutage[i][12];
     const twd = tabroutage[i][13];
     const cap = tabroutage[i][6];
-
     const date = intlhmn.format((t0routage + tabroutage[i][1]) * 1000);
-
     const vmgmin = tabroutage[i][7];
     const vmgmax = tabroutage[i][8];
     const vmg    = Math.abs(twa)< 90 ? vmgmin : vmgmax;

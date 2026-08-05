@@ -4,6 +4,7 @@ import math
 from datetime import datetime,timezone
 from cachetools import TTLCache
 from threading import Lock
+from pathlib import Path
 import torch
 import numpy as np
 import json
@@ -14,6 +15,7 @@ import folium
 import calendar
 from scipy.signal import savgol_filter
 from scipy.ndimage import label, generate_binary_structure
+from scipy.interpolate import RegularGridInterpolator,interp2d,interpn
 from urllib.request import urlretrieve
 from collections import defaultdict, deque     # necessaire pour la carte re
 
@@ -110,25 +112,6 @@ if hostname=='portable' :          # sur ordi portable  (3eme ordi)
 
 
 
-
-
-def dateheure(filename):
-    '''retourne la date et heure du fichier grib a partir du nom'''
-    ''' necessaire pour charger le NOAA'''
-    tic=time.time()
-    ticstruct = time.localtime()
-    utc = time.gmtime()
-    decalage = ticstruct[3] - utc[3]
-    x     = filename.split('.')[0]
-    x     = x.split('/')[-1]
-    heure = x.split('-')[1]
-    date  = (x.split('-')[0]).split('_')[1]
-    year  = int(date[0:4])
-    month = int(date[4:6])
-    day   = int(date[6:8])
-    tigt=datetime(year,month,day,int(heure),0, 0)
-    tig=time.mktime(tigt.timetuple()) +decalage*3600 # en secondes UTC
-    return date,heure,tig 
 
 
 
@@ -382,6 +365,15 @@ def wrap180_t(x):
 def dlon_short_t(lon2, lon1):
     return wrap180_t(lon2 - lon1)
 
+def dlon_short_torch(lon1, lon2):
+    """
+    Différence de longitude minimale (en degrés)
+    Résultat dans [-180, +180]
+    lon1 arrivee - lon2 depart
+    lon1, lon2 : tensors (ou scalaires) en degrés
+    """
+    dlon = lon1 - lon2
+    return (dlon + 180.0) % 360.0 - 180.0    
 
 
 #######################################################################################
@@ -411,7 +403,61 @@ def format_duration(seconds):
 #######################################################################################
 ##   Calculs caps et TWA
 #######################################################################################
+def dateheure(filename):
+    """Retourne date, heure, timestamp UTC du grib à partir du nom."""
+    base = os.path.basename(filename)
+    x = base.split('.')[0]          # gfsvr_20260519-06
+    date_part, heure = x.split('_')[1].split('-')
+    year  = int(date_part[0:4])
+    month = int(date_part[4:6])
+    day   = int(date_part[6:8])
+    hour  = int(heure)
+    dt_utc = datetime(year, month, day, hour, 0, 0, tzinfo=timezone.utc)
+    tig = dt_utc.timestamp()
+    return date_part, heure, tig
 
+
+
+def save_npz(path,GR,tig,indice):
+    np.savez_compressed(
+        path,
+        GR=GR.astype(np.float32,copy=False),
+        tig=tig,
+        indice=indice,
+    )    
+
+def load_npz(path: str):
+    z = np.load(path)
+    GR      = z["GR"]  
+    tig     = float(z["tig"] ) 
+    indice  = int(z["indice"])
+    return GR, tig, indice
+    
+def save_meta(fileMeta, tig, indice):
+    tmp = fileMeta + ".tmp"
+    p = {"tig": tig,"indice": indice }
+    Path(tmp).write_text(json.dumps(p))
+    os.replace(tmp, fileMeta)
+
+        
+def load_meta(fileMeta, retry=3, delay=0.05):
+    """  Charge le meta.json avec petite protection
+         contre lecture pendant écriture.  """
+    for _ in range(retry):
+        try:
+            txt = Path(fileMeta).read_text()
+            if not txt.strip():
+                raise ValueError("meta vide")
+            p = json.loads(txt)
+            tig = p['tig']
+            indice = p['indice']
+            return tig, indice
+        except Exception as e:
+            last_error = e
+            time.sleep(delay)
+    raise RuntimeError(f"Impossible de lire {fileMeta} : {last_error}")
+
+    
 
 def ftwato(HDG,TWD):
     '''Twa orientee pour des float ou torch mais pas np '''
@@ -610,6 +656,30 @@ def calcul_cap_loxodromique_tensor(lat0, lon0, lat1, lon1):
     return cap
 
 
+def calcul_cap_grand_cercle(lat1, lon1, lat2, lon2):
+    """
+    Cap initial grand cercle de (lat1, lon1) vers (lat2, lon2).
+    Lat/lon en degrés.
+    Résultat en degrés dans [0, 360).
+    """
+
+    phi1 = np.deg2rad(lat1)
+    phi2 = np.deg2rad(lat2)
+
+    dlon = np.deg2rad(lon2 - lon1)
+
+    y = np.sin(dlon) * np.cos(phi2)
+
+    x = (
+        np.cos(phi1) * np.sin(phi2)
+        - np.sin(phi1) * np.cos(phi2) * np.cos(dlon)
+    )
+
+    cap = np.rad2deg(np.arctan2(y, x))
+
+    return (cap + 360.0) % 360.0
+
+
 
 def distance_haversine(lat0, lon0, lat1, lon1):
     """
@@ -648,6 +718,264 @@ def distance_haversine_torch(lat0, lon0, lat1, lon1):
     distance_m = R * c
     return distance_m / 1852  # Conversion en miles nautiques
 
+
+##################################################################################################################
+##############    Gestion des polaires                                 ###########################################
+##################################################################################################################
+
+
+
+
+
+def foil(self, twa, tws):
+        """Calcule le coefficient foil en fonction de twa et tws."""
+
+        twa = abs(twa)
+    
+        def rampe(x, xmin, xmax, merge):
+            """
+            Retourne un coefficient entre 0 et 1 :
+            - 0 hors zone élargie
+            - 1 dans la zone pleine [xmin, xmax]
+            - interpolation linéaire dans les zones merge
+            """
+    
+            if x <= xmin - merge:
+                return 0.0
+    
+            if x < xmin:
+                return (x - (xmin - merge)) / merge
+    
+            if x <= xmax:
+                return 1.0
+    
+            if x < xmax + merge:
+                return (xmax + merge - x) / merge
+    
+            return 0.0
+    
+        coeff_twa = rampe(twa, self.twaMin, self.twaMax, self.twaMerge)
+        coeff_tws = rampe(tws, self.twsMin, self.twsMax, self.twsMerge)
+    
+        coeff_activation = coeff_twa * coeff_tws
+    
+        coeff = 1.0 + (self.speedRatio - 1.0) * coeff_activation
+    
+        return coeff
+
+
+
+def foil_old(twa,tws,speedRatio,twaMin,twaMax,twaMerge,twsMin,twsMax,twsMerge):
+    '''calcule le coeff des foils en fonction de la twa et tws'''
+    if ((twa>twaMin-twaMerge)and(twa<twaMax+twaMerge)and(tws>twsMin-twsMerge)and(tws<twsMax+twsMerge)):
+        if (twa>twaMin-twaMerge) and (twa<(twaMin)):
+            coeff1=(twa-twaMin+twaMerge)/twaMerge
+        else :
+            coeff1=1
+        if (twa>(twaMax)) and (twa<(twaMax+twaMerge)):
+            coeff2=(twaMax+twaMerge-twa)/twaMerge
+            # print(' en 10 coeff2', coeff2)
+        else :
+            coeff2=1  
+            
+        if (tws>twsMin-twsMerge) and (tws<(twsMin)):
+            coeff3=(tws-twsMin+twsMerge)/twsMerge
+        else :
+            coeff3=1  
+        if (tws>(twsMax)) and (tws<(twsMax+twsMerge)):
+            coeff4=(twsMax+twsMerge-tws)/twsMerge
+        else :
+            coeff4=1  
+
+        # print ('coeffs',coeff1,coeff2,coeff3,coeff4)    
+        coeff=1+(speedRatio-1)*coeff1*coeff2*coeff3*coeff4
+    else :
+        coeff=1    
+    #print ('Coeff  foils : ',coeff )
+    return coeff
+
+
+def stringPolairestoNpy(polairesjson):
+    # A partir de la chaine chargee depuis le dash 
+    # fabrique les fichiers polairesglobales polairesglobales10 tabvmg et tabvmg10 et sauve dans le repeertoire dirpolaires
+    dirpolaires='/home/jp/staticLocal/npy/'
+    # polairesjson=eval(stringpolaires)
+    _id            = polairesjson['_id']
+    tabtwsvr       = np.asarray(polairesjson['tws'])                                            
+    tabtwavr       = np.asarray(polairesjson['twa'])
+    nbtws          = len(tabtwsvr)
+    nbtwa          = len(tabtwavr)
+    bateau         = polairesjson['label']
+    # coeffboat      = polairesjson['coeffboat']
+    nbvoiles       = len(polairesjson['sail'])
+    typevoile      = []
+    print (polairesjson)
+    print()
+    print (bateau)
+    print()
+    toutespolaires = np.zeros((nbtwa,nbtws,nbvoiles))
+
+
+
+
+    for i in range(nbvoiles) :
+        typevoile.append( polairesjson['sail'][i]['name'])
+        toutespolaires[:,:,i] = polairesjson['sail'][i]['speed']
+        globalSpeedRatio      = polairesjson['globalSpeedRatio']
+        speedRatio            = polairesjson['foil']['speedRatio']
+        twaMin                = polairesjson['foil']['twaMin']
+        twaMax                = polairesjson['foil']['twaMax']
+        twaMerge              = polairesjson['foil']['twaMerge']
+        twsMin                = polairesjson['foil']['twsMin']
+        twsMax                = polairesjson['foil']['twsMax']
+        twsMerge              = polairesjson['foil']['twsMerge']
+        hull                  = polairesjson['hull']['speedRatio']
+        lws                   = polairesjson['winch']['lws']
+        hws                   = polairesjson['winch']['hws']
+        lwtimer               = polairesjson['winch']['sailChange']['pro']['lw']['timer']
+        hwtimer               = polairesjson['winch']['sailChange']['pro']['hw']['timer']
+        lwratio               = polairesjson['winch']['sailChange']['pro']['lw']['ratio']
+        hwratio               = polairesjson['winch']['sailChange']['pro']['hw']['ratio']
+        tackprolwtimer        = polairesjson['winch']['tack']['pro']['lw']['timer']
+        tackprolwratio        = polairesjson['winch']['tack']['pro']['lw']['ratio']
+        tackprohwtimer        = polairesjson['winch']['tack']['pro']['hw']['timer']
+        tackprohwratio        = polairesjson['winch']['tack']['pro']['hw']['ratio']
+        gybeprolwtimer        = polairesjson['winch']['gybe']['pro']['lw']['timer']
+        gybeprolwratio        = polairesjson['winch']['gybe']['pro']['lw']['ratio']
+        gybeprohwtimer        = polairesjson['winch']['gybe']['pro']['hw']['timer']
+        gybeprohwratio        = polairesjson['winch']['gybe']['pro']['hw']['ratio']
+        polairesmax           = np.amax(toutespolaires,axis=2) 
+
+    # fabrication du tableau des polaires     
+    polairesunit10   = np.float32(np.zeros((701,181)))
+    polairesunit10ttv= np.float32(np.zeros((7,701,181)))   
+    tabfoils         = np.float32(np.zeros((701,181)))
+
+    for j in range (7):                                 # on calcule les vitesses pour chaque voile
+        for i in range (701):                           # creation de polaireunit a laide de polairevecttwa
+                polairesunit10[i]=globalSpeedRatio * polaire_vect_twa(toutespolaires[:,:,j],tabtwavr,tabtwsvr,np.ones(181)*i/10,np.arange(0,181).reshape(-1,1))
+        polairesunit10ttv[j]=polairesunit10
+
+        for i in range (701):                                    # Utilisation d un tableau pour les coeffs foils 
+            for j in range (181):
+
+                  
+                tabfoils[i,j]=foil_old(j,i/10,speedRatio,twaMin,twaMax,twaMerge,twsMin,twsMax,twsMerge)
+
+    # calcul des vitesses  avec foils des vitesses max et des voiles          
+    polairesmaxttv    = np.amax(polairesunit10ttv,axis=0) *tabfoils*1.003  
+    polairesttv       = polairesunit10ttv*tabfoils*1.003  
+    voiles            = np.argmax(polairesunit10ttv,axis=0)  
+
+    #on regroupe les 3 dans un tableau unique 
+    polairesglobales=np.float32(np.zeros((9,701,181)))    
+    polairesglobales[0:7,:,:] = polairesttv
+    polairesglobales[7,:,:]   = polairesmaxttv
+    polairesglobales[8,:,:]   = voiles
+
+    # Sauvegarde et chargement dans un fichier 
+    filenamelocal1='polairesglobales_'+str(_id)+'.npy'   
+    filename1=dirpolaires+filenamelocal1 
+    with open(filename1,'wb')as f: 
+            np.save (f,polairesglobales)     
+
+
+
+
+    # Maintenant on va calculer les polaires tous les 10eme de twa          
+
+    # fabrication du tableau des polaires     
+    polairesunit100   = np.float32(np.zeros((701,1801)))
+    polairesunit100ttv= np.float32(np.zeros((7,701,1801)))   
+    tabfoils         = np.float32(np.zeros((701,1801)))
+
+    for j in range (7):                                 # on calcule les vitesses pour chaque voile
+        for i in range (701):                           # creation de polaireunit a laide de polairevecttwa
+                polairesunit100[i]=globalSpeedRatio*polaire_vect_twa(toutespolaires[:,:,j],tabtwavr,tabtwsvr,np.ones(1801)*i/10,(np.arange(0,1801)/10).reshape(-1,1))
+        polairesunit100ttv[j]=polairesunit100
+
+        for i in range (701):                                    # Utilisation d un tableau pour les coeffs foils 
+            for j in range (1801):
+                tabfoils[i,j]=foil_old(j/10,i/10,speedRatio,twaMin,twaMax,twaMerge,twsMin,twsMax,twsMerge)
+
+    # calcul des vitesses  avec foils des vitesses max et des voiles          
+    polairesmaxttv100 = np.amax(polairesunit100ttv,axis=0) *tabfoils*1.003  
+    polairesttv100    = polairesunit100ttv*tabfoils*1.003  
+    voiles            = np.argmax(polairesunit100ttv,axis=0)  
+    polairesglobales10 = np.float32(np.zeros((9,701,1801)))  
+    polairesglobales10[0:7,:,:]=polairesttv100
+    polairesglobales10[7,:,:]=polairesmaxttv100
+    polairesglobales10[8,:,:]= voiles  
+
+
+    filenamelocal1='polairesglobales10_'+str(_id)+'.npy'
+    filename1='/home/jp/staticLocal/npy/'+filenamelocal1
+    with open(filename1,'wb')as f: 
+            np.save (f,polairesglobales10) 
+            
+    # print ('sauvegarde de ',filename1)
+
+    # meme si ce n'est que partiellement necessaire pour des raisons de compatibilite on va calculer les tabvmg"
+
+    Twa=np.arange(180)
+    cos=np.cos(Twa/180*math.pi).astype(np.float32)
+    tabvmg=np.zeros((701,7),dtype=np.float32)            # on va constituer un tableau (tws,vmgmax,twavmgmax,vmgmin,twavmgmin,vmax,twavmax)
+    for tws10 in range (701) :                           # on fait varier le vent de 0a 70 Noeuds
+        Tws=(np.ones(len(Twa))*tws10).astype (int)       # on constitue une serie de vents identiques pour calculer pour chaque twa
+        Vitesses = polairesglobales[7,Tws,Twa]
+        Vmg=Vitesses*cos
+        tabvmg[tws10,0]=tws10
+        tabvmg[tws10,1]=np.max(Vmg)
+        tabvmg[tws10,2]=np.argmax(Vmg)
+        tabvmg[tws10,3]=np.min(Vmg)
+        tabvmg[tws10,4]=np.argmin(Vmg)
+        tabvmg[tws10,5]=np.max(Vitesses)
+        tabvmg[tws10,6]=np.argmax(Vitesses)         
+    filenamelocal2='vmg_'+str(_id)+'.npy'   
+    filename2='/home/jp/staticLocal/npy/'+filenamelocal2 
+    with open(filename2,'wb')as f: 
+            np.save (f,tabvmg)   
+
+
+
+# on va maintenant constituer le tableau des vmg10 pour chaque bateau          
+    Twa10=np.arange(1800)
+   
+    cos=np.cos(Twa10/10/180*math.pi).astype(np.float32)
+    tabvmg10=np.zeros((701,7),dtype=np.float32)            # on va constituer un tableau (tws,vmgmax,twavmgmax,vmgmin,twavmgmin,vmax,twavmax)
+    for tws10 in range (701) :                           # on fait varier le vent de 0a 70 Noeuds
+        Tws=(np.ones(len(Twa10))*tws10).astype (int)       # on constitue une serie de vents identiques pour calculer pour chaque twa
+        Vitesses = polairesglobales10[7,Tws,Twa10]
+        Vmg=Vitesses*cos
+        tabvmg10[tws10,0]=tws10/10
+        tabvmg10[tws10,1]=np.max(Vmg)
+        tabvmg10[tws10,2]=np.argmax(Vmg)/10
+        tabvmg10[tws10,3]=np.min(Vmg)
+        tabvmg10[tws10,4]=np.argmin(Vmg)/10
+        tabvmg10[tws10,5]=np.max(Vitesses)
+        tabvmg10[tws10,6]=np.argmax(Vitesses)/10       
+
+    filenamelocal2='vmg10_'+str(_id)+'.npy'   
+    filename2='/home/jp/staticLocal/npy/'+ filenamelocal2
+    with open(filename2,'wb')as f: 
+        np.save (f,tabvmg10) 
+    return None        
+
+
+
+
+def polaire_vect_twa(polaires,tabtwa, tabtws,TWS,TWAO):
+    '''Retourne un tableau de polaires en fonction des polaires bateau  de TWS TWD et HDG'''
+    '''TWS true Wind speed, TWD true wind direction , HDG caps'''
+    '''Les trois tableaux doivent avoir la meme dimension'''
+   
+    TWA=np.abs(TWAO)
+    TWS2=TWS.reshape((-1, 1))
+    donnees=np.concatenate((TWA,TWS2),axis=1)
+    valeurs = interpn((tabtwa, tabtws), polaires, donnees, method='linear')
+
+
+    return valeurs
 
 
 
@@ -1237,6 +1565,41 @@ def terremer(lat,lon):
     return idx%2
  
    
+def segments_se_croisent(A, B, C, D):
+    """
+    Teste si les segments [A,B] et [C,D] se croisent
+    A, B, C, D : [lat, lon]
+    """
+    def ccw(P, Q, R):
+        return (R[1] - P[1]) * (Q[0] - P[0]) > (Q[1] - P[1]) * (R[0] - P[0])
+    return (ccw(A, C, D) != ccw(B, C, D)) and (ccw(A, B, C) != ccw(A, B, D))
+
+
+def intersection(segment, carte, marge=0.1):
+    [[lat0, lon0], [lat1, lon1]] = segment
+
+    # Fenêtre élargie autour du segment
+    latmin = min(lat0, lat1) - marge
+    latmax = max(lat0, lat1) + marge
+    lonmin = min(lon0, lon1) - marge
+    lonmax = max(lon0, lon1) + marge
+
+    A, B = segment
+
+    for C, D in carte:
+        # Si le segment côtier est hors de la zone élargie, on saute
+        if max(C[0], D[0]) < latmin or min(C[0], D[0]) > latmax:
+            continue
+        if max(C[1], D[1]) < lonmin or min(C[1], D[1]) > lonmax:
+            continue
+
+        if segments_se_croisent(A, B, C, D):
+            return True
+
+    return False     
+
+
+
 def decoupe_latlon(lat_lon, seuil=0.01):
    
     ''' permet de decouper les isochrones a la rencontre avec les terres ,plus le seuil est petit , plus on coupe au niveau des terres'''
@@ -1405,8 +1768,9 @@ def points_in_any_polygon_vectorized(lat, lon, segments):
 
 
 
-
 def detect_barrier_crossings(lat0, lon0, lat1, lon1, barriers):
+    if barriers is None or len(barriers) == 0:
+        return torch.zeros_like(lat1, dtype=torch.bool)
     p = torch.stack((lon0, lat0), dim=1)  # [N, 2]
     r = torch.stack((lon1 - lon0, lat1 - lat0), dim=1)  # [N, 2]
     
@@ -1437,6 +1801,17 @@ def detect_barrier_crossings(lat0, lon0, lat1, lon1, barriers):
 
     return intersects  # [N] 
 
+
+def ajoute_marge_points_fixes(pos_fix, n, marge=2):
+    pos = []
+
+    for p in pos_fix:
+        for k in range(-marge, marge + 1):
+            q = p + k
+            if 0 <= q < n:
+                pos.append(q)
+
+    return np.unique(pos)
 #######################################################################################
 ##   Fonctions d'affichage et d 'impression 
 #######################################################################################

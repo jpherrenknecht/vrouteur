@@ -487,6 +487,32 @@ def rechercheTableBoatInfos(user_id, course):
         
 
 
+
+
+def rechercheTableBoatActions(user_id, course):
+   
+    conn = pg_pool.getconn()
+    try:
+      
+        cursor = conn.cursor()
+        cursor.execute("""
+            SELECT boatactions
+            FROM boatactions
+            WHERE user_id = %s AND course = %s
+            ORDER BY timestamp DESC
+            LIMIT 1
+        """, (user_id, course))
+        result = cursor.fetchone()
+        return result[0] if result else None
+    except Exception as e:
+        print("Erreur lors de l'exécution SQL :", e)
+
+    finally:
+        if cursor:
+            cursor.close()
+        if conn:
+            pg_pool.putconn(conn)  # très important : rend la connexion au pool    
+       
  
 
 #############################################################################################""
@@ -579,11 +605,6 @@ modifpersonalinfos2()
 #############################################################################################""
 # Fin de Modif personalinfos  
 #############################################################################################""
-
-
-
-
-
 
 
 
@@ -854,3 +875,24 @@ def rechercheTablePersonalInfos(user_id, course):
 # rows=get_last_50(conn)
 # print (rows)
 # print_results(rows)
+
+
+
+course='826.2'
+username,user_id='Sacron','5f6703a652e859ef03043bb8'
+
+# conn = pg_pool.getconn()
+
+    
+# cursor = conn.cursor()
+# cursor.execute(" SELECT * FROM boatactions")
+# rows=cursor.fetchall()
+# for row in rows:
+#     print (row)
+
+
+
+print (user_id,course)
+result    = rechercheTableBoatActions(user_id,course)  #recherche dans la table locale  
+print (result)
+boatactions = json.loads(result)

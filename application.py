@@ -36,7 +36,7 @@ from scipy.ndimage import label, generate_binary_structure
 # from numba import prange
 from pathlib import Path
 from flask_cors import CORS
-from global_land_mask import globe
+# from global_land_mask import globe
 from shapely.geometry import (LineString, MultiLineString, MultiPoint, Point,Polygon)
 from shapely.strtree import STRtree
 from apscheduler.schedulers.background import BackgroundScheduler
@@ -53,11 +53,26 @@ from fonctions2026 import *
 Pi=math.pi
 R_NM = 3440.065  # rayon moyen de la Terre en milles nautiques
 KNOTS = 1.94384
+device='cuda'
+
+basedirGribs025 = '/home/jp/gribslocaux/gribs025/'
+fileMeta        = basedirGribs025+'meta.txt'
+META_URL        = "https://vro-api-client.prod.virtualregatta.com/dl?t=fwr"
+OUTDIR          = "/home/jp/gribslocaux/vr"
+TMPDIR          = os.path.join(OUTDIR, "tmp")
+NY, NX          = 721, 1440
+NMAX            = 128
+GRGFS = None
+tigGFS = None
+indiceGR = -1
+fileName=None
+
+
+
 
 
 torch.cuda.empty_cache()
 torch.cuda.synchronize()
-
 
 hostname = socket.gethostname()
 print(f"Nom de l'ordinateur : {hostname}\n")
@@ -94,7 +109,6 @@ if hostname=='linux3' :          # sur ordi linux1  (2eme ordi)
     staticCommandes     = '/home/jp/static/bd/commandes.db'         # plus d actualite avec mabase postgre
 
 
-
 if hostname=='portable' :          # sur ordi portable  (3eme ordi)
     basedirnpy          = '/home/jp/static/npy/'
     basedirGribs025     = '/home/jp/gribslocaux/gribs025/'
@@ -102,6 +116,7 @@ if hostname=='portable' :          # sur ordi portable  (3eme ordi)
     basedirGribsGfs32   = '/home/jp/gribslocaux/gribsgfs32/'
     staticbd            = '/home/jp/staticLocal/bd/basededonnees.db'
     staticCommandes     = '/home/jp/staticLocal/bd/commandes.db'
+
 
 # for debug cuda 
 # print()
@@ -112,15 +127,11 @@ if hostname=='portable' :          # sur ordi portable  (3eme ordi)
 from scheduler_cleaner import start_scheduler
 start_scheduler()   # Lancer le scheduler une seule fois au démarrage
 
-
-
 app         = Flask(__name__)
-
 cors        = CORS(app)                             # necessaire pour les appels crossorigin a voir si pas en doublon avec ligne suivante
 CORS(app, resources={r"/*": {"origins": "*"}})
 CORS(app, resources={r"/vrouteur.com/": {"origins": "*"}})
 bloqueroutage=0
-
 
 logging.basicConfig()
 logging.getLogger('psycopg2').setLevel(logging.DEBUG)                         # pour la base de donnees postgresql
@@ -132,15 +143,13 @@ logging.getLogger('psycopg2').setLevel(logging.DEBUG)                         # 
 ################################################################################################
 
 
-# 80 Gestion du websocket 
-# 166 Gestion du grib
-# 223 Cache pour les fichiers
+# 167 Gestion du websocket 
+# 243 Gestion du grib
+# 337 Interpolateurs
+# 817 Cache pour les fichiers 
+# 848 Cache pour les cartes 
+# 913 Base de donnees et tables 
 # 380 class CpuGpuCache:
-
-
-
-# test pour commit dans tests modifs
-
 
 
 socketioOn=True
@@ -155,48 +164,10 @@ ECM_actif=True
 print ('is PRODUCTION',IS_PRODUCTION)
 print("ENV =", os.getenv("VROUTEUR_ENV"))
 ################################################################################################
-################      Gestion du websocket     #################################################
+# 167 Gestion du websocket     #################################################
 ################################################################################################
 
 
-# pg_pool = pool.SimpleConnectionPool(
-#                                         1, 10,  # minconn, maxconn
-#                                         dbname="vrouteur",
-#                                         user="jp",
-#                                         password="Licois1000",
-#                                         host="localhost",  # ou l'adresse IP/nom de domaine
-#                                         port="5432"        # par défaut PostgreSQL
-#                                     )
-
-
-# # sera a mettre apres creation des bases dans les fonctions de recherche
-# conn = pg_pool.getconn()
-# cursor = conn.cursor()
-
-# # connection a la base postgres locale 
-# conn = psycopg2.connect(
-#     host="localhost",
-#     database="databaselinux3",
-#     user="jp",
-#     password="Licois1000"
-# )
-# cursor = conn.cursor()
-
-
-
-
-
-# def start_scheduler():
-#     scheduler = BackgroundScheduler()
-#     scheduler.add_job(delete_old_records, 'interval', days=1)  # Exécute tous les jours
-#     scheduler.start()
-
-# delete_old_records()
-
-
-###############################################################################"
-# creation d'une classe pour enregistrements des donnees course en cache 
-###############################################################################"
 socketio = SocketIO(app, async_mode="threading", logger=False, engineio_logger=False)
 
 # socketio = SocketIO(app, cors_allowed_origins="*",logger=True, engineio_logger=True,async_mode='threading')   # ou 'gevent'
@@ -260,489 +231,303 @@ def send_update_to_client(client_id, message):
 #send_update_to_client( "user1234", 'Coucou 1234 ')
 
 
-
+################################################################################################
 ###############      Gestion du grib          #################################################
 #################################################################################################
-################################################################################################
+
 
 #________________________________________________________________________
 #  Chargement GFS
 #________________________________________________________________________
 
+GRGFS = None
+GR_t = None
+tigGFS = None
+indiceGR = -1
+fileName = None
+
+def charge_grib(basedirGribs025):
+    global GRGFS, GR_t, tigGFS, indiceGR, fileName
+
+    fileName, tig_file, fileNameP, tigP = gribFileName(basedirGribs025)
+
+
+    GRGFS, tig_loaded, indice_loaded = load_npz(fileName)
+    GR_t = torch.as_tensor(GRGFS, device=device, dtype=torch.float32)
+
+    tigGFS = tig_loaded
+    indiceGR = indice_loaded
+    print ('*****************************************************************************')
+    print ('*****************************************************************************')
+    print("Grib chargé en base :", fileName, "tigP", tigP,"soit ------", time.strftime(" %d %b %H:%M ",time.gmtime(tigP))," -----indice", indiceGR)
+    print("Grib chargé en base :", fileName, "tig", tigGFS,"soit ------", time.strftime(" %d %b %H:%M ",time.gmtime(tigGFS))," -----indice", indiceGR)
+
+    print ('*****************************************************************************')
+    print ('*****************************************************************************')
+
+
+
+def majgrib(basedirGribs025):
+    global GRGFS, GR_t, tigGFS, indiceGR, fileName
+
+    newFileName, tig_file, fileNameP, tigP = gribFileName(basedirGribs025)
+    tigmeta, indicemeta = load_meta(fileMeta)
+
+    # changement de run
+    if tigGFS is None or tigmeta > tigGFS:
+        GRGFS, tig_loaded, indice_loaded = load_npz(newFileName)
+        GR_t = torch.as_tensor(GRGFS, device=device, dtype=torch.float32)
+
+        fileName = newFileName
+        tigGFS = tig_loaded
+        indiceGR = indice_loaded
+        print ('*****************************************************************************')
+        print ('*****************************************************************************')
+        print("Nouveau grib chargé :", fileName, "tigGFS", tigGFS, "indice", indiceGR)
+        return
+
+    # même run, mais plus d'indices chargés
+    if tigmeta == tigGFS and indicemeta > indiceGR:
+        GRGFS, tig_loaded, indice_loaded = load_npz(newFileName)
+        GR_t = torch.as_tensor(GRGFS, device=device, dtype=torch.float32)
+
+        fileName = newFileName
+        tigGFS   = tig_loaded
+        indiceGR = indice_loaded
+        print ('*****************************************************************************')
+        print ('*****************************************************************************')
+        print("Grib mis à jour par majgrib :", fileName, "tig", tigGFS, "soit *****", time.strftime(" %d %b %H:%M ",time.gmtime(tigGFS))," ***** indice", indiceGR)
+        return
+
+    print("Grib déjà à jour")
+
+
+
+
+
 def gribFileName(basedir):
-    ''' cherche le dernier grib complet disponible au temps en secondes '''
-    ''' temps_secondes est par defaut le temps instantané '''
-    ''' Cherche egalement le dernier grib chargeable partiellement'''
-    temps_secondes=time.time()
-    date_tuple       = time.gmtime(temps_secondes) 
-    date_formatcourt = time.strftime("%Y%m%d", time.gmtime(temps_secondes))
-    dateveille_tuple = time.gmtime(temps_secondes-86400) 
-    dateveille_formatcourt=time.strftime("%Y%m%d", time.gmtime(temps_secondes-86400))
-    mn_jour_utc =date_tuple[3]*60+date_tuple[4]
-    #print ('mn_jour_utc dans gribFileNames ',mn_jour_utc)
-    if (mn_jour_utc <3*60+40):                          #avant 3h 48 UTC le nom de fichier est 18 h de la veille 
-        filename=basedir+"gfs_"+dateveille_formatcourt+"-18.npy"
-        filenameC=basedir+"gfsC_"+dateveille_formatcourt+"-18.npz"
-    elif (mn_jour_utc<9*60+40):   
-        filename=basedir+"gfs_"+date_formatcourt+"-00.npy"
-        filenameC=basedir+"gfsC_"+date_formatcourt+"-00.npz"
-    elif (mn_jour_utc<15*60+40): 
-        filename=basedir+"gfs_"+date_formatcourt+"-06.npy"
-        filenameC=basedir+"gfsC_"+date_formatcourt+"-06.npz"
-    elif (mn_jour_utc<21*60+40):   
-        filename=basedir+"gfs_"+date_formatcourt+"-12.npy"
-        filenameC=basedir+"gfsC_"+date_formatcourt+"-12.npz"
-    else:                                              # entre 21h 48UTC  et minuit    
-        filename=basedir+"gfs_"+date_formatcourt+"-18.npy"  
-        filenameC=basedir+"gfsC_"+date_formatcourt+"-18.npz" 
-    tig=dateheure(filename)[2]
-    return filename ,filenameC,tig
+    """Cherche le dernier grib complet disponible et le précédent."""
+    temps_secondes = time.time()
+    date_tuple = time.gmtime(temps_secondes)
+    date_formatcourt = time.strftime("%Y%m%d", date_tuple)
+    dateveille_formatcourt = time.strftime("%Y%m%d", time.gmtime(temps_secondes - 86400) )
+    mn_jour_utc = date_tuple.tm_hour * 60 + date_tuple.tm_min
+
+    if mn_jour_utc < 3*60 + 40:
+        filename = basedir + "gfsvr_" + dateveille_formatcourt + "-18.npz"
+    elif mn_jour_utc < 9*60 + 40:
+        filename = basedir + "gfsvr_" + date_formatcourt + "-00.npz"
+    elif mn_jour_utc < 15*60 + 40:
+        filename = basedir + "gfsvr_" + date_formatcourt + "-06.npz"
+    elif mn_jour_utc < 21*60 + 40:
+        filename = basedir + "gfsvr_" + date_formatcourt + "-12.npz"
+    else:
+        filename = basedir + "gfsvr_" + date_formatcourt + "-18.npz"
+    tig = dateheure(filename)[2]
+    tigP = tig - 6 * 3600
+    fileNameP = basedir + "gfsvr_" + time.strftime("%Y%m%d-%H", time.gmtime(tigP) ) + ".npz"
+    return filename, tig, fileNameP, tigP
+
+
+charge_grib(basedirGribs025)
+majgrib(basedirGribs025)
 
 
 
-# le save est la pour memoire , il est utilise dans le chargement du grib en cron 
-def save_pack_npz(fileNameC, Iu, Iv, refu, refv, step, tig, indice, bias=32768):
-    np.savez_compressed(
-        fileNameC,
-        Iu=Iu.astype(np.uint16, copy=False),
-        Iv=Iv.astype(np.uint16, copy=False),
-        refu=refu.astype(np.float32, copy=False),
-        refv=refv.astype(np.float32, copy=False),
-        step= np.float32(step),
-        bias= np.int32(bias),
-        tig = np.int32(tig),
-        indice=np.uint32(indice),
-        )
+#################################################################################################
+###############      Interpolateur              #################################################
+#################################################################################################
+
+
+
+def gfs_interpolateur_np(dtig, lat, lon):
+    ''' fonction d'interpolation '''
+    global GRGFS
+    nt = GRGFS.shape[0]
+    # print()
+    # print ('On est dans gfs interpolateur_np')
+    # --- temps ---
+    h = (dtig-60) / 3600.0
+    ft = h / 3.0
+
+    k0 = int(np.floor(ft))
+    k0 = max(0, min(k0, nt - 2))
+    k1 = k0 + 1
+
+    wt = np.float32(ft - k0)
+
+    # --- indices espace ---
+    lon360 = lon % 360.0
+
+    fi = (90.0 - lat) / 0.25
+    fj = lon360 / 0.25
+
+    i0 = int(np.floor(fi))
+    i0 = max(0, min(i0, 719))
+    i1 = i0 + 1
+
+    jfloor = np.floor(fj)
+    j0 = int(jfloor) % 1440
+    j1 = (j0 + 1) % 1440
+
+    wi = np.float32(fi - i0)
+    wj = np.float32(fj - jfloor)
     
-def load_pack_npz(fileNameC):
-    z = np.load(fileNameC)
-    Iu     = z["Iu"].astype(np.uint16, copy=False)
-    Iv     = z["Iv"].astype(np.uint16, copy=False)
-    refu   = z["refu"].astype(np.float32, copy=False)
-    refv   = z["refv"].astype(np.float32, copy=False)
-    step   = float(z["step"])
-    bias   = int(z["bias"])
-    tig    = int(z["tig"])
-    indice = int(z["indice"])
-    return Iu, Iv, refu, refv, step, bias,tig,indice
+    # print ('dtig',dtig)
+    # print ('dtig /3600/3',dtig/3600/3)
+    # print ('indices de base ',k0,i0,j0)
+
+    # --- extraction des 4 points aux deux temps ---
+    u00_0 = GRGFS[k0, i0, j0, 0]
+    u10_0 = GRGFS[k0, i1, j0, 0]
+    u01_0 = GRGFS[k0, i0, j1, 0]
+    u11_0 = GRGFS[k0, i1, j1, 0]
+
+    v00_0 = GRGFS[k0, i0, j0, 1]
+    v10_0 = GRGFS[k0, i1, j0, 1]
+    v01_0 = GRGFS[k0, i0, j1, 1]
+    v11_0 = GRGFS[k0, i1, j1, 1]
+
+    u00_1 = GRGFS[k1, i0, j0, 0]
+    u10_1 = GRGFS[k1, i1, j0, 0]
+    u01_1 = GRGFS[k1, i0, j1, 0]
+    u11_1 = GRGFS[k1, i1, j1, 0]
+
+    v00_1 = GRGFS[k1, i0, j0, 1]
+    v10_1 = GRGFS[k1, i1, j0, 1]
+    v01_1 = GRGFS[k1, i0, j1, 1]
+    v11_1 = GRGFS[k1, i1, j1, 1]
+
+    # --- temps d'abord sur les 4 coins ---
+    u00 = u00_0 * (1.0 - wt) + u00_1 * wt
+    u10 = u10_0 * (1.0 - wt) + u10_1 * wt
+    u01 = u01_0 * (1.0 - wt) + u01_1 * wt
+    u11 = u11_0 * (1.0 - wt) + u11_1 * wt
+
+    v00 = v00_0 * (1.0 - wt) + v00_1 * wt
+    v10 = v10_0 * (1.0 - wt) + v10_1 * wt
+    v01 = v01_0 * (1.0 - wt) + v01_1 * wt
+    v11 = v11_0 * (1.0 - wt) + v11_1 * wt
+
+    # --- bilinéaire espace ---
+    u0 = u00 * (1.0 - wi) + u10 * wi
+    u1 = u01 * (1.0 - wi) + u11 * wi
+    u = u0 * (1.0 - wj) + u1 * wj
+
+    v0 = v00 * (1.0 - wi) + v10 * wi
+    v1 = v01 * (1.0 - wi) + v11 * wi
+    v = v0 * (1.0 - wj) + v1 * wj
+
+    tws = np.sqrt(u*u + v*v) * 1.94384449
+
+    angle_to = np.degrees(np.arctan2(v, u))
+    twd = (270.0 - angle_to) % 360.0
+    # print ('twd ',twd)
+    return float(np.clip(tws, 1.0, 70.0)), float(twd)
 
 
-def to_gpu_i16(Iu_u16, Iv_u16, refu, refv, bias=32768, device="cuda"):
-    # conversion uint16 -> int16 avec bias (GPU-friendly)
-    Iu_i16 = (torch.from_numpy(Iu_u16).to(torch.int32) - bias).to(device=device, dtype=torch.int16)
-    Iv_i16 = (torch.from_numpy(Iv_u16).to(torch.int32) - bias).to(device=device, dtype=torch.int16)
-    refu_t = torch.from_numpy(refu).to(device=device, dtype=torch.float32)
-    refv_t = torch.from_numpy(refv).to(device=device, dtype=torch.float32)
-    return Iu_i16, Iv_i16, refu_t, refv_t
 
 
 
-def save_pack_meta(filemeta, tig, indice):
-    meta = {
-        "tig": float(np.float64(tig)),
-        "indice": int(np.uint32(indice)),
-    }
-    Path(filemeta).write_text(json.dumps(meta, separators=(",", ":")))
-
-
-
-def load_pack_meta(fileMeta):
-    p = Path(fileMeta)
-    if not p.exists():
-        return None
-    return json.loads(p.read_text())
-
-def need_reload(meta, tig, indice):
-    if meta is None:
-        return True
-    if int(meta["indice"]) != int(indice):
-        return True
-    # tig float : tolérance sécurité
-    if not math.isclose(meta["tig"], float(tig), rel_tol=0.0, abs_tol=1e-9):
-        return True
-    return False
-    
-def drop_old_interp():
-    global gfs_interpolateur
-    gfs_interpolateur = None
-    gc.collect()
-    torch.cuda.empty_cache()
-
-
-
-class GFS025InterpGPU_721_I16:
+def gfs_interpolateur_to(dtig, lat, lon):
     """
-    Version GPU-friendly:
-      - Iu, Iv : int16 (n_steps, 721, 1440) contenant (uint16 - bias)
-      - refu, refv : float32 (n_steps,)
-      - step : float32 scalaire (m/s)
-      - bias : 32768 par défaut
+    Version torch scalaire de gfs_interpolateur_np.
+    GR_t doit être un tensor torch de shape (nt, 721, 1440, 2)
+    avec comp 0 = u, comp 1 = v.
     """
+    global GR_t
 
-    def __init__(
-        self,
-        Iu_i16: torch.Tensor,
-        Iv_i16: torch.Tensor,
-        refu: torch.Tensor,
-        refv: torch.Tensor,
-        step: float,
-        bias: int = 32768,
-        clamp_min_kn=1.0,
-        clamp_max_kn=70.0,
-        dt_step_h=3.0,
-        out_dtype=torch.float32,
-    ):
-        assert Iu_i16.ndim == 3 and Iv_i16.ndim == 3, "Iu/Iv doivent être (n_steps, 721, 1440)"
-        assert Iu_i16.shape == Iv_i16.shape, "Iu et Iv doivent avoir la même shape"
-        assert Iu_i16.dtype == torch.int16 and Iv_i16.dtype == torch.int16, "Iu/Iv doivent être torch.int16"
-        assert refu.ndim == 1 and refv.ndim == 1 and refu.shape[0] == Iu_i16.shape[0], "refu/refv (n_steps,)"
+    nt = GR_t.shape[0]
+    device = GR_t.device
+    dtype = GR_t.dtype
 
-        self.Iu = Iu_i16
-        self.Iv = Iv_i16
-        self.refu = refu.to(dtype=torch.float32, device=Iu_i16.device)
-        self.refv = refv.to(dtype=torch.float32, device=Iu_i16.device)
+    # --- conversion en tensors ---
+    dtig = torch.as_tensor(dtig, device=device, dtype=dtype)-60
+    lat  = torch.as_tensor(lat,  device=device, dtype=dtype)
+    lon  = torch.as_tensor(lon,  device=device, dtype=dtype)
 
-        self.device = Iu_i16.device
-        self.n_steps, self.ny, self.nx = Iu_i16.shape
-        assert self.ny == 721 and self.nx == 1440, f"attendu (721,1440), reçu ({self.ny},{self.nx})"
+    # --- temps ---
+    h = dtig / 3600.0
+    ft = h / 3.0
 
-        self.dt_step_h = float(dt_step_h)
-        self.scale = 4.0  # 0.25° => 4 points/deg
-        self.clamp_min = float(clamp_min_kn)
-        self.clamp_max = float(clamp_max_kn)
-        self.out_dtype = out_dtype
+    k0 = torch.floor(ft).long()
+    k0 = torch.clamp(k0, 0, nt - 2)
+    k1 = k0 + 1
 
-        self._one = torch.tensor(1.0, device=self.device, dtype=torch.float32)
-        self._rad2deg = torch.tensor(180.0 / math.pi, device=self.device, dtype=torch.float32)
-        self._step = torch.tensor(float(step), device=self.device, dtype=torch.float32)
-        self._bias = torch.tensor(float(bias), device=self.device, dtype=torch.float32)
+    wt = (ft - k0.to(dtype)).to(dtype)
 
-    @torch.no_grad()
-    def __call__(self, dtig, lat0, lon0, return_uv=False):
-        lat = torch.as_tensor(lat0, dtype=torch.float32, device=self.device).reshape(-1)
-        lon = torch.as_tensor(lon0, dtype=torch.float32, device=self.device).reshape(-1)
-        dt  = torch.as_tensor(dtig, dtype=torch.float32, device=self.device).reshape(-1)
+    # --- indices espace ---
+    lon360 = torch.remainder(lon, 360.0)
 
-        # broadcast minimal
-        if dt.numel() == 1 and lat.numel() > 1:
-            dt = dt.expand_as(lat)
-        if lat.numel() == 1 and dt.numel() > 1:
-            lat = lat.expand_as(dt)
-            lon = lon.expand_as(dt)
+    fi = (90.0 - lat) / 0.25
+    fj = lon360 / 0.25
 
-        # ----- indices espace -----
-        y_f = (90.0 - lat) * self.scale
-        x_f = torch.remainder(lon, 360.0) * self.scale
+    i0 = torch.floor(fi).long()
+    i0 = torch.clamp(i0, 0, 719)
+    i1 = i0 + 1
 
-        iy = torch.floor(y_f).to(torch.long)
-        ix = torch.floor(x_f).to(torch.long)
+    jfloor = torch.floor(fj)
+    j0 = torch.remainder(jfloor.long(), 1440)
+    j1 = torch.remainder(j0 + 1, 1440)
 
-        iy = torch.clamp(iy, 0, self.ny - 2)
-        ix = torch.remainder(ix, self.nx)
+    wi = (fi - i0.to(dtype)).to(dtype)
+    wj = (fj - jfloor).to(dtype)
 
-        iy1 = iy + 1
-        ix1 = torch.remainder(ix + 1, self.nx)
+    # --- extraction des 4 points aux deux temps ---
+    u00_0 = GR_t[k0, i0, j0, 0]
+    u10_0 = GR_t[k0, i1, j0, 0]
+    u01_0 = GR_t[k0, i0, j1, 0]
+    u11_0 = GR_t[k0, i1, j1, 0]
 
-        dy = torch.clamp(y_f - iy.to(torch.float32), 0.0, 1.0)
-        dx = torch.clamp(x_f - ix.to(torch.float32), 0.0, 1.0)
+    v00_0 = GR_t[k0, i0, j0, 1]
+    v10_0 = GR_t[k0, i1, j0, 1]
+    v01_0 = GR_t[k0, i0, j1, 1]
+    v11_0 = GR_t[k0, i1, j1, 1]
 
-        ax = self._one - dx
-        ay = self._one - dy
+    u00_1 = GR_t[k1, i0, j0, 0]
+    u10_1 = GR_t[k1, i1, j0, 0]
+    u01_1 = GR_t[k1, i0, j1, 0]
+    u11_1 = GR_t[k1, i1, j1, 0]
 
-        # ----- temps -----
-        t = (dt / 3600.0) / self.dt_step_h
-        it = torch.floor(t).to(torch.long)
-        wt = torch.clamp(t - it.to(torch.float32), 0.0, 1.0)
-        it = torch.clamp(it, 0, self.n_steps - 2)
+    v00_1 = GR_t[k1, i0, j0, 1]
+    v10_1 = GR_t[k1, i1, j0, 1]
+    v01_1 = GR_t[k1, i0, j1, 1]
+    v11_1 = GR_t[k1, i1, j1, 1]
 
-        # refs (N,)
-        ru0 = self.refu[it]
-        ru1 = self.refu[it + 1]
-        rv0 = self.refv[it]
-        rv1 = self.refv[it + 1]
+    # --- interpolation temps d'abord ---
+    u00 = u00_0 * (1.0 - wt) + u00_1 * wt
+    u10 = u10_0 * (1.0 - wt) + u10_1 * wt
+    u01 = u01_0 * (1.0 - wt) + u01_1 * wt
+    u11 = u11_0 * (1.0 - wt) + u11_1 * wt
 
-        # --- dequant helper ---
-        # Iu16 = I_i16 + bias
-        # u = ref + Iu16*step
-        def deq(I_i16, ref):
-            return ref + (I_i16.to(torch.float32) + self._bias) * self._step
+    v00 = v00_0 * (1.0 - wt) + v00_1 * wt
+    v10 = v10_0 * (1.0 - wt) + v10_1 * wt
+    v01 = v01_0 * (1.0 - wt) + v01_1 * wt
+    v11 = v11_0 * (1.0 - wt) + v11_1 * wt
 
-        # ----- 4 coins (temps interpolé), u/v séparés -----
-        # 00
-        u0 = deq(self.Iu[it,   iy,  ix],  ru0)
-        u1 = deq(self.Iu[it+1, iy,  ix],  ru1)
-        v0 = deq(self.Iv[it,   iy,  ix],  rv0)
-        v1 = deq(self.Iv[it+1, iy,  ix],  rv1)
-        u00 = u0 + wt * (u1 - u0)
-        v00 = v0 + wt * (v1 - v0)
+    # --- bilinéaire espace ---
+    u0 = u00 * (1.0 - wi) + u10 * wi
+    u1 = u01 * (1.0 - wi) + u11 * wi
+    u = u0 * (1.0 - wj) + u1 * wj
 
-        # 01
-        u0 = deq(self.Iu[it,   iy,  ix1], ru0)
-        u1 = deq(self.Iu[it+1, iy,  ix1], ru1)
-        v0 = deq(self.Iv[it,   iy,  ix1], rv0)
-        v1 = deq(self.Iv[it+1, iy,  ix1], rv1)
-        u01 = u0 + wt * (u1 - u0)
-        v01 = v0 + wt * (v1 - v0)
+    v0 = v00 * (1.0 - wi) + v10 * wi
+    v1 = v01 * (1.0 - wi) + v11 * wi
+    v = v0 * (1.0 - wj) + v1 * wj
 
-        # 10
-        u0 = deq(self.Iu[it,   iy1, ix],  ru0)
-        u1 = deq(self.Iu[it+1, iy1, ix],  ru1)
-        v0 = deq(self.Iv[it,   iy1, ix],  rv0)
-        v1 = deq(self.Iv[it+1, iy1, ix],  rv1)
-        u10 = u0 + wt * (u1 - u0)
-        v10 = v0 + wt * (v1 - v0)
+    # --- vent ---
+    tws = torch.sqrt(u * u + v * v) * 1.94384449
+    tws = torch.clamp(tws, 1.0, 70.0)
 
-        # 11
-        u0 = deq(self.Iu[it,   iy1, ix1], ru0)
-        u1 = deq(self.Iu[it+1, iy1, ix1], ru1)
-        v0 = deq(self.Iv[it,   iy1, ix1], rv0)
-        v1 = deq(self.Iv[it+1, iy1, ix1], rv1)
-        u11 = u0 + wt * (u1 - u0)
-        v11 = v0 + wt * (v1 - v0)
+    angle_to = torch.rad2deg(torch.atan2(v, u))
+    twd = torch.remainder(270.0 - angle_to, 360.0)
 
-        # bilinéaire
-        u = u00 * ax * ay + u01 * dx * ay + u10 * ax * dy + u11 * dx * dy
-        v = v00 * ax * ay + v01 * dx * ay + v10 * ax * dy + v11 * dx * dy
-
-        # ----- knots + direction FROM -----
-        vit_kn = torch.sqrt(u*u + v*v) * KNOTS
-        vit_kn = torch.clamp(vit_kn, min=self.clamp_min, max=self.clamp_max)
-
-        ang_math = torch.atan2(v, u) * self._rad2deg
-        ang_from = torch.remainder(270.0 - ang_math, 360.0)
-
-        vit_kn = vit_kn.to(self.out_dtype)
-        ang_from = ang_from.to(self.out_dtype)
-
-        if return_uv:
-            return vit_kn, ang_from, u.to(self.out_dtype), v.to(self.out_dtype)
-        return vit_kn, ang_from
-    
-    def build(self, device=None, sizes=(512, 1024), dtig=0.0):
-        device = device or self.device
-        with torch.no_grad():
-            for n in sizes:
-                lat = torch.linspace(-60, 60, n, device=device, dtype=torch.float32)
-                lon = torch.linspace(0, 359.75, n, device=device, dtype=torch.float32)
-                _ = self(dtig, lat, lon)
-                _ = self(dtig, lat, lon)
-        torch.cuda.synchronize()
-        return self
-
-
-class GFS025InterpNP_721_I16:
-    """
-    Version NumPy :
-      - Iu, Iv : int16 (n_steps, 721, 1440) contenant (uint16 - bias)
-      - refu, refv : float32 (n_steps,)
-      - step : float scalaire
-    """
-
-    def __init__(
-        self,
-        Iu_i16: np.ndarray,
-        Iv_i16: np.ndarray,
-        refu: np.ndarray,
-        refv: np.ndarray,
-        step: float,
-        bias: int = 32768,
-        clamp_min_kn: float = 1.0,
-        clamp_max_kn: float = 70.0,
-        dt_step_h: float = 3.0,
-        out_dtype=np.float32,
-         ):
-        
-        assert Iu_i16.ndim == 3 and Iv_i16.ndim == 3, "Iu/Iv doivent être (n_steps, 721, 1440)"
-        assert Iu_i16.shape == Iv_i16.shape, "Iu et Iv doivent avoir la même shape"
-        assert Iu_i16.dtype == np.int16 and Iv_i16.dtype == np.int16, "Iu/Iv doivent être np.int16"
-        assert refu.ndim == 1 and refv.ndim == 1 and refu.shape[0] == Iu_i16.shape[0], "refu/refv (n_steps,)"
-
-        # self.Iu = Iu_i16
-        # self.Iv = Iv_i16
-        self.Iu = Iu_i16.astype(np.float32)
-        self.Iv = Iv_i16.astype(np.float32)
-        
-        self.refu = np.asarray(refu, dtype=np.float32)
-        self.refv = np.asarray(refv, dtype=np.float32)
-
-        self.n_steps, self.ny, self.nx = Iu_i16.shape
-        assert self.ny == 721 and self.nx == 1440, f"attendu (721,1440), reçu ({self.ny},{self.nx})"
-
-        self.dt_step_h = float(dt_step_h)
-        self.scale = 4.0
-        self.clamp_min = float(clamp_min_kn)
-        self.clamp_max = float(clamp_max_kn)
-        self.out_dtype = out_dtype
-
-        self._step = np.float32(step)
-        self._bias = np.float32(bias)
-        self._rad2deg = np.float32(180.0 / math.pi)
-
-    def __call__(self, dtig, lat0, lon0, return_uv=False):
-        lat = np.asarray(lat0, dtype=np.float32).reshape(-1)
-        lon = np.asarray(lon0, dtype=np.float32).reshape(-1)
-        dt  = np.asarray(dtig, dtype=np.float32).reshape(-1)
-
-        # broadcast minimal
-        if dt.size == 1 and lat.size > 1:
-            dt = np.full_like(lat, dt.item(), dtype=np.float32)
-        if lat.size == 1 and dt.size > 1:
-            lat = np.full_like(dt, lat.item(), dtype=np.float32)
-            lon = np.full_like(dt, lon.item(), dtype=np.float32)
-
-        if not (lat.size == lon.size == dt.size):
-            raise ValueError("lat, lon, dt doivent avoir la même taille (ou être scalaires broadcastables)")
-
-        # ----- indices espace -----
-        y_f = (90.0 - lat) * self.scale
-        x_f = np.mod(lon, 360.0) * self.scale
-
-        iy = np.floor(y_f).astype(np.int64)
-        ix = np.floor(x_f).astype(np.int64)
-
-        iy = np.clip(iy, 0, self.ny - 2)
-        ix = np.mod(ix, self.nx)
-
-        iy1 = iy + 1
-        ix1 = np.mod(ix + 1, self.nx)
-
-        dy = np.clip(y_f - iy.astype(np.float32), 0.0, 1.0)
-        dx = np.clip(x_f - ix.astype(np.float32), 0.0, 1.0)
-
-        ax = 1.0 - dx
-        ay = 1.0 - dy
-
-        # ----- temps -----
-        t = (dt / 3600.0) / self.dt_step_h
-        it = np.floor(t).astype(np.int64)
-        wt = np.clip(t - it.astype(np.float32), 0.0, 1.0)
-        it = np.clip(it, 0, self.n_steps - 2)
-
-        ru0 = self.refu[it]
-        ru1 = self.refu[it + 1]
-        rv0 = self.refv[it]
-        rv1 = self.refv[it + 1]
-
-        # def deq(I_i16, ref):
-        #     return ref + (I_i16.astype(np.float32) + self._bias) * self._step
-        def deq(I, ref):
-            return ref + (I + self._bias) * self._step
-        # ----- 4 coins -----
-        u0 = deq(self.Iu[it,   iy,  ix ], ru0)
-        u1 = deq(self.Iu[it+1, iy,  ix ], ru1)
-        v0 = deq(self.Iv[it,   iy,  ix ], rv0)
-        v1 = deq(self.Iv[it+1, iy,  ix ], rv1)
-        u00 = u0 + wt * (u1 - u0)
-        v00 = v0 + wt * (v1 - v0)
-
-        u0 = deq(self.Iu[it,   iy,  ix1], ru0)
-        u1 = deq(self.Iu[it+1, iy,  ix1], ru1)
-        v0 = deq(self.Iv[it,   iy,  ix1], rv0)
-        v1 = deq(self.Iv[it+1, iy,  ix1], rv1)
-        u01 = u0 + wt * (u1 - u0)
-        v01 = v0 + wt * (v1 - v0)
-
-        u0 = deq(self.Iu[it,   iy1, ix ], ru0)
-        u1 = deq(self.Iu[it+1, iy1, ix ], ru1)
-        v0 = deq(self.Iv[it,   iy1, ix ], rv0)
-        v1 = deq(self.Iv[it+1, iy1, ix ], rv1)
-        u10 = u0 + wt * (u1 - u0)
-        v10 = v0 + wt * (v1 - v0)
-
-        u0 = deq(self.Iu[it,   iy1, ix1], ru0)
-        u1 = deq(self.Iu[it+1, iy1, ix1], ru1)
-        v0 = deq(self.Iv[it,   iy1, ix1], rv0)
-        v1 = deq(self.Iv[it+1, iy1, ix1], rv1)
-        u11 = u0 + wt * (u1 - u0)
-        v11 = v0 + wt * (v1 - v0)
-
-        # ----- bilinéaire -----
-        u = u00 * ax * ay + u01 * dx * ay + u10 * ax * dy + u11 * dx * dy
-        v = v00 * ax * ay + v01 * dx * ay + v10 * ax * dy + v11 * dx * dy
-
-        # ----- vitesse / direction -----
-        vit_kn = np.sqrt(u*u + v*v) * KNOTS
-        vit_kn = np.clip(vit_kn, self.clamp_min, self.clamp_max)
-
-        ang_math = np.arctan2(v, u) * self._rad2deg
-        ang_from = np.mod(270.0 - ang_math, 360.0)
-
-        vit_kn = vit_kn.astype(self.out_dtype, copy=False)
-        ang_from = ang_from.astype(self.out_dtype, copy=False)
-
-        if return_uv:
-            return vit_kn, ang_from, u.astype(self.out_dtype), v.astype(self.out_dtype)
-        return vit_kn, ang_from
+    return tws,twd
 
 
 
 
 
-def majgrib():
-    global basedirGribs025, tigGFS, indice, gfs_interpolateur,gfs_interpolateur_np
-    if gfs_interpolateur is None:
-         meta = None
-    fileMeta = os.path.join(basedirGribs025, "meta.txt")
-    meta = load_pack_meta(fileMeta)  # peut être None
-    indicemeta= int(meta['indice'])
-    tigmeta=int(meta['tig'])
 
-    # print ('fileMeta',fileMeta)
-    # print('meta',meta)
-    # print ('indice de l\'ancienne version  ',indice )
-    # print ('tigGFS de l\'ancienne version',tigGFS) 
-    # print ('indicemeta ',indicemeta)
-    # print ('tigmeta ',tigmeta)
-  
-    if indicemeta>indice or tigmeta>tigGFS :
-        print("Necessité de recharger le grib et mettre a jour l interpolateur ")
-
-
-        fileName ,fileNameC,tigGFS =  gribFileName(basedirGribs025)
-        print ('fileNameC : ',fileNameC)
-        Iu, Iv, refu, refv, step, bias,tigGFS,indice = load_pack_npz(fileNameC) 
-        Iu_i16, Iv_i16, refu_t, refv_t               = to_gpu_i16(Iu, Iv, refu, refv)
-        drop_old_interp()
-        gfs_interpolateur = GFS025InterpGPU_721_I16(Iu_i16, Iv_i16, refu_t, refv_t, step).build()
-        print ('basedirGribs025',basedirGribs025)
-        print ('Nouvelles valeurs tigGFS: {} {}   Nouvel  indice {} '.format(tigGFS,time.strftime(" %d %b %H:%M ",time.gmtime(tigGFS)),indice)) 
-        
-        Iu_i16_np = (Iu.astype(np.int32) - int(bias)).astype(np.int16)
-        Iv_i16_np = (Iv.astype(np.int32) - int(bias)).astype(np.int16)
-        
-        gfs_interpolateur_np = GFS025InterpNP_721_I16(
-            Iu_i16_np,
-            Iv_i16_np,
-            refu.astype(np.float32, copy=False),
-            refv.astype(np.float32, copy=False),
-            step=float(step),
-            bias=bias,
-        )          
-         
-    else :
-        print ('\nLe grib GFS du {}  Indice {} est à jour ainsi que l interpolateur '.format(time.strftime(" %d %b %H:%M ",time.gmtime(tigGFS)),indice))
-    return tigGFS, indice    
-        
-
-# #Chargement initial du grib et de l interpolateur
-fileName ,fileNameC,tigGFS    = gribFileName(basedirGribs025)
-Iu, Iv, refu, refv, step, bias,tigGFS,indice  = load_pack_npz(fileNameC)                                              # charge des np
-Iu_i16, Iv_i16, refu_t, refv_t                = to_gpu_i16(Iu, Iv, refu, refv) 
-gfs_interpolateur = GFS025InterpGPU_721_I16( Iu_i16,Iv_i16,refu_t,refv_t,step).build()
-
-Iu_i16_np = (Iu.astype(np.int32) - int(bias)).astype(np.int16)
-Iv_i16_np = (Iv.astype(np.int32) - int(bias)).astype(np.int16)
-        
-gfs_interpolateur_np = GFS025InterpNP_721_I16(
-            Iu_i16_np,
-            Iv_i16_np,
-            refu.astype(np.float32, copy=False),
-            refv.astype(np.float32, copy=False),
-            step=float(step),
-            bias=bias,)          
-         
-
-tigGFS, indice = majgrib()
 #__________________________________________________________________________________
 # Chargement ECM
 #_________________________________________________________________________________
@@ -817,13 +602,13 @@ def load_ecmwf_npz_i16(path_npz: str):
 
 
 
-def dequantize_uv_int16_fixed(Uq: np.ndarray, Vq: np.ndarray, scale: float) -> np.ndarray:
-    """
-    Reconstitue float32 (T,Y,X,2) mais pas necessaire si on envoie directement au gpu
-    """
-    U = Uq.astype(np.float32) * np.float32(scale)
-    V = Vq.astype(np.float32) * np.float32(scale)
-    return np.stack([U, V], axis=-1)
+# def dequantize_uv_int16_fixed(Uq: np.ndarray, Vq: np.ndarray, scale: float) -> np.ndarray:
+#     """
+#     Reconstitue float32 (T,Y,X,2) mais pas necessaire si on envoie directement au gpu
+#     """
+#     U = Uq.astype(np.float32) * np.float32(scale)
+#     V = Vq.astype(np.float32) * np.float32(scale)
+#     return np.stack([U, V], axis=-1)
 
 
 def wrap_lon_m180_180_torch(lon):
@@ -1029,9 +814,6 @@ app.config['CACHE_DEFAULT_TIMEOUT'] = 86400  # 24 heures
 cache = Cache(app)
 cache.init_app(app)  # Initialisation
 
-
-
-
 def get_fichier(filename):
     """ Charge un fichier numpy en cache si ce n'est pas déjà fait """
     cached_data = cache.get(filename)
@@ -1045,8 +827,6 @@ def get_fichier(filename):
             raise FileNotFoundError(f"Erreur : Fichier {filename} introuvable")
 
     return cached_data
-
-
 
 
 #####################################################################################
@@ -1086,22 +866,6 @@ def retirer_lacs(masque):
     return masque_sans_lacs
 
 
-# def get_carte(pos, zoom_x, zoom_y):
-#     lat, lon = int(pos[0]), int(pos[1])
-#     cle = (lat, lon)
-
-#     with cache_lock:
-#         if cle in cache_cartes:
-#             return cache_cartes[cle]
-
-#     # Si non trouvé (ou expiré), on recharge la carte
-#     carte = fcarte((lat, lon), zoom_x, zoom_y)
-
-#     with cache_lock:
-#         cache_cartes[cle] = carte
-
-#     return carte
-
 
 def get_carte(lat, lon):
     # Centre sur les multiples de 5 (carte 10x10)
@@ -1124,44 +888,15 @@ def get_carte(lat, lon):
 
 
 
-# def get_carte3 (lat, lon):
-#     #la cle est un multiple de 10
-#     cle = (lat, lon)
-#     with cache_lock:
-#         if cle in cache_cartes:
-#             return cache_cartes[cle]
-
-#     # Calcul ou chargement de la carte (taille fixe de 10x10)
-#     carte = fcarte3(lat, lon)       # dans fonctions2025
-
-#     with cache_lock:
-#         cache_cartes[cle] = carte
-
-#     return carte
-
-
 
 def updateUsers(users, username, user_id):
     users[user_id] = username
     #print ('************************',users,'/n****************************************')
 
 
-# @socketio.on('connect')
-# def handle_connect():        
-#     client_id = request.args.get('client_id')  # ID unique du client (passé en paramètre)
-#     print ('client_id',client_id)
-#     if client_id:
-#         clients[client_id] = request.sid  # Associer l'ID client à la session WebSocket
-#         join_room(client_id)  # Joindre une "room" unique pour ce client
-#     print(f"Client {client_id} connecté avec session {request.sid}")
-
-
-
-
-# @socketio.on('disconnect')
-# def handle_disconnect():
-#     client_id = None
-#     for key, value in clients.items():
+###############################################################################"
+# 913 Base de donnees et tables 
+###############################################################################"
 
 
 pg_pool = pool.SimpleConnectionPool(
@@ -1177,15 +912,6 @@ pg_pool = pool.SimpleConnectionPool(
 # sera a mettre apres creation des bases dans les fonctions de recherche
 conn = pg_pool.getconn()
 cursor = conn.cursor()
-
-# # connection a la base postgres locale 
-# conn = psycopg2.connect(
-#     host="localhost",
-#     database="databaselinux3",
-#     user="jp",
-#     password="Licois1000"
-# )
-# cursor = conn.cursor()
 
 
 
@@ -1363,6 +1089,24 @@ class CpuGpuCache:
 #                                  """)
 # conn.commit()
 # print ('la table boatinfos      a ete creee si elle n existait pas ')
+
+
+# cursor.execute("""
+#                          CREATE TABLE IF NOT EXISTS boatactions
+#                              (
+#                                  id SERIAL PRIMARY KEY  ,
+#                                  timestamp REAL,
+#                                  username TEXT,
+#                                  user_id TEXT,
+#                                  course TEXT,
+#                                  boatactions TEXT                          
+#                              )          
+#                                  """)
+# conn.commit()
+# print ('la table boatactions    a ete creee si elle n existait pas ')
+
+
+
 
 
 # cursor.execute("""
@@ -1613,9 +1357,38 @@ def rechercheTableBoatInfos(user_id, course):
     
 
 
+def rechercheTableBoatActions(user_id, course):
+    # conn = None
+    # cursor = None
+    conn = pg_pool.getconn()
+    try:
+      
+        cursor = conn.cursor()
+        cursor.execute("""
+            SELECT timestamp,boatactions
+            FROM boatactions
+            WHERE user_id = %s AND course = %s
+            ORDER BY timestamp DESC
+            LIMIT 1
+        """, (user_id, course))
+
+        result = cursor.fetchone()
+        # print("Résultat brut de la requête SQL :", result)
+        return (result[0], result[1]) if result else (None, None)
+    
+    finally:
+        if cursor:
+            cursor.close()
+        if conn:
+            pg_pool.putconn(conn)  #  rend la connexion au pool    
+        
+    
+
+
+
+
 
 def rechercheTablePersonalInfos(user_id, course):
-
     conn = pg_pool.getconn()
     try:
         cursor = conn.cursor()
@@ -1792,7 +1565,19 @@ def enregistrerPolaireSiPlusRecent(timestamp, _id, message):
             return True  # Enregistrement effectué
         else:
             print ('Les polaires sont les plus recentes pour l id ',_id)
-            return False  # Enregistrement ignoré, trop ancien
+            print('recalcul des polaires pour le bateau ',_id)     
+
+            timestamp,polar_id,polairesjsonstr= rechercheTablePolaires( _id)                       # nouvelle version
+        
+          
+            polairesjson=json.loads(polairesjsonstr) 
+            polairesjson=json.loads(polairesjson)    
+            stringPolairestoNpy(polairesjson)
+
+            
+
+
+            
         
         #ATTENTION IL FAUT AUSSI LES RECALCULER
         #""""""""""""""""""""""""""""""""""""""
@@ -1892,6 +1677,9 @@ def extraitcourse (infotoutescoursesStr,course):
     return course_trouvee    
 
 
+
+
+
 def condenseprogs(progs):
     # print ('Dans condense\n************')
     #print (progs)
@@ -1931,21 +1719,16 @@ def condenseprogs(progs):
 #################################################################################################################################################
 ############      Fonctions de recherche des donnnees pour la classe  routage    #########################################################################
 #################################################################################################################################################
-
 def charger_donnees(course):
     '''A partir de la reference de la course retourne '''
-    '''leginfos,tabexclusions,tabicelimits,carabateau,polairesglobales10to,tabvmg10to '''
-     
-    # try:                          #recherche dans la table 
-    print ('Recherche dans la table')
-    print('course',course)
+    '''leginfos,tabexclusions,tabicelimits,carabateau,polairesglobales10to,tabvmg10to '''    
+   
+    print ('Recherche de leginfos pour course ',course)
+    
     leginfostr  = rechercheTableLegInfos(course)
     leginfos    = json.loads(leginfostr)
-    # except:                      #recherche sur vrouteur 
-    #     leginfostr  = rechercheleginfos(course)
-    #     leginfos    = json.loads(leginfostr)
-    
-    
+      
+    # print(leginfos)
     polar_id=leginfos['boat']['polar_id']
     
 
@@ -1967,12 +1750,13 @@ def charger_donnees(course):
     nbvoiles=len(polairesjson['sail'])
     # print('nbvoiles',nbvoiles)
     typevoile          = []
-    for i in range(nbvoiles) :
-        typevoile.append( polairesjson['sail'][i]['name'])
+    
 
     polar_id                    = polairesjson['_id']
     label                       = polairesjson['label']                               # type du bateau
+    
     globalSpeedRatio            = polairesjson['globalSpeedRatio']
+   
     foilSpeedRatio              = polairesjson['foil']['speedRatio']
     autoSailChangeTolerance     = polairesjson["autoSailChangeTolerance"]
     badSailTolerance            = polairesjson["badSailTolerance"]
@@ -1984,6 +1768,7 @@ def charger_donnees(course):
     twsMin                      = polairesjson['foil']['twsMin']
     twsMax                      = polairesjson['foil']['twsMax']
     twsMerge                    = polairesjson['foil']['twsMerge']
+    speedRatio                  = polairesjson['foil']['speedRatio']
     hull                        = polairesjson['hull']['speedRatio']
     lws                         = polairesjson['winch']['lws']
     hws                         = polairesjson['winch']['hws']
@@ -1999,7 +1784,18 @@ def charger_donnees(course):
     gybeprolwratio              = polairesjson['winch']['gybe']['pro']['lw']['ratio']
     gybeprohwtimer              = polairesjson['winch']['gybe']['pro']['hw']['timer']
     gybeprohwratio              = polairesjson['winch']['gybe']['pro']['hw']['ratio']
-
+    update                      = polairesjson['_updatedAt']
+    
+    # recuperation d'un tableau des polaires 
+    tabtws                      = np.asarray(polairesjson['tws'])                                            
+    tabtwa                      = np.asarray(polairesjson['twa'])
+    nbvoiles                    = len(polairesjson['sail'])
+    toutespolaires              = np.zeros((len(tabtwa),len(tabtws),nbvoiles))
+    for i in range(nbvoiles) :
+        typevoile.append( polairesjson['sail'][i]['name'])
+        toutespolaires[:,:,i] = polairesjson['sail'][i]['speed']
+        polairesmax           = globalSpeedRatio *np.amax(toutespolaires,axis=2) 
+    
     coeffboat                   = tabCoeffboat[polar_id]['stamina']
 
     carabateau={ "polar_id":polar_id,'typevoile':typevoile, "label":label,"globalSpeedRatio":globalSpeedRatio,"foilSpeedRatio":foilSpeedRatio,"coeffboat":coeffboat,\
@@ -2007,45 +1803,23 @@ def charger_donnees(course):
             "maxSpeed":maxSpeed,"twaMin":twaMin,"twaMax":twaMax,"twaMerge":twaMerge,"twsMin":twsMin,"twsMax":twsMax,"twsMerge":twsMerge,\
             "hull":hull,'lws': lws ,'hws':hws, "lwtimer":lwtimer,"hwratio": hwratio ,"hwtimer":hwtimer,"lwratio":lwratio,\
             "lwtimer":lwtimer,"tackprolwtimer":tackprolwtimer,"tackprolwratio":tackprolwratio,"tackprohwtimer":tackprohwtimer,\
-            "tackprohwratio":tackprohwratio,"gybeprolwtimer":gybeprolwtimer,"gybeprolwratio":gybeprolwratio,"gybeprohwtimer":gybeprohwtimer,"gybeprohwratio":gybeprohwratio,'typevoile':typevoile}
+            "tackprohwratio":tackprohwratio,"gybeprolwtimer":gybeprolwtimer,"gybeprolwratio":gybeprolwratio,\
+            "gybeprohwtimer":gybeprohwtimer,"gybeprohwratio":gybeprohwratio,'typevoile':typevoile,'tabtws':tabtws,'tabtwa':tabtwa,'polairesmax':polairesmax}
 
-
-    # Recuperation des zones d exclusion VR
+     # Recuperation des zones d exclusion VR
     #**************************************
     try:
+        print()
         zones=leginfos['restrictedZones']
-        #print ('exclusions1 l 1179 ************\n',zones)
-        # print()
+     
         tabexclusions={}
-        # for zone in zones:
-        #     name = zone["name"]
-        #     print (name)
-        #     vertices = [[pt["lat"], pt["lon"]] for pt in zone["vertices"]]
-        #     print (vertices)
-        #     tabexclusions[name] = vertices    
-        for i, zone in enumerate(zones, start=1):
-            base = zone.get("name", "zone")
-            name = f"{base}_{i}"
-            vertices = [[pt["lat"],  pt["lon"]] for pt in zone["vertices"]]
-            tabexclusions[name] = vertices
-        # try:
-        #     for zone in zones:
-        #         try :
-        #             name = zone["name"]
-        #         except:
-        #             name=time.time()
-        #         vertices = [[pt["lat"], pt["lon"]] for pt in zone["vertices"]]
-        #         tabexclusions[name] = vertices
-
-        # except KeyError as e:
-        #     print(f"Clé manquante dans la zone {zone}: {e}")    
-
-        # print ('tabexclusions l 1203 ************\n',tabexclusions)        
+        for zone in zones:
+            name = zone["name"]
+            vertices = [[pt["lat"], pt["lon"]] for pt in zone["vertices"]]
+            tabexclusions[name] =  vertices
+    except:        
+        tabexclusions={}       
   
-    except:   
-         print ('on est dans le except de leginfos  (Pas d\'exclusions\n**********************************************************')
-         tabexclusions={}       
-    # print(result)
 
     try:
         iceLimits= leginfos['ice_limits']['south']   # print ('\n IceLimits',iceLimits)  c est la forme developpee
@@ -2058,6 +1832,11 @@ def charger_donnees(course):
     except:
         tabicelimits=[]
 
+    # polairesglobales10to = torch.from_numpy(polairesglobales10).to('cuda')
+    # tabvmg10to           = torch.from_numpy(tabvmg10).to('cuda')     
+    # 
+    # 
+    # 
     twa=55
     tws=12.1
     typeVoiles = ['jib', 'Spi', 'Staysail', 'LightJib', 'Code0', 'HeavyGnk', 'LightGnk']
@@ -2065,11 +1844,12 @@ def charger_donnees(course):
 
 
     print ('\n*************************************************************************************************')   
-    print ('Resultats calculés pour {:25} twa= {} tws= {} voile {} vitessemax = {:6.3f} '.format(label,twa,tws,voile,polairesglobales10[7,int(tws*10),int(twa*10)]))
+    print ('Dernier Update chargé pour le bateau  ',update)
+    print ('Resultats calculés avec polairesglobales (numpy) pour {:25} twa= {} tws= {} voile {} vitessemax = {:6.3f} '.format(label,twa,tws,voile,polairesglobales10[7,int(tws*10),int(twa*10)]))
     print ('\n*************************************************************************************************')
     print ('Resultats attendus pour Ocean 50            twa= 55 tws= 12.1 voile LightJib vitessemax = 11.956 ')
-    print ('Resultats attendus pour Imoca               twa= 55 tws= 12.1 voile LightJib vitessemax = 13.450 ')
-    print ('Resultats attendus pour Figaro3             twa= 55 tws= 12.1 voile LightJib vitessemax =  6.7101 ')
+    print ('Resultats attendus pour Imoca               twa= 55 tws= 12.1 voile LightJib vitessemax = 11.799 ')
+    print ('Resultats attendus pour Figaro3             twa= 55 tws= 12.1 voile LightJib vitessemax =  6.937 ')
     print ('Resultats attendus pour Ultim BP XI         twa= 55 tws= 12.1 voile Jib      vitessemax = 17.110 ')
     print ('Resultats attendus pour Class40             twa= 55 tws= 12.1 voile LightJib vitessemax =  8.656 ')
     print ('Resultats attendus pour CruiserRacer        twa= 55 tws= 12.1 voile Jib      vitessemax =  8.197 ')
@@ -2077,13 +1857,33 @@ def charger_donnees(course):
     print ('Resultats attendus pour Mini6.5             twa= 55 tws= 12.1 voile Jib      vitessemax =  6.1')
     print ('Resultats attendus pour Super Maxi 100      twa= 55 tws= 12.1 voile LightJib vitessemax = 15.457')
     print ('Resultats attendus pour OffshoreRacer       twa= 55 tws= 12.1 voile LightJib vitessemax =  8.730')
+    print ('Resultats attendus pour multi/mod70         twa= 55 tws= 12.1 voile LightJib vitessemax = 14.810')
     print ('**************************************************************************************************\n')
 
+    # twa=75
+    # tws=15.1
+   
+    # print ('\n*************************************************************************************************')   
+    # print ('Resultats calculés avec polairesglobales (numpy) pour {:25} twa= {} tws= {} voile {} vitessemax = {:6.3f} '.format(label,twa,tws,voile,polairesglobales10[7,int(tws*10),int(twa*10)]))
+    # print ('\n*************************************************************************************************')
+    # print ('Resultats attendus pour Ocean 50            twa= 55 tws= 12.1 voile LightJib vitessemax = 11.956 ')
+    # print ('Resultats attendus pour Imoca               twa= 75 tws= 15.1 voile LightJib vitessemax = 16.848 ')
+    # print ('Resultats attendus pour Figaro3             twa= 75 tws= 12.1 voile Code 0   vitessemax =  8.643 ')
+    # print ('Resultats attendus pour Ultim BP XI         twa= 55 tws= 12.1 voile Jib      vitessemax = 17.110 ')
+    # print ('Resultats attendus pour Class40             twa= 75 tws= 15.1 voile Code 0   vitessemax = 11.089 ')
+    # print ('Resultats attendus pour CruiserRacer        twa= 55 tws= 12.1 voile Jib      vitessemax =  8.197 ')
+    # print ('Resultats attendus pour Volvo65             twa= 55 tws= 12.1 voile Jib      vitessemax = 10.402')
+    # print ('Resultats attendus pour Mini6.5             twa= 55 tws= 12.1 voile Jib      vitessemax =  6.1')
+    # print ('Resultats attendus pour Super Maxi 100      twa= 55 tws= 12.1 voile LightJib vitessemax = 15.457')
+    # print ('Resultats attendus pour OffshoreRacer       twa= 55 tws= 12.1 voile LightJib vitessemax =  8.730')
+    # print ('Resultats attendus pour multi/mod70         twa= 55 tws= 12.1 voile LightJib vitessemax = 14.810')
+    # print ('**************************************************************************************************\n')
 
-    # polairesglobales10to = torch.from_numpy(polairesglobales10).to('cuda')
-    # tabvmg10to           = torch.from_numpy(tabvmg10).to('cuda')      
-    return leginfos,tabexclusions,tabicelimits,carabateau,polairesglobales10,tabvmg10 
 
+
+    return leginfos,tabexclusions,tabicelimits,carabateau,polairesglobales10,tabvmg10,polairesjson
+
+  
 
 
 
@@ -2091,7 +1891,7 @@ def charger_donnees(course):
 # recherche a partir du cache 
 class DonneesCourse:
     def __init__(self, leginfos, tabexclusions, tabicelimits, carabateau,
-                 polaires_np, vmg_cpu, polaires_gpu, vmg_gpu):
+                 polaires_np, vmg_cpu, polaires_gpu, vmg_gpu,polairesjson):
         self.leginfos = leginfos
         self.tabexclusions = tabexclusions
         self.tabicelimits  = tabicelimits
@@ -2100,11 +1900,10 @@ class DonneesCourse:
         self.vmg_cpu       = vmg_cpu
         self.polaires_gpu  = polaires_gpu
         self.vmg_gpu       = vmg_gpu
+        self.polairesjson  = polairesjson
 
 
 cache_donnees = CpuGpuCache(maxsize=10, ttl=3*3600)                          # definition du cache 
-
-
 
 
 
@@ -2114,33 +1913,35 @@ def rechercheDonneesCourseCache(course):
     if cached:
         print(f"[CACHE HIT] Course {course}")
         cpu_data, gpu_data = cached
-
-        return DonneesCourse(
-            *cpu_data,  # leginfos, tabexclusions, tabicelimits, carabateau, polaires_cpu, vmg_cpu
-            polaires_gpu=gpu_data[4],
-            vmg_gpu=gpu_data[5]
-        )
+        leginfos, tabexclusions, tabicelimits, carabateau, polaires_np, vmg_cpu, polairesjson = cpu_data
+        polaires_gpu, vmg_gpu = gpu_data
 
     else:
         print(f"[CACHE MISS] Course {course}")
-        leginfos, tabexclusions, tabicelimits, carabateau, polaires_np, vmg_np = charger_donnees(course)
-        # polaires_cpu = torch.tensor(polaires_np, dtype=torch.float32, device='cpu')
-        vmg_cpu      = torch.tensor(vmg_np     , dtype=torch.float32, device='cpu')
-       
-      
+        leginfos, tabexclusions, tabicelimits, carabateau, polaires_np, vmg_np, polairesjson = charger_donnees(course)
+        vmg_cpu = torch.tensor(vmg_np, dtype=torch.float32, device='cpu')
         polaires_cpu = torch.tensor(polaires_np, dtype=torch.float32, device='cpu')
-        polaires_gpu   = polaires_cpu.clone().cuda()
-        vmg_gpu        = vmg_cpu.clone().cuda()
+        polaires_gpu = polaires_cpu.clone().cuda()
+        vmg_gpu = vmg_cpu.clone().cuda()
 
-        cache_donnees.set(course,
-                          cpu_data=(leginfos, tabexclusions, tabicelimits, carabateau, polaires_np, vmg_cpu),
-                          gpu_data=(leginfos, tabexclusions, tabicelimits, carabateau, polaires_gpu, vmg_gpu))
-
-        return DonneesCourse(
-            leginfos, tabexclusions, tabicelimits, carabateau,polaires_np,
-            vmg_cpu, polaires_gpu, vmg_gpu
+        cache_donnees.set(
+            course,
+            cpu_data=(
+                leginfos,
+                tabexclusions,
+                tabicelimits,
+                carabateau,
+                polaires_np,
+                vmg_cpu,
+                polairesjson
+            ),
+            gpu_data=(
+                polaires_gpu,
+                vmg_gpu
+            )
         )
 
+    return DonneesCourse( leginfos, tabexclusions, tabicelimits, carabateau, polaires_np, vmg_cpu, polaires_gpu, vmg_gpu, polairesjson )    # en fait on renvoie la classe DonneesCourse 
 
 
 
@@ -2438,7 +2239,7 @@ def calculePosDepart(posStartVR,polairesglobales,carabateau,dt=60,furler=0.8):
 
         lat1 = torch.tensor([y1], device="cuda")
         lon1 = torch.tensor([x1], device="cuda")
-        twsf,twdf=gfs_interpolateur(dtig, lat1, lon1)
+        twsf,twdf=gfs_interpolateur_to(dtig, lat1, lon1)
 
        #twsf1,twdf1=  prevision025dtig(GRGFS, dtig, y1, x1)       # ancienne interpolation 
         
@@ -2621,7 +2422,7 @@ def plagevoiles2(polar_id,tws):
 # recherche les coursesactives pour le username
 def majgribajax():
     
-    tigGFS, indicemajgrib=majgrib() 
+    majgrib(basedirGribs025)   #GRGFS,GR_t,tigGFS,indiceGR se mettent à jour en global 
     response   = make_response(jsonify({'result':'maj grib faite '}))
     response.headers.add('Access-Control-Allow-Origin', '*')  # Autorise toutes les origines
     return response
@@ -2844,7 +2645,7 @@ def rechercheleginfos():
 
 @app.route('/rechercheboatinfos', methods=["GET", "POST"])
 def frechercheboatinfos():
-    global GRGFS,tigGFS,indicemajgrib,heure
+    global GRGFS,tigGFS,indiceGR,heure
   
     username   = request.args.get('username')                # recupere les donnees correspondant a valeur dans le site html
     course     = request.args.get('course')                  # recupere les donnees correspondant a valeur dans le site html
@@ -2865,7 +2666,8 @@ def frechercheboatinfos():
     print ('\nEnvoi de  boatinfos recupere dans la base  du ',time.strftime(" %d %b %Y %H:%M ",time.localtime(lastCalcDate/1000)))
 
 
-    tigGFS, indicemajgrib=majgrib() 
+    majgrib(basedirGribs025) 
+    indicemajgrib=indiceGR
     print()
     print ('Dernières valeurs de tigGFS:{}  indice {} soit +{}h '.format(time.strftime(" %d %b %H:%M ",time.gmtime(tigGFS)),indicemajgrib,indicemajgrib*3)) 
     
@@ -2904,17 +2706,10 @@ def frechercheteam():
     response = make_response(jsonify({'result':liste}))
     response.headers.add('Access-Control-Allow-Origin', '*')  # Autorise toutes les origines
     return response
-
-
-
     
+    # print ('*****************************************************************')
     
-    
-    
-    
-    print ('*****************************************************************')
-    
-    return None 
+    # return None 
 
 
 
@@ -3051,350 +2846,316 @@ def extraitprogrammations (boatInfos,user_id,course):
 
 
 
-class DeplacementEngine:
-    def __init__(self, Course):
-        donneesCourse    = rechercheDonneesCourseCache(Course)
-        c                  = donneesCourse.carabateau
-        self.lwtimer       = c['lwtimer']
-        self.hwtimer       = c['hwtimer']
-        self.lw            = c['lws']
-        self.hw            = c['hws']
-        self.lwtimerGybe   = c['gybeprolwtimer']
-        self.hwtimerGybe   = c['gybeprohwtimer']
-        self.coeffboat     = c['coeffboat']
-        self.polaires_np   = donneesCourse.polaires_np
-        self.polaires_gpu  = donneesCourse.polaires_gpu
-        self.tabvmg        = donneesCourse.vmg_cpu
-        self.MF            = 0.8  
 
-      
-
-    def deplacement_np(self, dep):
-         # position_np=([0)0, 1)t0,2)dt,3)option,4)valeur,5)y0,6)x0,7)voile,8)twa,9)cap,10)speed,11)stamina,12)soldepeno,13)twd,14)tws,15)voileAuto,16)boost],dtype=torch.float64)'''
-        # Tout est en np 
-        ari=np.zeros(len(dep))
-        
-        dt          = dep[2]
-        option      = int(dep[3])
-        valeur      = dep[4]
-        y0          = dep[5]
-        x0          = dep[6]
-        if dep[7]==9 :                       # arrive si waiting la voile est 10 ce qui amene la voile jp a 9 
-           dep[7]=0
-        voile_ini   = int(dep[7]%10)
-        heading     = dep[8]
-        twd         = dep[9]
-        vitesse     = dep[10]
-        stamina_ini = dep[11]
-        peno_ini    = dep[12]
-        auto_voile  = 1                       #  int(dep[15])
-        MF=0.8
-
-        ari[0] = dep[0] + 1
-        ari[1]=dep[1]+dep[2]
-        ari[2] = dt
-        
-        dtig=dep[1]-tigGFS   
-        twsnp, twdnp = gfs_interpolateur_np(dtig, y0, x0)
-        tws=float(twsnp[0])
-        twd=float(twdnp[0])
-        
-        if option == 1:
-            twa = valeur
-            cap = fcap(twa, twd)
-            # print ('Option twa : twa et twd ',twa ,' ', twd)
-
-        else:          
-            cap = valeur
-            twa = ftwato(cap, twd)
-            # print ('Option cap : cap et twd ',cap ,' ', twd)
-
-
-            
-        # valeurs en debut d iteration pour calculer le deplacement 
-        ari[3]=dep[3]           # on conserve l option 
-        ari[4]=valeur 
-        ari[8]=twa
-        ari[9]=cap
-        
-        ari[14]=tws
-        ari[13]=twd
-        # print ('test ',dep[1], y0, x0)
-        tws10 = int( np.round(tws * 10))
-        twa10 = int( np.round(np.abs(twa * 10)))
-        # print ('twa' ,twa)
-        # print ('twa10' ,twa10)
-
-
-        vitesse_voile_ini = self.polaires_np[voile_ini, tws10, twa10]
-        chgt_voile = 0
-
-        if auto_voile == 1:
-            meilleure_vitesse = self.polaires_np[7, tws10, twa10]
-            meilleure_voile = int(self.polaires_np[8, tws10, twa10])
-            boost = meilleure_vitesse / (vitesse_voile_ini + 1e-4)
-            ari[16] = boost
-            if boost > 1.014:
-                ari[7] = meilleure_voile
-                vitesse_voile_ini = meilleure_vitesse
-                chgt_voile = 1
-            else:
-                ari[7] = voile_ini
-        else:
-            ari[7] = voile_ini
-
-        ari[10] = vitesse_voile_ini
-
-        Tgybe = 1 if (twa * heading < 0) else 0
-        Cstamina = 2 - 0.015 * stamina_ini
-
-        #ici, c'est du np
-
-        furler=0.8
-        peno_chgt       =  chgt_voile *peno_np(self.lwtimer, self.hwtimer, tws, stamina_ini)*furler        # peno en temps 
-        peno_gybe       = Tgybe * peno_np(self.lwtimerGybe, self.hwtimerGybe, tws, stamina_ini)        
-        ari[12] = peno_ini + peno_chgt + peno_gybe
-
-        perte_stamina = calc_perte_stamina_np(tws, Tgybe, chgt_voile, self.coeffboat)
-
-        recup = pts_recuperes(dt, tws)
-       
-        stamina = stamina_ini - perte_stamina + recup
-        ari[11] = np.clip(stamina, 0.0, 100.0)
-
-        dt_ite = dt - 0.3 * min(ari[12], dt)
-        cap_rad = np.deg2rad(cap)
-        y0_rad = np.deg2rad(y0)
-        ari[5] = dep[5]   + vitesse_voile_ini * dt_ite / 3600.0 / 60.0 * math.cos(cap_rad)
-        ari[6] = dep[6]   + vitesse_voile_ini * dt_ite / 3600.0 / 60.0 * math.sin(cap_rad) / math.cos(y0_rad)
-       
-
-       
-        ari[12] = max(0.0, ari[12] - dt)        # c est le solde de penalite a la fin de l iteration 
-
-        # on regarde si on traverse une terre 
-
-        # A = (y0,x0)
-        # B = (ari[5], ari[6])
-
-        # print(intersect_segment_polyline(A, B, carte))  # ➜ True
-        # if segment_intersecte_carte_np(y0, x0, ari[5], ari[6], self.carte):
-        #     ari[15] = 1.0  # marque que le segment traverse une barrière
-        # else:
-        #     ari[15] = 0.0
-        # if intersecte_segment_multipolyline_np(dep[5],dep[6], ari[5], ari[6], self.carte):
-        #     ari[15] = 1  # Marque une pénalité ou un rejet (ex. : 1 = traverse une barrière)
-        # else:
-        #     ari[15] = 0
-
-        return ari
-
-
-   
-
-
-
-
-
-
-@app.route('/rechercheprogsvr', methods=["GET", "POST"])
-def rechercheprogsvr():
-    # print()
-    
-
-    print ('On est dans rechercheprogsvr suite à la demande de rafraichissement generee par boataction ')
+@app.route('/rechercheprogsvr2', methods=["GET", "POST"])   
+def rechercheprogsvr2():
     user_id    = request.args.get('user_id')                                 # recupere les donnees correspondant a valeur dans le site htmlstrf
-    course     = request.args.get('course')                                  # recupere les donnees correspondant a valeur dans le site
-    #t0routage      = int(float(request.args.get('t0routage')))
-    isMe='yes'
-    ari=['WP1']   # ne sert a rien dans le cas present mais est necessaire pour que ari soit defini
+    course     = request.args.get('course')  
+    echouage   = int(request.args.get('echouage'))
+    cache = CarteCache()
 
-    session         = RoutageSession(course, user_id,isMe,ari)        # permet de recuperer les polaires et autres 
-
-    positionvr      = session.positionvr
-    boatinfos       = session.boatinfos
-    positionvr_np   = positionvr.detach().cpu().numpy()
-    try:
-        lastCalcDateBI= int(boatinfos['bs']['lastCalcDate']/1000)
-    except:
-        lastCalcDateBI=time.time()
-
-    print ('boatinfos dans rechercheprogsvr\n ',boatinfos)
-
-    date,origine,programmations = extraitprogrammations (boatinfos,user_id,course)      # va chercher dans la table 
-
-    #  print  ('lastCalcDateBA',time.strftime(" %d %b %H:%M ",time.localtime(lastCalcDateBA)),lastCalcDateBA)
-    # print  ('lastCalcDateBI',time.strftime(" %d %b %H:%M ",time.localtime(lastCalcDateBI)),lastCalcDateBI)
-    
-
-    print('\n****************************************************************************************************************************************************************')
-    print ('Programmations retenues heure Boatinfos {} BAction  :{}  ,origine : {} ,programmations {}\n'.format(time.strftime(" %d %b %H:%M ",time.localtime(lastCalcDateBI)),time.strftime(" %d %b %H:%M ",time.localtime(date)),origine,programmations))
-    print('******************************************************************************************************************************************************************')
-    Position_np =np.zeros((24*60,17),dtype=np.float64)   
-    Position_np[0]=positionvr_np
-
-    # donneesCourse    = rechercheDonneesCourseCache(course)
-    
-    engine = DeplacementEngine(course)
-    sections = []
-
+    print ('valeur de echouage = ',echouage) 
+    simulateur                  = Simulation (course, user_id)
+    date,origine,programmations = simulateur.extraitprogrammations ()
+    print ('programmations',programmations )
     if "progs" in programmations:
-        typeprogs='progs'
-        print('On a affaire a des programmations')
-        tic=time.time()
-        prog0=programmations['progs']
-        prog1 = copy.deepcopy(prog0)
-        applied_prog = [False] * len(prog1)
-        
-        Position_np[0, 3] = prog1[0][1]
-        Position_np[0, 4] = prog1[0][2]
+        print ('\nOn est dans le cas de programmations\n')
+        print ('programmations ',programmations )
+        positions                   = simulateur.trajectoire_24h( simulateur.posDepart, programmations, duree_h=24)
 
-        applied_prog = [False] * len(prog1)
+    if "wps" in programmations:  
+        print ('\non est dans le cas de waypoints\n')
+        # print ('\nposdepart\n',simulateur.posDepart)
+        sections, routeprogs, positions = simulateur.trajectoire_waypoints(  simulateur.posDepart, programmations, duree_h=24, dt_standard=60)  
 
-        tic =time.time()
-       
-        for i in range(len(Position_np) - 1):
-            t = Position_np[i, 1]  # temps courant
-            
-            for j in range(len(prog1)):
-                if not applied_prog[j] and t >= prog1[j][0]:
-                    Position_np[i, 3] = prog1[j][1]  # option
-                    Position_np[i, 4] = prog1[j][2]  # valeur
-                    applied_prog[j] = True          # marquer comme appliquée
+    if echouage==1:
+        y0  =  positions[0,4]
+        x0  =  positions[0,5]
+        carte =  get_carte3(y0,x0)
+        masque          = cache.get_masque_carte(y0, x0, get_carte3)
+        touche          = cache.segments_touchent_masque(positions, masque, y0, x0)
+        indices_croises = cache.indices_intersections_route(  positions, carte,touche, marge=0.1)
+        positions[indices_croises + 1, 21] = 1
 
-           
-            Position_np[i + 1] = engine.deplacement_np(Position_np[i])
-     # position_np=([0)0, 1)t0,2)dt,3)option,4)valeur,5)y0,6)x0,7)voile,8)twa,9)cap,10)speed,11)stamina,12)soldepeno,13)twd,14)tws,15)voileAuto,16)boost],dtype=torch.float64)'''   
+
+   # NB positions est un np.array
+    positions_affichage= simulateur.positions_pour_affichage( positions) 
+
+    routeprogs2 =[arr.tolist() for arr in positions_affichage]
+    response=make_response(jsonify({'routeprogs2':routeprogs2,'programmations':programmations}))
+    response.headers.add('Access-Control-Allow-Origin', '*')                # Autorise toutes les origines
+
+
+    return response
     
+
+
+
+
+@app.route('/rechercheprogsjaunes', methods=["GET", "POST"])   
+# const url = serveur + "/rechercheprogsjaunes?user_id=" + user_id + "&course=" + course + "&programmations" + programmations+ "&echouage="+echouage
+def rechercheprogsjaunes():
+    user_id    = request.args.get('user_id')                                 # recupere les donnees correspondant a valeur dans le site htmlstrf
+    course     = request.args.get('course')  
+    echouage   = int(request.args.get('echouage'))
+    progsjaunes = request.args.get('programmations') 
     
-        # segments_par_voile=segmenter_par_voile_routage_np(Position_np)
-    # print (Position_np)
-
-
-        
-            
-        routeprogs = Position_np[:,[1,3,4,5,6,7,8,9,10,13,14]]      # ensemble des
-        routeprogs =[arr.tolist() for arr in routeprogs]
-          
-
-        #print ('routeprogs ', routeprogs)  
-        # on transforme en tableau pour la transmission 
-        # impressionpointdep(Position_np)
-
-        
-
-    if "wps" in programmations:
-        tic=time.time()
-        print ('programmations',programmations)
-        progswaypoints=programmations['wps']
-        typeprogs='wps'
-        print('On a affaire a des wps')
-        
-        y0       = Position_np[0, 5]
-        x0       = Position_np[0, 6]
-        tini     = Position_np[0,1]         # issu de la position de depart
-        
-
-        WP=[[round(y0,5),round(x0,5)]]     #Wp du point de depart
-        for elt in progswaypoints:
-            WP.append([elt['lat'],elt['lon']])
-
-        print ('tableau des wp avec le point de depart',WP )
-        capini   = calcul_cap_loxodromique    (WP[0][0], WP[0][1], WP[1][0], WP[1][1])
-        distance = distance_haversine         (WP[0][0], WP[0][1], WP[1][0], WP[1][1])
-        
-        optionini = 0   # pour les waypoints on suit un cap constant 
-        valeurini = capini
-
-        sections = []
-        i = 0
-        idx          = 0  # Index dans Position_np
-        tempsrestant = 1000
-
-       
-        print ('lenWP',len(WP))
-        
-        tic=time.time()
-
-        
-        print()
+    progsjaunes=json.loads(progsjaunes)
+    print ('valeur de echouage = ',echouage) 
+    print ('programmationsjaunes ligne 3187 ')
+    print (progsjaunes)
+    print ('ligne 3189 ',progsjaunes['progs'][0])                      # position initiale 
+    print()
+    print()
+    for i in range (len(progsjaunes['progs'])):
+        print ('ligne 3193', time.strftime(" %d %b %H:%M ",time.localtime(progsjaunes['progs'][i][0])))
     
-        tic=time.time()
-        for j in range(len(WP) - 1):
-            section = { "y0": WP[0][0], "x0": WP[0][1],  "t_start": tini,"twa": Position_np[idx, 8], "cap": Position_np[idx, 9],"stamina": Position_np[idx, 11],  "voile": Position_np[idx, 7],\
-            "soldepeno": Position_np[idx, 12],"twd": Position_np[idx, 13], "tws": Position_np[idx, 14]      }
-        
-            # on initialise le trajet *
-            lat0=WP[j][0]
-            lon0=WP[j][1]
-            lat1=WP[j+1][0]
-            lon1=WP[j+1][1]
-            cap =calcul_cap_loxodromique(lat0, lon0, lat1, lon1)  
-            
-            distanceRestante = distance_haversine(WP[j][0], WP[j][1], WP[j+1][0], WP[j+1][1])        # C est la distance au depart
-            print ('WP depart {}  WP visé {}  ,capini {},distance {}'.format(WP[j],WP[j+1],cap,distanceRestante))
-            Position_np[idx, 3] =0     # option cap pur 
-            Position_np[idx, 4] = cap  # heading vers le nouveau wp
-            Position_np[idx, 2] = 60   # on reinitialise le dt 
-            tempsrestant=1000
+    simulateur                  = Simulation (course, user_id)
+    cache = CarteCache()
 
-            while idx < Position_np.shape[0] - 1:
-                # cap = calcul_cap_loxodromique_tensor(Positionto[idx][5], Positionto[idx][6], WP[j+1][0], WP[j+1][1])
-                # Positionto[idx][4] = cap
-            
-                distWP = distance_haversine(Position_np[idx][5], Position_np[idx][6], WP[j+1][0], WP[j+1][1])
-                speed = Position_np[idx][10]
-            
-                tempsrestant = (distWP / (speed + 1e-6)) * 3600  # évite la division par zéro
-            
-                if tempsrestant < 60:  # On approche du waypoint
-                    print(f'tempsrestant {tempsrestant:.1f}s, distance au WP {distWP:.3f} NM, vitesse {speed:.2f} kn')                    
-                    Position_np[idx, 2] = tempsrestant  # ajuste dt AVANT le dernier déplacement
-                    Position_np[idx + 1] = engine.deplacement_np(Position_np[idx])
-                    Position_np[idx + 1][2] =60
-                    print ('Position du WP suivant ', lat1,' ', lon1)
-                    Position_np[idx + 1][5] =lat1
-                    Position_np[idx + 1][6] =lon1
-                    # on va forcer la position 
-                    idx += 1
-                    break  # on termine ce tronçon 5 et  6 , si il y a changement de voile la derniere position n 'est pas bonne 
-                else:
-                    Position_np[idx, 2] = 60  # sinon, dt standard
-                    Position_np[idx + 1] = engine.deplacement_np(Position_np[idx])
-                    idx += 1
-            section.update({
-                "y1": Position_np[idx, 5],
-                "x1": Position_np[idx, 6],
-                "t_end": Position_np[idx, 1],
-                "stam_end": Position_np[idx, 11],
-                "voile_end": Position_np[idx, 7],
-                "peno_end": Position_np[idx, 12],
-                "twd_end": Position_np[idx, 13],
-                "tws_end": Position_np[idx, 14],
-                "twa_end": Position_np[idx, 8],
-                "duree": Position_np[idx, 1] - section["t_start"]
-            })
-            
-            sections.append(section)
+    if "progs" in progsjaunes:
+        print ('\nOn est dans le cas de programmations\n')
+        print ('programmationsjaunes ',progsjaunes )
+        if progsjaunes['progs'][0][1]==1 :   # on est dans l option twa 
+            simulateur.posDepart [1]=1
+            simulateur.posDepart [2]=progsjaunes['progs'][0][2]                   # la valeur de la twa est la valeur de la 2eme prog
+
+        positions                   = simulateur.trajectoire_24h( simulateur.posDepart, progsjaunes, duree_h=24)
 
 
-        Position_np=Position_np[Position_np[:, 0] != 0] 
-        routeprogs = Position_np[:,[1,3,4,5,6,7,8,9,10,13,14]] 
-        routeprogs =[arr.tolist() for arr in routeprogs]
-        # print('temps de calcul des programmations',time.time()-tic)
+    if echouage==1:
+        y0  =  positions[0,4]
+        x0  =  positions[0,5]
+        carte =  get_carte3(y0,x0)
+        masque          = cache.get_masque_carte(y0, x0, get_carte3)
+        touche          = cache.segments_touchent_masque(positions, masque, y0, x0)
+        indices_croises = cache.indices_intersections_route(  positions, carte,touche, marge=0.1)
+        positions[indices_croises + 1, 21] = 1
+  
+    positions_affichage= simulateur.positions_pour_affichage( positions)           # NB positions est un np.array
 
-        # impressionpointdep(Position_np)
-
-
-
-    polyline=[]
-    timestamp= int(time.time() )
-   
-    #print ({'polyline':polyline,'origine':origine,'date':date, 'routeprogs':routeprogs,  'timestamp':timestamp,'typeprogs' :typeprogs, 'programmations':programmations,'sections':sections})
-
-    response=make_response(jsonify({'polyline':polyline,'origine':origine,'date':date, 'routeprogs':routeprogs,  'timestamp':timestamp,'typeprogs' :typeprogs, 'programmations':programmations,'sections':sections}))
+    routeprogs2 =[arr.tolist() for arr in positions_affichage]
+    response=make_response(jsonify({'routeprogs2':routeprogs2,'programmations':progsjaunes}))
     response.headers.add('Access-Control-Allow-Origin', '*')                # Autorise toutes les origines
     return response
+
+
+
+
+
+
+
+
+
+# @app.route('/rechercheprogsvr', methods=["GET", "POST"])
+# def rechercheprogsvr():
+#     # print()
+#     cache = CarteCache()
+#     print ('On est dans rechercheprogsvr suite à la demande de rafraichissement generee par boataction ')
+#     user_id    = request.args.get('user_id')                                 # recupere les donnees correspondant a valeur dans le site htmlstrf
+#     course     = request.args.get('course')                                  # recupere les donnees correspondant a valeur dans le site
+#     #t0routage      = int(float(request.args.get('t0routage')))
+#     isMe='yes'
+#     ari=['WP1']   # ne sert a rien dans le cas present mais est necessaire pour que ari soit defini
+
+#     session         = RoutageSession(course, user_id,isMe,ari)        # permet de recuperer les polaires et autres 
+
+#     positionvr      = session.positionvr
+#     boatinfos       = session.boatinfos
+#     positionvr_np   = positionvr.detach().cpu().numpy()
+#     try:
+#         lastCalcDateBI= int(boatinfos['bs']['lastCalcDate']/1000)
+#     except:
+#         lastCalcDateBI=time.time()
+
+#     #print ('boatinfos dans rechercheprogsvr\n ',boatinfos)
+
+#     date,origine,programmations = extraitprogrammations (boatinfos,user_id,course)      # va chercher dans la table 
+
+#     #  print  ('lastCalcDateBA',time.strftime(" %d %b %H:%M ",time.localtime(lastCalcDateBA)),lastCalcDateBA)
+#     # print  ('lastCalcDateBI',time.strftime(" %d %b %H:%M ",time.localtime(lastCalcDateBI)),lastCalcDateBI)
+    
+
+#     print('\n****************************************************************************************************************************************************************')
+#     print ('Programmations retenues heure Boatinfos {} BAction  :{}  ,origine : {} ,programmations {}\n'.format(time.strftime(" %d %b %H:%M ",time.localtime(lastCalcDateBI)),time.strftime(" %d %b %H:%M ",time.localtime(date)),origine,programmations))
+#     print('******************************************************************************************************************************************************************')
+
+#     Position_np =np.zeros((24*60,17),dtype=np.float64)   
+#     Position_np[0]=positionvr_np
+
+         
+#     print()
+    
+#     t0=float(Position_np[0,1])  
+#     dtig=t0-tigGFS  
+#     twdcalc=float(Position_np[0,13])
+#     twscalc=float(Position_np[0,14])
+
+#     print ('Dand deplacement engine Point de depart ')
+#     print ('fileName',fileName)
+#     print ('ligne 3081 t0 du depart',time.strftime(" %d %b %Y %H:%M ",time.localtime(t0)) )
+#     print ('tigGFS       UTC     ', time.strftime(" %d %b %Y %H:%M ",time.gmtime(tigGFS)))
+#     print ('dtig en h              {:6.3f}  en indice {:6.3f}'.format( dtig/3600 ,dtig/3600/3))
+#     print ('ligne 3236 twdcalcnp {:6.3f}  twscalcnp {:6.3f} '.format(twdcalc,twscalc))
+#     print ('\n***************************************************')
+
+
+#     # donneesCourse    = rechercheDonneesCourseCache(course)
+    
+#     engine = DeplacementEngine(course)      # c'est la classe qui calcule les deplacements 
+#     sections = []
+
+#     if "progs" in programmations:
+#         typeprogs='progs'
+#         print('On a affaire a des programmations')
+#         tic=time.time()
+#         prog0=programmations['progs']
+#         prog1 = copy.deepcopy(prog0)
+#         applied_prog = [False] * len(prog1)
+        
+#         Position_np[0, 3] = prog1[0][1]
+#         Position_np[0, 4] = prog1[0][2]
+
+#         applied_prog = [False] * len(prog1)
+
+#         tic =time.time()
+       
+#         for i in range(len(Position_np) - 1):
+#             t = Position_np[i, 1]  # temps courant            
+#             for j in range(len(prog1)):
+#                 if not applied_prog[j] and t >= prog1[j][0]:
+#                     Position_np[i, 3] = prog1[j][1]  # option
+#                     Position_np[i, 4] = prog1[j][2]  # valeur
+#                     applied_prog[j] = True          # marquer comme appliquée
+
+           
+#             Position_np[i + 1] = engine.deplacement_np(Position_np[i])
+#      # position_np=([0)0, 1)t0,2)dt,3)option,4)valeur,5)y0,6)x0,7)voile,8)twa,9)cap,10)speed,11)stamina,12)soldepeno,13)twd,14)tws,15)voileAuto,16)boost],dtype=torch.float64)'''   
+    
+   
+            
+#         routeprogs = Position_np[:,[1,3,4,5,6,7,8,9,10,13,14]]      # ensemble des positions 
+#         routeprogs =[arr.tolist() for arr in routeprogs]
+          
+
+#         #print ('routeprogs ', routeprogs)  
+#         # on transforme en tableau pour la transmission 
+#         # impressionpointdep(Position_np)
+
+        
+
+#     if "wps" in programmations:
+#         tic=time.time()
+#         print ('programmations',programmations)
+#         progswaypoints=programmations['wps']
+#         typeprogs='wps'
+#         print('On a affaire a des wps')
+        
+#         y0       = Position_np[0, 5]
+#         x0       = Position_np[0, 6]
+#         tini     = Position_np[0,1]         # issu de la position de depart
+        
+
+#         WP=[[round(y0,5),round(x0,5)]]     #Wp du point de depart
+#         for elt in progswaypoints:
+#             WP.append([elt['lat'],elt['lon']])
+
+#         print ('tableau des wp avec le point de depart',WP )
+#         capini   = calcul_cap_loxodromique    (WP[0][0], WP[0][1], WP[1][0], WP[1][1])
+#         distance = distance_haversine         (WP[0][0], WP[0][1], WP[1][0], WP[1][1])
+        
+#         optionini = 0   # pour les waypoints on suit un cap constant 
+#         valeurini = capini
+
+#         sections = []
+#         i = 0
+#         idx          = 0  # Index dans Position_np
+#         tempsrestant = 1000
+
+       
+#         print ('lenWP',len(WP))
+        
+#         tic=time.time()
+
+        
+#         print()
+    
+#         tic=time.time()
+#         for j in range(len(WP) - 1):
+#             section = { "y0": WP[0][0], "x0": WP[0][1],  "t_start": tini,"twa": Position_np[idx, 8], "cap": Position_np[idx, 9],"stamina": Position_np[idx, 11],  "voile": Position_np[idx, 7],\
+#             "soldepeno": Position_np[idx, 12],"twd": Position_np[idx, 13], "tws": Position_np[idx, 14]      }
+        
+#             # on initialise le trajet *
+#             lat0=WP[j][0]
+#             lon0=WP[j][1]
+#             lat1=WP[j+1][0]
+#             lon1=WP[j+1][1]
+#             cap =calcul_cap_loxodromique(lat0, lon0, lat1, lon1)  
+            
+#             distanceRestante = distance_haversine(WP[j][0], WP[j][1], WP[j+1][0], WP[j+1][1])        # C est la distance au depart
+#             print ('WP depart {}  WP visé {}  ,capini {},distance {}'.format(WP[j],WP[j+1],cap,distanceRestante))
+#             Position_np[idx, 3] =0     # option cap pur 
+#             Position_np[idx, 4] = cap  # heading vers le nouveau wp
+#             Position_np[idx, 2] = 60   # on reinitialise le dt 
+#             tempsrestant=1000
+
+#             while idx < Position_np.shape[0] - 1:
+#                 # cap = calcul_cap_loxodromique_tensor(Positionto[idx][5], Positionto[idx][6], WP[j+1][0], WP[j+1][1])
+#                 # Positionto[idx][4] = cap
+            
+#                 distWP = distance_haversine(Position_np[idx][5], Position_np[idx][6], WP[j+1][0], WP[j+1][1])
+#                 speed = Position_np[idx][10]
+            
+#                 tempsrestant = (distWP / (speed + 1e-6)) * 3600  # évite la division par zéro
+            
+#                 if tempsrestant < 60:  # On approche du waypoint
+#                     print(f'tempsrestant {tempsrestant:.1f}s, distance au WP {distWP:.3f} NM, vitesse {speed:.2f} kn')                    
+#                     Position_np[idx, 2] = tempsrestant  # ajuste dt AVANT le dernier déplacement
+#                     Position_np[idx + 1] = engine.deplacement_np(Position_np[idx])
+#                     Position_np[idx + 1][2] =60
+#                     print ('Position du WP suivant ', lat1,' ', lon1)
+#                     Position_np[idx + 1][5] =lat1
+#                     Position_np[idx + 1][6] =lon1
+#                     # on va forcer la position 
+#                     idx += 1
+#                     break  # on termine ce tronçon 5 et  6 , si il y a changement de voile la derniere position n 'est pas bonne 
+#                 else:
+#                     Position_np[idx, 2] = 60  # sinon, dt standard
+#                     Position_np[idx + 1] = engine.deplacement_np(Position_np[idx])
+#                     idx += 1
+#             section.update({
+#                 "y1": Position_np[idx, 5],
+#                 "x1": Position_np[idx, 6],
+#                 "t_end": Position_np[idx, 1],
+#                 "stam_end": Position_np[idx, 11],
+#                 "voile_end": Position_np[idx, 7],
+#                 "peno_end": Position_np[idx, 12],
+#                 "twd_end": Position_np[idx, 13],
+#                 "tws_end": Position_np[idx, 14],
+#                 "twa_end": Position_np[idx, 8],
+#                 "duree": Position_np[idx, 1] - section["t_start"]
+#             })
+            
+#             sections.append(section)
+
+
+#         Position_np=Position_np[Position_np[:, 0] != 0] 
+#         routeprogs = Position_np[:,[1,3,4,5,6,7,8,9,10,13,14]] 
+#         routeprogs =[arr.tolist() for arr in routeprogs]
+#         # print('temps de calcul des programmations',time.time()-tic)
+
+#         # impressionpointdep(Position_np)
+
+
+
+#     polyline=[]
+#     timestamp= int(time.time() )
+   
+#     #print ({'polyline':polyline,'origine':origine,'date':date, 'routeprogs':routeprogs,  'timestamp':timestamp,'typeprogs' :typeprogs, 'programmations':programmations,'sections':sections})
+
+#     response=make_response(jsonify({'polyline':polyline,'origine':origine,'date':date, 'routeprogs':routeprogs,  'timestamp':timestamp,'typeprogs' :typeprogs, 'programmations':programmations,'sections':sections}))
+#     response.headers.add('Access-Control-Allow-Origin', '*')                # Autorise toutes les origines
+#     return response
 
 
 
@@ -3406,6 +3167,8 @@ def rechercheprogsvr():
 @app.route('/recherchevoiles', methods=["GET", "POST"])
 def recherchevoiles():
     # recupere la meteo sur le point les vmg et les recouvrements  
+
+
     y0vr     = float(request.args.get('y0'))
     x0vr     = float(request.args.get('x0'))
     try:
@@ -3419,11 +3182,8 @@ def recherchevoiles():
 
     twa10        = abs(round(twa*10))
     tws10        = int(round(tws*10))
-
-    dtig=t0vr-tigGFS
-    twscalcnp,twdcalcnp=gfs_interpolateur_np(dtig,y0vr,x0vr)
-    twscalc=float(twscalcnp[0])
-    twdcalc=float(twdcalcnp[0])
+    dtig         = t0vr-tigGFS
+    twscalc,twdcalc=gfs_interpolateur_np(dtig,y0vr,x0vr)
     
     filenamelocal2='vmg10_'+str(polar_id)+'.npy'
     filename2=basedirnpy+filenamelocal2
@@ -3490,36 +3250,6 @@ def windybase():
 
 
 
-
-
-
-
-# @app.route("/index", methods=["GET", "POST"])
-# def index():
-#     '''SErt uniquement a donner les indications de base a index '''
-
-#     client     = request.remote_addr
-#     host       = request.host
-#     origine    = request.url_root
-#     print()
-#     print('Client {} host {} origin {}'.format(client,host,origine))
-
-#     try : 
-#         #si l origine de la demande est le dash il y a une source de definie et une posStart 
-#                                                                                                    # pour l instant ne sert a rien
-#         source                  = request.args.get('source')      
-#         posStart                = request.args.get('posStart')  
-#         posStart                = json.loads(posStart)
-#         print('sail : ',posStart['sail'])
-    
-#     except:
-#         #print ('Pas de reception de valeurs par le dash  on indique que la source est "direct" \n')
-#         source='direct'
-#         posStart={"username": 'Takron-BSP','source':source}
-#         print('\nDemande accès direct au site par : ',origine)
-#         #print ('\nLigne 1808  Demande de routage direct sans transmission par l URL\n source : {} \n posStart :{}   \n '.format(source,posStart))
-
-#     return render_template("index.html",origine=origine,source=source,posStart=posStart)
 
 
 
@@ -3687,7 +3417,9 @@ def ajaxmessage():
 
                 # envoi de l info de la reception par websocket à user_id  
                 envoi = {'Reception':typeinfos ,'course':course} 
-                send_update_to_client( user_id, envoi)          # user_id est l identifiant et envoi les valeurs                      
+                send_update_to_client( user_id, envoi)          # user_id est l identifiant et envoi les valeurs 
+                print('****************************************************************************************************************') 
+                print ('une demande d update suite à boatinfos a ete envoyée pour user id {} et course {}'.format (user_id,course))                     
                 print('****************************************************************************************************************')  
                 print()
                 
@@ -3705,80 +3437,130 @@ def ajaxmessage():
                 #print ("Ligne 3024 message['boatActions']")
                 print (boatActions)
                 print()
-
-                try:           
-                    user_id     = boatActions[0]['_id']['user_id']
-                    race        = boatActions[0]['_id']['race_id']
-                    leg         = boatActions[0]['_id']['leg_num']
-                    course      = str(race)+'.'+str(leg)
-                    timestamp   = boatActions[0]['_id']['ts']/1000  # c'est l heure de depart de la course ne doit pas servir de reference pour l enregistrement 
-                    # timestamp   = time.time()           
-                    timestamp =time.time()
+                user_id     = boatActions[0]['_id']['user_id']
+                race        = boatActions[0]['_id']['race_id']
+                leg         = boatActions[0]['_id']['leg_num']
+                course      = str(race)+'.'+str(leg)
+                timestamp   = boatActions[0]['_id']['ts']/1000  # c'est l heure de depart de la course ne doit pas servir de reference pour l enregistrement 
+                # timestamp   = time.time()           
+                #timestamp =time.time()
 
 
-                    if (any(item.get('_id', {}).get('action') == 'heading' for item in boatActions)) :
-                        # print ('Programmation detectee dans boat action')
-                        progs = [item for item in boatActions if item.get('_id', {}).get('action') == 'heading']                                       
-                        progsx= condenseprogs( progs)                                                             # Ce ne sont que les elements de boataction et ca ne reprend pas l etat actuel
-                        print (progsx)                    
+
+
+
+                # try :
                         
-                        
-                        timestamp = datetime.now(timezone.utc)
-                       # timestamp=int(time.time())
-                        print ('heure d enregistrement',timestamp )    
-                        progsx=json.dumps({"progs": progsx } ) 
-                       
+                  
+
+                #     # On va enregistrer betement dans boatactions 
+
+                #     if any(  isinstance(item, dict)    and item.get('_id', {}).get('action') in ('heading', 'wp')   for item in boatActions):   
+                #         print()
+                #         print ('ligne 3601 enregistrement de action')   
+                #         print ('user_id',user_id)   
+                #         print ('course',course)
+                #         print ('message',json.dumps(message))            
+                #         print()        
+                #         timestamp   = time.time()            
+                #         donnees=(timestamp,user_id,course,json.dumps(message)  )
+                #         cursor.execute( """INSERT INTO boatactions ("timestamp",  user_id, course, boatactions)   VALUES (%s, %s, %s, %s)""",donnees  )      
+                #         conn.commit() 
+
+                #         # envoi de l info de la reception par websocket à user_id  
+                #         envoi = {'Reception':typeinfos ,'course':course} 
+                #         send_update_to_client( user_id, envoi)          # user_id est l identifiant et envoi les valeurs                      
+                #         print('****************************************************************************************************************')  
+                #         print()
                     
-                        cursor.execute(""" INSERT INTO progsvr (user_id, course, timestamp, progsvr)  VALUES (%s, %s, %s, %s)""", (user_id, course, timestamp,json.dumps(progsx)))
-                        conn.commit()
+                #     # debuggage
+                #     #on va verifier la recuperation
+                #     timestamp,result= rechercheTableBoatActions(user_id,course)
+                #     boatActions=json.loads(result)
+                #     print()
+                #     print ('Verification enregistrement boatActions \n',boatActions)
+                #     # try:                                                     # erreur si la course n est pas partie 
+                #     #     tini=boatActions['bs']['lastCalcDate']/1000
+                #     # except:
+                #     #     tini=time.time()     
+                #     # print ('\n Heure du  boatinfos enregistré ',time.strftime(" %d %b %Y %H:%M ",time.localtime(tini)))
+                #     # on va recuperer boatinfos dans la bas epour voir si c'est bien enregistré
+                #     # print ('ligne 936 Verification de l enregistrement boatinfos  \n ', boatInfos )
+                #     # print()  
 
-                        # #On va verifier que l enregistrement est bon 
-                        timestamp,progstable  = rechercheTableProgsvr(user_id,course)
-                        print ('ligne 3061 progstable ', progstable)
-                        if progstable==progsx:
-                            print ('\nl enregistrement des programmations est correct\n********************************************')
-                        else:
-                            print ('\n l enregistrement est incorrect \n********************************************')   
-
-
-                    if (any(item.get('_id', {}).get('action') == 'wp' for item in boatActions)):
-
-                        print ('Programmation par WP  detectee dans boat action')
-                        #print ('t0 ',time.strftime(" %d %b %H:%M %S",time.localtime(tiso.item())))
-                        waypointsvr=boatActions[0]['pos']
-                        print ('waypointsvr',waypointsvr)
-                        # on va enregistrer les waypoints dans la base
-                        strwaypointsvr=json.dumps({"wps":waypointsvr})
-                        timestamp = datetime.now(timezone.utc)
-                        print ()
-                        print('test des valeurs avant enregistrement  ',user_id,course,timestamp,strwaypointsvr)
-                        print ('strwaypointsvr',strwaypointsvr)
-                        print ()  
-                        cursor.execute("""INSERT INTO progsvr (user_id,course,timestamp,progsvr ) VALUES (%s,%s,%s,%s)""", (user_id,course,timestamp,json.dumps(strwaypointsvr)))
-                        conn.commit()
+                # except:
+                #     print ('PROBLEME ENREGISTREMENT DE BOATACTIONS DANS LA BASE\n**********************************************************')    
 
 
-                        # #On va verifier que l enregistrement est bon 
-                        timestamp,progstable  = rechercheTableProgsvr(user_id,course)
-                        print('progstable ',progstable)
-
-                        if progstable==strwaypointsvr:
-                            print ('\nl enregistrement  des waypoints est correct\n********************************************')
-
-                        else:
-                            print ('\n l enregistrement des waypoints est incorrect \n********************************************')  
 
 
-                        # print ('\n\nLes Waypoints de {}  pour la course {}  ont ete enregistrees  dans la base progsvr à {}\n '.format(user_id ,course,time.strftime(" %d %b %Hh %Mmn ", time.localtime(timestamp))))
-                        # print('******************************************************************************************')
-                        # print ('Verification des programmations enregistrees  dans la base le {}  pour {}  sur la course {} {} '.format(time.strftime(" %d %b %Hh %Mmn ", time.localtime(timestamp)),user_id,course,strwaypointsvr))
-                        # print()
-                    envoi = {'Reception':typeinfos ,'course':course}
-                    print ('tentative d envoi au client   ',user_id ,'  envoi ' ,envoi )
-                    send_update_to_client( user_id, envoi)         # envoi par websocket de l info que l on a recu une actualisation  de boatActions 
-                        
-                except:
-                    print ('On est dans le except de boatactions')
+
+                # ancienne demarche meilleure, on evite les enregistrements parasites 
+
+                # try :
+                if (any(item.get('_id', {}).get('action') == 'heading' for item in boatActions)) :
+                    # print ('Programmation detectee dans boat action')
+                    progs = [item for item in boatActions if item.get('_id', {}).get('action') == 'heading']                                       
+                    progsx= condenseprogs( progs)                                                             # Ce ne sont que les elements de boataction et ca ne reprend pas l etat actuel
+                    print (progsx)                   
+                    
+                    
+                    timestamp = datetime.now(timezone.utc)
+                    # timestamp=int(time.time())
+                    print ('heure d enregistrement',timestamp )    
+                    progsx=json.dumps({"progs": progsx } ) 
+                    
+                
+                    cursor.execute(""" INSERT INTO progsvr (user_id, course, timestamp, progsvr)  VALUES (%s, %s, %s, %s)""", (user_id, course, timestamp,json.dumps(progsx)))
+                    conn.commit()
+
+                    # #On va verifier que l enregistrement est bon 
+                    timestamp,progstable  = rechercheTableProgsvr(user_id,course)
+                    print ('ligne 3061 progstable ', progstable)
+                    if progstable==progsx:
+                        print ('\nl enregistrement des programmations est correct\n********************************************')
+                    else:
+                        print ('\n l enregistrement est incorrect \n********************************************')   
+
+
+                if (any(item.get('_id', {}).get('action') == 'wp' for item in boatActions)):
+
+                    print ('Programmation par WP  detectee dans boat action')
+                    #print ('t0 ',time.strftime(" %d %b %H:%M %S",time.localtime(tiso.item())))
+                    waypointsvr=boatActions[0]['pos']
+                    print ('waypointsvr',waypointsvr)
+                    # on va enregistrer les waypoints dans la base
+                    strwaypointsvr=json.dumps({"wps":waypointsvr})
+                    timestamp = datetime.now(timezone.utc)
+                    print ()
+                    print('test des valeurs avant enregistrement  ',user_id,course,timestamp,strwaypointsvr)
+                    print ('strwaypointsvr',strwaypointsvr)
+                    print ()  
+                    cursor.execute("""INSERT INTO progsvr (user_id,course,timestamp,progsvr ) VALUES (%s,%s,%s,%s)""", (user_id,course,timestamp,json.dumps(strwaypointsvr)))
+                    conn.commit()
+
+
+                    # #On va verifier que l enregistrement est bon 
+                    timestamp,progstable  = rechercheTableProgsvr(user_id,course)
+                    print('progstable ',progstable)
+
+                    if progstable==strwaypointsvr:
+                        print ('\nl enregistrement  des waypoints est correct\n********************************************')
+
+                    else:
+                        print ('\n l enregistrement des waypoints est incorrect \n********************************************')  
+
+
+                    # print ('\n\nLes Waypoints de {}  pour la course {}  ont ete enregistrees  dans la base progsvr à {}\n '.format(user_id ,course,time.strftime(" %d %b %Hh %Mmn ", time.localtime(timestamp))))
+                    # print('******************************************************************************************')
+                    # print ('Verification des programmations enregistrees  dans la base le {}  pour {}  sur la course {} {} '.format(time.strftime(" %d %b %Hh %Mmn ", time.localtime(timestamp)),user_id,course,strwaypointsvr))
+                    # print()
+                envoi = {'Reception':typeinfos ,'course':course}
+                print ('tentative d envoi au client   ',user_id ,'  envoi ' ,envoi )
+                send_update_to_client( user_id, envoi)         # envoi par websocket de l info que l on a recu une actualisation  de boatActions 
+                    
+                # except:
+                #     print ('On est dans le except de boatactions')
                 
 
 
@@ -3960,264 +3742,36 @@ def gestionlocalstorage():
 
 
 ###############################################################################
-########### Fonctions de routage                       ########################
+########### Fonctions de routage  et Classes           ########################
 ###############################################################################
+# Classe routageSession
+# Classe Simulation
+# Classe CarteCache 
 
-def lissagepoints_dt_twa(tabpoints, tabtwa, tabdt):
-    tabres = np.copy(tabpoints)
 
-    # --- 1. Ruptures de signe du TWA ---
-    pos_twa = np.where(tabtwa[:-1] * tabtwa[1:] < 0)[0] + 1
-    # print ( 'rupture twa ',pos_twa)
+class RoutageSession:                                                  # version avec nouvel algorithme
+
     
-    # --- 2. Ruptures de pas de temps ---
-    diffs = np.diff(tabdt)
-    pos_dt = np.where(np.diff(diffs) != 0)[0] + 1
-    # print ( 'rupture rythme ',pos_dt)
-    # --- 3. Fusion et bornes ---
-    pos_all = np.unique(np.concatenate(([0], pos_twa, pos_dt, [len(tabpoints)-1])))
-    # print ( 'rupture twa ou rythme',pos_all)
-
-    # --- 4. Lissage tronçon par tronçon ---
-    for i in range(len(pos_all) - 1):
-        i0, i1 = pos_all[i], pos_all[i+1]
-        segment = tabpoints[i0:i1+1]
-
-        if len(segment) > 6:
-            y = segment[:, 0]
-            x = segment[:, 1]
-            Y = savgol_filter(y, 5, 2, mode='nearest')
-            X = savgol_filter(x, 5, 2, mode='nearest')
-        else:
-            Y = segment[:, 0]
-            X = segment[:, 1]
-
-        # On conserve les extrémités intactes
-        tabres[i0+1:i1, 0] = Y[1:-1]
-        tabres[i0+1:i1, 1] = X[1:-1]
-
-    return tabres
-
-
-
-
-
-
-def calcul_caps(tabpoints):
-    """
-    tabpoints : ndarray de forme (N, 2)  -> [ [lat1, lon1], [lat2, lon2], ... ]
-    Retourne un tableau (N,) des caps (azimuts) en degrés [0..360), 
-    la dernière valeur étant 0.
-    """
-    lat = np.radians(tabpoints[:, 0])
-    lon = np.radians(tabpoints[:, 1])
-
-    # Différences successives
-    dlon = lon[1:] - lon[:-1]
-
-    # Formule de cap initial (azimut) sur sphère
-    x = np.sin(dlon) * np.cos(lat[1:])
-    y = np.cos(lat[:-1]) * np.sin(lat[1:]) - np.sin(lat[:-1]) * np.cos(lat[1:]) * np.cos(dlon)
-
-    caps = np.degrees(np.arctan2(x, y)) % 360
-
-    # Même dimension : on ajoute une valeur finale à 0
-    caps = np.append(caps, 0.0)
-
-    return caps
-
-
-def lissage(course,routage_np,t0,posStartVR,posStart):
-    tabpoints       = routage_np[:,[2,3]]
-    tabtwa          = routage_np[:,5]
-    tabdt           = routage_np[:,1]
-    tabpointslisses = lissagepoints_dt_twa(tabpoints, tabtwa, tabdt)
-    tabpointslisses = lissagepoints_dt_twa(tabpointslisses, tabtwa, tabdt)   # on fait 2 lissages successifs
-    caps            = calcul_caps(tabpointslisses)
-    
-    
-    #initialisation de engine pour avoir les differentes valeurs 
-     
-    deplacement=DeplacementEngine(course)
-    polairesglobales10=deplacement.polaires_np
-    tabvmg10           = deplacement.tabvmg
-    
-    routagelisse            = np.zeros_like(routage_np)
-    routagelisse[:,[0,1,4]] = routage_np[:,[0,1,4]]
-    routagelisse[:,[2,3]]   = tabpointslisses
-    routagelisse[:,6]       = caps
-    routagelisse[:,8]       = tabtwa
-    dtig                    = t0+routagelisse[:,1]-tigGFS
-
-    Tws,Twd                 = gfs_interpolateur_np(dtig , routagelisse[:,2],routagelisse[:,3])     # calcul de tws et twd 
-    routagelisse[:,12]      = Tws 
-    routagelisse[:,13]      = Twd
-    Twa                     = np.round(ftwao(routagelisse[:,6],routagelisse[:,13]))                # twa=ftwao(cap,twd
-    routagelisse[:,5]       = Twa
-    
-    # on va recalculer les differents autres elements 0
-    lenroutage        = len (routagelisse)
-    tws10             = np.rint(Tws*10).astype(int)
-    twa10             = np.abs(np.rint(Twa*10)).astype(int)
-                                                            # on calcule vmgmin et max a partir de tws et twd 
-    routagelisse[:,7] = tabvmg10[tws10,2]
-    routagelisse[:,8] = tabvmg10[tws10,4]
-    
-    meilleureVitesse  = polairesglobales10[7  ,  tws10, twa10]                                          # vitesse meilleure voile[voileini,tws10,twa10]
-    routagelisse[:,9] = meilleureVitesse   
-    meilleureVoile    = polairesglobales10[8,  tws10, twa10] 
-    
-    
-    
-    for i in range (0,lenroutage):
-        twsi = Tws[i]
-        if i==0:
-            voileini    = posStartVR['voile']%10
-            stamina_ini = posStart['stamina']
-            twaini      = posStart['twa'] 
-            dt_ini    = 60
-            solde_peno  =  posStart['penovr']
-            dt_it       = 0
-
-        else:    
-            voileini    =int(routagelisse[i-1,10]) 
-            stamina_ini  = routagelisse[i-1,14]
-            twaini      = routagelisse[i-1,5]
-            dt_ini      = routagelisse[i-1,1]
-            dt_it       =  routagelisse[i,1] -dt_ini 
-            
-        Tgybe  = ((routagelisse[i,5]*twaini)<0)*1      
-        vitessevoileini=polairesglobales10[voileini,  tws10[i], twa10[i]]
-        boost  =  routagelisse[i,9]/(vitessevoileini +0.0001)
-       
-        routagelisse[i,11]=boost
-        if boost >1.014:
-            routagelisse[i,10]=meilleureVoile[i]
-            Chgt=1                                   #Changement de voile 
-          
-        else:
-            routagelisse[i,10]=voileini
-            Chgt=0
-            
-        # on va calculer les penalites et les changements de stamina
-        Cstamina        = 2 - 0.015 * stamina_ini  
-        furler=0.8
-                                                                         # coefficient de stamina en fonction de la staminaini
-        #peno_chgt       = Chgt * spline(deplacement.lw, deplacement.hw, deplacement.lwtimer, deplacement.hwtimer, twsi) * deplacement.MF * Cstamina
-        peno_chgt       =  Chgt *peno_np(deplacement.lwtimer, deplacement.hwtimer, twsi, stamina_ini)*furler        # peno en temps 
-        peno_gybe       = Tgybe * peno_np(deplacement.lwtimerGybe, deplacement.hwtimerGybe, twsi, stamina_ini)
-
-        perte_stamina   = calc_perte_stamina_np(twsi, Tgybe, Chgt, deplacement.coeffboat)
-        recup           = frecupstamina_np(dt_it, twsi)
-        stamina         = min((stamina_ini - perte_stamina + recup),100)
-       
-        solde_peno       = max((solde_peno-dt_it),0)         # la trajectoire a ete calculee en debut d ite avec la peno complete maintenant on retire dt puis on rajoute les nouvelles penos 
-        solde_peno1      = max((solde_peno+peno_chgt+peno_gybe ),0) 
-        
-         
-        if i==0:
-            solde_peno1= posStart['penovr']
-            stamina    = posStart['stamina']
-            
-       
-
-        routagelisse[i,14]= stamina
-        routagelisse[i,15]=solde_peno1
-    
-    return routagelisse
-
-
-
-
-
-
-
-
-
-def reconstruire_chemin_rapide(isoglobal: torch.Tensor, nptmini: int) -> torch.Tensor:
-    """
-    Reconstruit le chemin depuis le point d’ID nptmini jusqu’au point d’ID 0 (inclus).
-    """
-    # Création des dictionnaires pour remonter efficacement
-    point_ids = isoglobal[:, 1].to(torch.int32).tolist()
-    parent_ids = isoglobal[:, 2].to(torch.int32).tolist()
-    dico_parents = dict(zip(point_ids, parent_ids))
-    dico_index = {pid: idx for idx, pid in enumerate(point_ids)}
-
-    chemin_indices = []
-    pt = nptmini
-
-    while True:
-        idx = dico_index.get(pt)
-        if idx is None:
-            raise ValueError(f"Point {pt} introuvable dans isoglobal")
-        chemin_indices.append(idx)
-        if pt == 0:
-            break
-        pt = dico_parents.get(pt, 0)
-
-    chemin_indices.reverse()
-    return isoglobal[chemin_indices]
-
-
-
-
-
-
-
-def pointfinalToPosEnd(pointfinal):
-    # pointfinal          = torch.tensor ([[numisoini,npt,nptmere,ydep,xdep,voiledep,twadep,staminadep,soldepenodep,twsdep,twddep,capdep,60,0,0,0,vitdep,0,boostdep,0]], dtype=torch.float32, device='cuda')  
-    numisoini    =int( pointfinal[0].item())
-    npt          = int(pointfinal[1].item())
-    nptmere      = int(pointfinal[2].item())
-    y0           = pointfinal[3].item()
-    x0           = pointfinal[4].item()
-    voile        = pointfinal[5].item()
-    twa          = pointfinal[6].item()
-    stamina      = pointfinal[7].item()
-    soldepeno    = pointfinal[8].item()
-    tws          = pointfinal[9].item()
-    twd          = pointfinal[10].item()
-    cap          = pointfinal[11].item()
-    ecartTemps   = pointfinal[12].item()
-    vitesse      = pointfinal[16].item()
-    boost        = pointfinal[18].item()
-    voileAuto    = True
-    
-    posEnd={'numisoini':numisoini,'npt':npt,'nptmere':nptmere,'nptini':npt,'tws':tws,'twd':twd,'twa':twa,'twaAuto':twa,'y0':y0,'x0':x0,\
-          'ecart':ecartTemps,'heading':cap,'speed':vitesse,'voile':voile ,'voileAuto':voileAuto,'stamina':stamina,'penovr':soldepeno,'boost':boost}
-    return posEnd
-
-
-
-
-
-class RoutageSession:                                                  # version au 8 aout
-
-
-    def __init__(self, course, user_id,isMe,ari):
+    def __init__(self, course, user_id, isMe ,ari):
         tic=time.time()
-        
+        self.device='cuda'
+        self.dtype=torch.float32
         # Initialisation globale
         ########################
         self.n3=512
-        self.isoglobal=torch.zeros((1200*self.n3,15), device='cuda', dtype=torch.float32)    # isoglobal est destiné a recevoir 850 isochrones avec leurs 512 points  
-        
-        # print ('course',course)
-        # print ('user_id',user_id)        
-        
-        self.course  = course
-        self.user_id = user_id
-        self.ari     = ari
-  
+        self.isoglobal = torch.zeros((1200*self.n3,12), device= self.device, dtype=self.dtype)    # isoglobal est destiné a recevoir 850 isochrones avec leurs 512 points     
+        self.kglobal   = 1
+        self.next_npt = 1
+        self.isoglobal_meta = []        
+        self.course    = course
+        self.user_id   = user_id
+        self.ari       = ari
         
         # Chargement des données
         DonneesCourse1                                                      = rechercheDonneesCourseCache(course)   # c 'est un objet de la classe DonneesCourse
         self.boatinfos,self.posStartVR,self.exclusionsVR2  ,self.positionvr = rechercheDonneesCourseUser( user_id,course)                  # self.exclusionsVR2 est un dictionnaire avec les exclusions VR qui ne sert pas 
         self.personalinfos,self.ari,self.waypoints,self.exclusionsperso,self.barrieres,self.trajets,self.tolerancehvmg,retardpeno = rechercheDonneesPersoCourseUser( user_id,course)
      
-        # print('self.barrieres ',self.barrieres)
-
         self.leginfos              = DonneesCourse1.leginfos
         self.exclusionsVR          = DonneesCourse1.tabexclusions                     # ce sont les exclusions VR
         self.tabicelimits          = DonneesCourse1.tabicelimits
@@ -4227,145 +3781,226 @@ class RoutageSession:                                                  # version
         self.polaires_np           = DonneesCourse1.polaires_np                               #ce sont les polaires10
         self.tabvmg                = DonneesCourse1.vmg_cpu
 
-
-        
-        
-        # pour l instant posStartVR  est systematiquement ma position 
-
-        self.posStart              = calculePosDepart(self.posStartVR,self.polaires_np,self.carabateau,dt=60)    # Position de depart du routage au bout de 60 s
-
-
-        # si ce n est pas moi , va donner une mauvaise indication 
-        self.isodepart             = calculeisodepart2(self.posStart)    # Transformation en iso de depart 
-        
-        try :
-        
-            self.retardpeno            = retardpeno['retardpeno']
-        except: 
-            self.retardpeno=0
-
-
-        # print()
-        # print ('Ligne 3567 retardpeno',retardpeno )
-        # print()
-        
-        # print()
-        # print ('selfexclusionsVR',self.exclusionsVR) 
-
-        # pos=(self.posStartVR['y0'],self.posStartVR['x0'])
-        # self.carte=fcarte(pos)      # renvoie une multipolyline   
-        print()
-        print ('selfexclusionsVR \n',self.exclusionsVR)    
+        self.typevoile             = self.carabateau['typevoile']  
+        # self.posStart ,self.isodep_record    = calculePosDepart(self.posStartVR,self.polaires_np,self.carabateau,dt=60)    # Position de depart du routage au bout de 60 s
+        # self.isodepart             = calculeisodepart2(self.posStart)                                            # Transformation en iso de depart de la position  
         self.exclusionsVR.update(self.exclusionsperso)          # on rajoute exclusionsperso à exclusions VR 
-
-        # print ('selfexclusionsVR apres integration des exclusions perso ',self.exclusionsVR)        
-        # # conversion en tenseur 
-
-        # print()
-        # # print ('selfexclusionsVR2 ',self.exclusionsVR2) 
-        # print()
-        # print ('selfexclusionsperso ',self.exclusionsperso)
        
+
         try:
-            self.exclusions = {  nom: torch.tensor([[lon, lat] for lat, lon in coords], device='cuda')   for nom, coords in self.exclusionsVR.items()  }    # transformation en tensor de self.exclusionsVR
+            self.exclusions = {  nom: torch.tensor([[lon, lat] for lat, lon in coords], device='cuda')   for nom, coords in self.exclusionsVR.items()  }    
+            self.exclusions_json = {  nom: tensor.cpu().tolist()  for nom, tensor in self.exclusions.items()}
+
         except : 
-            self.exclusions = {}
-
-        print ('selfexclusions \n',self.exclusions)   
-
-        self.segments = prepare_segments(self.exclusions)  # [S, 4] segments [x1, y1, x2, y2]  
-        print ('\nself.segments\n',self.segments)      
-        # except:
-        #     self.segments=[]
-        # self.isodepart                    = calculeIsoDepart(self.posStartVR,self.polairesglobales10to,self.carabateau) # tient compte du state waiting si necessaire
-        self.t0vr                           = self.posStartVR['t0']
-        self.t0                             = self.posStart['t0']
+            self.exclusions = {}  
+            self.exclusions_json = {}    
+       
 
 
-        # print ('\ntemps initial T0 au point VR dans posStartVR', time.strftime(" %d %b %H:%M %S",time.localtime(self.t0vr)))
-        # print   ('temps initial T0 au point 1  dans posStart  ', time.strftime(" %d %b %H:%M %S",time.localtime(self.t0)))       
-        # print()
-        # print ('temps chargement des donnees pour la classe Routage Session ',time.time()-tic) 
+        self.segments             = prepare_segments(self.exclusions)  # [S, 4] segments [x1, y1, x2, y2]        
+        self.t0vr                 = self.posStartVR['t0']
+        self.MF                   = 0.8
+        self.furler               = 0.8
+        self.lw                   = self.carabateau["lws"]
+        self.hw                   = self.carabateau["hws"]
+        self.lwtimer              = self.carabateau["lwtimer"]
+        self.hwtimer              = self.carabateau["hwtimer"]
+        self.gybeprolwtimer       = self.carabateau['gybeprolwtimer']
+        self.gybeprohwtimer       = self.carabateau['gybeprohwtimer']
+        self.coeffboat            = self.carabateau['coeffboat']
+         ### Pour Calcul meteo
+        self.dtig0GFS               = self.t0vr-tigGFS          
+        self.dtig0ECM               = self.t0vr-tigECM 
+        self.ouverture =220                 # angle ouverture du routage 
+        self.pas       =1                   # pas pour l'exploration des caps 
+        self.cocheexclusions=1              # verification des zones exclusion 
+        self.wp_passages = {}
         
-
-    
-    def initialiseRoutagePartiel(self, posStartPartiel,ari, indiceroutage , ouverture=200, pas=1, cocheexclusions=1):
-        '''Initialisation des données nécessaires au routage pour chaque waypoint'''
+      
+    def calculePosDepart(self,dt=60): 
+        ''' Version dans session'''
+        ''' Donne l'iso de depart de depart au bout de 60 s'''
+        ''' Sous la meme forme que posStartVR          '''
         
-        isoglobal   = self.isoglobal 
-        waypoints   = self.waypoints
-        retardpeno  = self.retardpeno
-        waypoint = next((ligne for ligne in waypoints if ligne[1] == ari[indiceroutage]), None)    # on extrait le waypoint correspondant à ari[indiceroutage]
-           
+        state       = self.posStartVR['state']
+        posStart    = copy.deepcopy(self.posStartVR)      # on est allé cherché posstartvr en debut de session 
+        print ('On calculeposdepart')
+        print ('posStart' ,posStart)  
+      # Exemple Waiting  {'username': 'Sacron', 'race': 801, 'leg': 1, 'state': 'waiting', 'numisoini': 0, 'npt': 0, 'nptmere': 0, 'nptini': 0, 'tws': 15.699833869934082, 'twd': 26.41778564453125,
+    #         #'twa': 28.41778564453125, 'twaAuto': True, 'y0': 15.41757, 'x0': -23.5411, 't0': 1778436000.0, 'heading': 358, 'rank': 'NA', 'speed': 0, 'voile': 0, 'voileAuto': False, 'stamina': 100, 'lastCalcDate': 1778436000000, 'tsEndOfSailChange': 1778436000000, 'tsEndOfGybe': 1778436000000, 'tsEndOfTack': 1778436000000, 'gateGroupCounters': [0, 0, 0, 0, 0, 0], 'penovr': 0.0, 'boost': 1}
+      
+ 
+        # Dans tous les cas 
+        posStartVR=self.posStartVR     
+        numisoini   = posStartVR['numisoini']
+        npt         = posStartVR['npt']
+        nptmere     = posStartVR['nptmere']
+        nptini      = posStartVR['nptini']
+        y0          = posStartVR['y0']
+        x0          = posStartVR['x0']
+        t0          = posStartVR['t0']
+        sail        = posStartVR['voile']
+        voileAuto   = posStartVR['voileAuto']
+        tws         = posStartVR['tws']
+        twd         = posStartVR['twd']
+        twa         = posStartVR['twa']
+        twaAuto     = posStartVR['twaAuto']
+        cap         = posStartVR['heading']
+        speed       = posStartVR['speed']
+        stamina     = posStartVR['stamina']
+        soldepeno   = posStartVR['penovr']        
+        boost       = posStartVR['boost']    
         
-        numisoini   = posStartPartiel['numisoini']
-        npt         = posStartPartiel['npt']
-        nptmere     = posStartPartiel['nptmere']
-        nptini      = posStartPartiel['nptini']
-        y0          = posStartPartiel['y0']
-        x0          = posStartPartiel['x0']
-        voile       = posStartPartiel['voile']
-        voileAuto   = posStartPartiel['voileAuto']
-        tws         = posStartPartiel['tws']
-        twd         = posStartPartiel['twd']
-        twa         = posStartPartiel['twa']
-        twaAuto     = posStartPartiel['twaAuto']
-        cap         = posStartPartiel['heading']
-        speed       = posStartPartiel['speed']
-        stamina     = posStartPartiel['stamina']
-        soldepeno   = posStartPartiel['penovr']
-        boost       = posStartPartiel['boost']
+       
+        if sail>10:
+                voileAuto = 10
+                voile     = sail%10
+        else :
+                voileAuto = 0
+                voile     = sail
+
+        print ('state ',state)
+
+        if state == 'waiting'  :
+            # Les valeurs de vent ont deja ete calculees dans posStartVR , donc il n y a rien a faire    
+            dt = 0
+            isodepart       = torch.tensor ([[0,0,y0,x0,voile,twa,stamina,soldepeno,tws,twd]], dtype=torch.float32, device='cuda')
 
 
-
-
-        # print ( '\n Dans initialiseroutagepartiel y0 = ', posStartPartiel['y0'])
-        # print ( '\n Dans initialiseroutagepartiel x0 = ', posStartPartiel['x0'])
-        # print ('*************************************************************')
         
-        try :
-            t0       = posStartPartiel['t0']
-            # print()
-            # print ('Heure de depart du routage partiel t0 =',time.strftime(" %d %b %H:%M %S",time.localtime(t0)))
-            # print()
+       
+        if state != 'waiting'  :  
+            lastCalcDate= posStartVR['lastCalcDate'] 
             
-        except:    
-            ecart       = posStartPartiel['ecart']
-            t0          = self.t0 + ecart
+           
+            if twaAuto==twa:                  # navigation au cap 
+                cap= fcap(twa,twd)
+            else :                            # navigation a la twa 
+                twa =ftwaos(cap, twd)     
+            
+    #       # Pénalités pour le deplacement , on suppose pas de manoeuvre tackgybe ou changement de voile se declenchat toute seule dans les 60 sdeclenchee dans les 60s 
+            # d ou pas de perte de stamina non plus seulement recup 
     
+            peno_fin    = max(0,soldepeno-dt)    
+    #       # Stamina
+      
+            recup = pts_recuperes(dt, tws)
+            stamina = stamina + recup
+            staminafin   =  max (0.0, min(100.0, stamina))
         
+    #         # Temps effectif après pénalités pas de penalite 
+            dt_ite = dt                                                 # - 0.3 * max(peno_globale , dt)
+        
+            # Coordonnées après déplacement
+            cap_rad = cap *math.pi/180
+            y0_rad  = y0  *math.pi/180
+            dlat    = speed * dt_ite / 3600 / 60 * math.cos(cap_rad)                                       # on suppose que la vitesse est constante 
+            dlon    = speed * dt_ite / 3600 / 60 * math.sin(cap_rad) / math.cos(y0_rad)
+            y1      = y0   + dlat
+            x1      = x0   + dlon
+            dtig=   t0+dt-tigGFS
+            twsf,twdf=gfs_interpolateur_to(dtig,y1, x1)       
+          
+    
+            isodepart       = torch.tensor ([[0,0,y1,x1,voile,twa,stamina,soldepeno,twsf,twdf]], dtype=torch.float32, device='cuda')  # transforme tout en torch d'un coup 
+            # Modele iso 
+            # 0 npt : numero du point
+            # 1 nptmere : numero du point dont est issu le point
+            # 2 lat : latitude du point
+            # 3 lon : longitude du point
+            # 4 voile : voile du bateau à l arrivee sur ce point
+            # 5 twa_ant : twa du deplacement precedent
+            # 6 stamina_ant : energie à l'arrivee sur ce point
+            # 7 peno_ant : penalite à l'arrivee sur ce point
+            # 8 tws : vitesse du vent sur ce point
+            # 9 twd : direction du vent sur ce point
+            
+        iso_record_depart = {
+                "numiso": 0,
+                "ecart" : dt,                  # secondes ou minutes depuis t0vr
+                "points": isodepart,           # tenseur uniquement avec les colonnes utiles par point
+                "tmini" : 10000,
+                "distmini": 100,
+                "nptmini": 0,
+              }
+            
+       
+        return iso_record_depart  
+      
+
+    
+    def initialiseRoutagePartiel(self, indiceroutage,iso_record_depart):
+        ''' fonction de classe '''
+        '''Initialisation des données nécessaires au routage pour chaque waypoint'''
+        ''' on cherche juste a construire  l iso de depart et les donnees du routage partielrecuper juste l'isochrone de depart '''       
+         # iso_record_depart = {
+         #                "numiso": 0,
+         #                "ecart" : dt,                  # secondes ou minutes depuis t0vr
+         #                "points": isodepart,           # tenseur uniquement avec les colonnes utiles par point
+         #                "tmini" : 10000,
+         #                "distmini": 100,
+         #                "nptmini": 0,
+         #               "idxptmini": 0
+         #              }
+
+        
+        # determination du point d arrivee         
+        waypoint = next((ligne for ligne in self.waypoints if ligne[1] == self.ari[indiceroutage]), None)    # on extrait le waypoint correspondant à ari[indiceroutage]
         y1          = waypoint[2]
         x1          = waypoint[3]
         rwp         = waypoint[4]
+        if rwp==0:            # probleme des lignes d arrivee a gerer ulterieurement
+           rwp = 0.2
 
-        # delta longitude court
-        dx = dlon_short(x1, x0)          # en degrés, dans [-180, +180]
+
+        # determination de l isochrone de depart    
+        if indiceroutage==0:                     # c'est le debut du routage , on utilise la position de vr et on la decale de 60 s par defaut             
+            numisoini   = iso_record_depart['numiso'] 
+            ecart       = iso_record_depart['ecart'] 
+            iso         = iso_record_depart['points'] 
+            tmini       = iso_record_depart['tmini'] 
+            nptmini     = iso_record_depart['nptmini']       #nptmini , c'est le pointle plus proche qui nous interesse  
+            y0          = iso[0,2].item()
+            x0          = iso[0,3].item()
+           
+            seuils = [[180,60],[144, 300],[108,600], [672, 1800], [240, 3600]]       # 14h a 5 mn = 120 --  18h a 10 mn =108 -- 14 jours a 30mn =24*2*14=672
+            tabdt  = construire_dt(seuils, taille=1000)
+            self.isoglobal[0,0:10] = iso[0,0:10]                  # il est necessaire de remplir le premier terme de isoglobal uniquement pour le premier tronçon 
+
+
+
+        else :                               # ce n'est pas le debut du routage , il faut recuperer le dernier point pour avoir le dernier iso  
+
+            # print('iso_record_depart',iso_record_depart)
+
+            numisoini   = iso_record_depart['numiso'] 
+            ecart       = iso_record_depart['ecart'] 
+            points      = iso_record_depart['points'] 
+            tmini       = iso_record_depart['tmini'] 
+            nptmini     = iso_record_depart['nptmini']       #nptmini , c'est le pointle plus proche qui nous interesse  
+            nptini      = iso_record_depart['idxptmini']
+         
+            ptplusproche      = self.isoglobal[nptini] , # c'est le point du dernier isochrone le plus proche de l arrivee              
+            iso = ptplusproche[0].unsqueeze(0)                                  # l iso n a qu'un point on ajoute une dimension  
+            y0                = iso[0,2].item()
+            x0                = iso[0,3].item()
+            
+            seuils = [[30, 60], [20, 600], [10, 1800]]
+            tabdt = construire_dt(seuils, taille=1000)
+
+        
+        # Dans tous les cas        
         dy = y1 - y0
-
-        # longitude "déroulée" de l'arrivée, cohérente avec le départ
-        x1u = x0 + dx
+        dx = dlon_short(x1, x0)         # delta longitude court  # en degrés, dans [-180, +180]        
+        x1u = x0 + dx                   # longitude "déroulée" de l'arrivée, cohérente avec le départ
 
         # coordonnées de départ et arrivée sous forme torch
-        depto = torch.tensor([y0, wrap360(x0)], device='cuda', dtype=torch.float32)
-        arito = torch.tensor([y1, wrap360(x1)], device='cuda', dtype=torch.float32)
-
-            
+        depto = torch.tensor([y0, wrap360(x0)], device=self.device, dtype=self.dtype)
+        arito = torch.tensor([y1, wrap360(x1)], device=self.device, dtype=self.dtype)
         
         cap_ar = round((450.0 - math.degrees(math.atan2(dy, dx))) % 360.0)
-
-        range_caps = torch.arange(
-        cap_ar - ouverture / 2,
-        cap_ar + ouverture / 2,
-        pas,
-        device='cuda',
-        dtype=torch.float32
-        ) % 360.0
-    
+        range_caps = torch.arange(  cap_ar - self.ouverture / 2, cap_ar + self.ouverture/2, self.pas, device=self.device,dtype=self.dtype ) % 360.0  
         range_capsR = torch.deg2rad(range_caps)
-
-
-        range_caps  = torch.arange(cap_ar - ouverture / 2, cap_ar + ouverture / 2, pas) % 360
-        range_capsR = range_caps.deg2rad()
         eps = 1e-12
         if abs(dx) < eps:
             m_ar = float('inf')
@@ -4379,633 +4014,2540 @@ class RoutageSession:                                                  # version
       
         # rayon "plan" en degrés (si tu veux juste une bbox grossière)
         rayon = (math.hypot(dy, dx) / 2.0) * 1.10
-
-        
     
         deptoR      = torch.deg2rad(depto)
         aritoR      = torch.deg2rad(arito)
         dti         = 60 
 
-
-
         distDepAri = dist_mn_vec(deptoR[0], deptoR[1], aritoR[0], aritoR[1])      #distance depart arrivee en MN         
         rayonRoutage = distDepAri / 2.0
-
-        # centre routage :
         centreRoutage = torch.tensor( [ (y0 + y1) / 2.0, (x0 + x1) / 2.0 ], device='cuda', dtype=torch.float32 )
         centreRoutageR = torch.deg2rad(centreRoutage)
 
-
-      
-
-        if indiceroutage==0:
-            iso          = self.isodepart 
-            seuils = [[144, 300],[108,600], [672, 1800], [240, 3600]]       # 14h a 5 mn = 120 --  18h a 10 mn =108 -- 14 jours a 30mn =24*2*14=672
-            tabdt = construire_dt(seuils, taille=1200)
-            # print('shape isoglobal ',isoglobal.shape) 
-            # print('shape iso ',iso.shape) 
-            isoglobal[0] = iso[0,0:15]                  # il est necessaire de remplir le premier terme de isoglobal
-           
-    
-        else:
-            seuils = [[30, 60], [20, 600], [10, 1800]]
-            tabdt = construire_dt(seuils, taille=1200)
-            
-            iso=torch.tensor ([[numisoini,npt,nptmere,y0,x0,voile,twa,stamina,soldepeno,tws,twd,cap, ecart,0,0,0,speed,0,boost,0,0,0]], dtype=torch.float32, device='cuda')  
-            # print( 'isoglobal du numero de point mini', self.isoglobal[nptini])                  #  isoglobal est deja rempli
-       
-
-        paramRoutage={
-            "posStartPartiel": posStartPartiel,
-            "indiceroutage" :indiceroutage,
-            "numisoini":numisoini, 
-            "deptoR": deptoR,
-            "aritoR": aritoR,
-            "y0": y0,
-            "x0": x0,
-            "y1": y1,
-            "x1": x1,
-            "rwp": rwp,
-            "dti": dti,
-            "cap_ar": cap_ar,
-            "range_caps": range_caps,
-            "range_capsR": range_capsR,
-            "m_ar": m_ar,
-            "centreRoutageR": centreRoutageR,
-            "centreRoutage": centreRoutage,
-            "rayonRoutage": rayonRoutage,
-            "distDepAri": distDepAri,
-            "cocheexclusions": cocheexclusions,
-            "dtglobal":tabdt,                                  # c est le tableau des dt 
-            "retardpeno":retardpeno
-          
-        }
-      
-        #print ('dans initialiseroutagepartiel paramroutage',paramRoutage)
-        return paramRoutage,iso
-    
-
-    
-    # Version avec les retards peno 
-    # def isoplusun(self,iso,tmini,paramRoutage ):
-    #     ''' Donnees a charger propres au routage'''
-    #     ''' polairesglobales10to, lw, hw, lwtimer, hwtimer,MF, coeffboat, rayonRoutage     '''
-    #     ''' necessite comme donnneees externes  GRGFS_gpu ,polairesglobales10to,range_caps,range_capsR,carabateau,lw,....                                   '''
-    #     ''' Les penalites sont affichees sur l iteration et ne sont diminuees du temps de l iteration que sur l iteration suivante '''
-
-    #     MF          = 0.8
-    #     # tolerancehvmg = self.tolerancehvmg         #tolerance de hvmg
-    #     numisom1=int(iso[0,0].item())                                                 # numero de l'iso precedent 
-    #     numiso=numisom1+1    
-    #     t0          = self.t0
-    #     dtig0GFS       = t0-tigGFS        
-    #     ecartprecedent=iso[0,12].item()         # c est l ecart de temps de a la fin de l iso precedent par rapport a t0 , c est le temps ou sont les points de depart de calcul de l iso 
-  
-    #     n3=512
-    #     range_caps     = paramRoutage["range_caps"]
-    #     range_capsR    = paramRoutage["range_capsR"]
-    #     centreRoutageR = paramRoutage['centreRoutageR']
-    #     rayonRoutage   = paramRoutage['rayonRoutage']
-    #     aritoR         = paramRoutage ["aritoR"]
-    #     deptoR         = paramRoutage ["deptoR"]
-    #     m_ar           = paramRoutage ["m_ar"]
-    #     numisoini      = paramRoutage ["numisoini"]
-    #     indiceroutage  = paramRoutage ["indiceroutage"]
-    #     dtglobal       = paramRoutage ["dtglobal"]         # dt global , c ece sont les intervalles 
-    #     retardpeno     = paramRoutage ['retardpeno']
-        
-    #     latcR, loncR   = centreRoutageR
-        
-    #     lw             = self.carabateau["lws"]
-    #     hw             = self.carabateau["hws"]
-    #     lwtimer        = self.carabateau["lwtimer"]
-    #     hwtimer        = self.carabateau["hwtimer"]
-    #     lwtimerGybe    = self.carabateau['gybeprolwtimer']
-    #     hwtimerGybe    = self.carabateau['gybeprohwtimer']
-    #     coeffboat      = self.carabateau['coeffboat']
-    #     polairesglobales10to = self.polairesglobales10to
-    #     tabvmg10to           = self.tabvmg10to
-        
-    #     ecartprecedent=iso[0,12].item()                                               # c est l ecart de temps de l iso precedent par rapport a t0
-     
-    #     n=len (iso)                                                                   # Longueur de l iso precedent sert a dupliquer 
-    #     p=len(range_caps)                                                             # nombre de caps du rangecaps 
-    #     dernier=iso[-1,1].item()                                                      # dernier point de l iso precedent   
-        
-    #     ordre=numiso-numisoini -1                                                       # ordre par rapport a numisoini pour calculer le dtiso 
-    #     if tmini>3600:                                                                # cas normal a plus de 1h  de l objectif  
-    #         dtiso=dtglobal[ordre]
-       
-    #     else :
-    #         dtiso = torch.tensor(60.0, dtype=torch.float32, device='cuda:0')
-         
-    #     iso[:,0]  = numiso                                                              # on ajoute 1 au numero d iso sur toute la colonne  
-    #     ecart=ecartprecedent+dtiso                                                      # c est l ecart de temps de l iso  par rapport a t0        
-    #     iso[:,8]=torch.clamp(iso[:,8]-dtiso,min=0)                                     # pour le calcul de la penalite appliquable au trajet on defalque le dtiso qui permet de passer 
-    #                                                                                     # de l iso precedent a celui que l on est en train de calculer et on bloque a 0 min 
-    #     iso[:,11]=torch.round(iso[:,9]*10)
-       
-    #     iso            = iso.repeat((p, 1))                                                                # répète p fois les lignes (nb de caps)
-    #     tws10          = iso[:,11] .to(torch.int)                                                          # nombre de points de l iso precedent pour pouvoir dupliquer les caps 
-    #     caps_expanded  = range_caps.repeat_interleave(n)                                                   # on duplique les caps (cap1,cap1,cap1,cap2,cap2,cap2,cap3,cap3.......)
-    #     capsR_expanded = range_capsR.repeat_interleave(n)
-    #     iso[:,12]      = caps_expanded                                                                     # caps dupliques en col12
-    #     iso[:,13]      = capsR_expanded                                                                    # caps en radians dupliqués en col13
-    #     iso[:,2]       = iso[:,1]                                                                          # on enregistre les numeros de points comme des numeros de point mere 
-       
-
-    #     # calcul suivant des twa entieres au lieu de caps entiers
-    #     iso[:,14] = torch.round(ftwato(iso[:,12],iso[:,10]) )                                                           # twa    arrondies  
-    #     iso[:,12] = fcapto (iso[:,14],iso[:,10])
-    #     iso[:,13]  =iso[:,12].deg2rad()
-
-
-    #     # # calcul de la voile
-    #     iso[:,14] = ftwato(iso[:,12],iso[:,10])                                                            # twa                                                     
-    #     twa10=torch.round(torch.abs(iso[:,14]) * 10).to(torch.int)
-     
-
-    #     # print('iso.shape avant reduction vmg',iso.shape)
-                                                             
-    #     vmg_min = tabvmg10to[tws10,2]-self.tolerancehvmg       # on calcule vmgmin et max a partir de tws et twd 
-    #     vmg_max = tabvmg10to[tws10,4]+self.tolerancehvmg
-
-    #     vmg = torch.abs(iso[:, 14])
-    #     mask = (vmg >= vmg_min) & (vmg <= vmg_max)              # la je reduit directement  le horsvmg 
-    #     iso = iso[mask]                                         # Si necessaire print('iso.shape apres reduction vmg',iso.shape)
-
-        
-    #     tws10          = iso[:,11] .to(torch.int)   #on est oblige de redefinir la taille de tws10 et twa10   # si on avait pris iso ce serait pas necessaire
-    #     twa10          = torch.round(torch.abs(iso[:,14]) * 10).to(torch.int)
-           
-  
-    #     iso[:,15] = polairesglobales10to[iso[:,5].int(), tws10, twa10.int()]                               # vitesse voileini[voileini,tws10,twa10
-    #     iso[:,16] = polairesglobales10to[7,  tws10, twa10]                                                 # vitesse meilleure voile[voileini,tws10,twa10
-    #     iso[:,17] = polairesglobales10to[8,  tws10, twa10]                                                 # meilleure voile
-    #     iso[:,18] = iso[:,16]/(iso[:,15]+0.0001)                                                           # Boost remplace twa10
-    #     iso[:,19] = torch.where(iso[:,18]>1.014,iso[:,17],iso[:,5])                                        # voile definitive 
-    #     iso[:,5]  = iso[:,19]                                                                              #*** on met la nouvelle voile dans la colonne 5 a la place de l ancienne
-       
-        
-    #     # calcul des penalites
-    #     #**********************
-    #     iso[:,19] = torch.where(iso[:,18]>1.014,1,0)                                                       # on remplit la colonne chgt a la place de voiledef
-    #     iso[:,18] = (iso[:,6]*iso[:,14])<0                                                                 # on remplit la colonne 16 Tgybe a la place de boost  (signe de twam1*twa10
-        
-    #     iso[:,6]  = iso[:,14]                                                                              # on met la nouvelle twa a la place de l ancienne  
-    #     Cstamina  = 2 - 0.015 * iso[:,7]                                                                   # coefficient de stamina en fonction de la staminaini
-    #     # création de masques
-    #     mask_chgt = iso[:,19] != 0
-    #     mask_gybe = iso[:,18] != 0
-    
-    #     # initialisation des résultats à 0
-    #     tempspenochgt = torch.zeros_like(iso[:,19])                               
-    #     tempspenoTG   = torch.zeros_like(iso[:,18])
-    #     peno          = torch.zeros_like(iso[:,18])
-    #     # calcul seulement pour les éléments où nécessaire
-    #     if mask_chgt.any():       
-    #         tempspenochgt[mask_chgt] = ( splineto(lw, hw, lwtimer, hwtimer, iso[mask_chgt,9]) * MF * Cstamina[mask_chgt]   )
-        
-    #     if mask_gybe.any():
-    #         tempspenoTG[mask_gybe]   = ( splineto(lw, hw, lwtimerGybe, hwtimerGybe, iso[mask_gybe,9]) * Cstamina[mask_gybe]  )
-
-            
-    #     peno =   tempspenochgt+ tempspenoTG
-    #     # on diminue de l ecart de temps  sur la colonne decenchement peno qui est un ecart par rappport au moment de la peno
-    #     iso[:,21]=torch.clamp(iso[:,21]-dtiso,min=0,max=retardpeno)  
-
-    #      # Application des anciennes penalites applicables sur le dti en colonne 6 (qui sont en  colonne 9)    
-    #     #*****************************************************
-    #     # si l ecart est egal a zero et que l on a une penalite en attente, on applique la penalite 
-    #     mask4=(iso[:,21]==0)
-    #     iso[:,17]= (dtiso) -(mask4* torch.clamp(0.3*iso[:,20],max=dtiso*0.3))   # la on met directement dans le dti  en plafonnant la penalite applicable a dtiso *0.3
-       
-       
-         
-    #     # si Des nouvelles penalites viennent en plus des penalites existantes                 
-    #     mask5 = (peno != 0) & (iso[:, 20] != 0)
-    #     #si oui on applique alors les penalites de la colonne 20 independamment du temps restant   sur le dti   
-    #     iso[mask5, 17] = iso[mask5, 17] - ( torch.clamp(iso[mask5,20]*0.3,max=dtiso*0.3)) 
-        
-    #     # on remet a zero les valeurs de penalites qui ont ete utilisees et les valeurs de peno qui ont ete utilisees 
-    #     #*************************************************
-    #     iso[mask4, 20]  = torch.clamp(iso[mask4,20]-dtiso,min=0)
-    #     iso[mask5, 20]  = torch.clamp(iso[mask5,20]-dtiso,min=0)
-    #     iso[mask4, 21] = 0
-    #     iso[mask5, 21] = 0
-
-          
-    #     # on applique les nouvelles penalites et les nouveaux decalages sur des cases qui sont toutes egales a zero 
-    #     maskpeno=(peno != 0)
-    #     iso[maskpeno, 20] = peno[maskpeno]    
-    #     iso[maskpeno, 21] = retardpeno
-            
-    #     # ancien calcul de penalite on rajoutait a la peno precedente 
-    #     #iso[:,8]  = iso[:,8]+tempspenochgt+tempspenoTG  
-    #     #iso[:,17]=dtiso-0.3*torch.clamp(iso[:,8],max=dtiso )   
-        
-    #     # calcul des stamina 
-    #     #******************
-    #     #***  on rajoute les penalites sur l iteration le -dtiso sera applique a la fin avec un clamp
-    #     iso[:,7]  = iso[:,7] - calc_perte_stamina(iso[:,9], iso[:,18],iso[:,19], coeffboat)  +   frecupstaminato(dtiso,iso[:,9])    # la stamina est egale a l ancienne (col4 )-perte (tws,TG,Chgt,coeff,MF)  + frecupstaminato(dtiso,Tws,pouf=0.8):
-    #     iso[:,7]  = torch.clamp(iso[:,7],min=0,max=100)                                                                          #*** le max pourra eventuellement etra passse a 110 avec une boisson 
-        
-              
-    #     # Calcul des nouvelles coordonnees
-    #     #**************************************
-        
-    #     iso[:,18]=iso[:,3]                                        # on copie la latitude initiale en 18 pour les barrieres 
-    #     iso[:,19]=iso[:,4]                                        # on copie la longitude initiale en 19 pour calculer les barrieres 
-    #     # nouvelles coordonnees 
-    #     iso[:,3]= iso[:,18] + iso[:,17] * iso[:,16] / 3600 / 60 * torch.cos(iso[:,13])                                         #  
-    #     iso[:,4]= iso[:,19] + iso[:,17] * iso[:,16] / 3600 / 60 * torch.sin(iso[:,13])/torch.cos(iso[:,3].deg2rad())                      #    (le cos utilise pour la lat est avec la latitude deja calculee ?)
-    #     iso[:,11]= iso[:,3].deg2rad()                                # on stocke la lat en rad pour le calcul de distance a l arrivee
-    #     iso[:,12]= iso[:,4].deg2rad() 
-        
-    #     # on elimine les points hors cercle                          la distance par rapport au centre est calculee en colonne 15 anciennement colonne twa           latcR, loncR                                                     
-    #     iso[:,17]=dist(iso[:,11],iso[:,12],latcR, loncR) 
-    #     maskDiCentreRoutage   = iso[:,17]<(rayonRoutage*1.15)
-    #     iso    = iso[maskDiCentreRoutage] 
-    
-    #     # calcul de distar, du point le plus proche et du temps estime vers l arrivee     
-    #     iso[:,9]=dist(iso[:,11],iso[:,12],aritoR[0], aritoR[1]) *1.852       # Calcul de distar en mN en colonne 9 on utilise les valeurs en radians deja calculees pour les points et pour l arrivee 
-
-
-    #     distmini, idx_min = torch.min(iso[:, 9], dim=0)                # idx_min est l’indice de la ligne où la distance est minimale   
-    #     vitesse = iso[idx_min, 16]                                     # Vitesse en nœuds (milles nautiques par heure) au point de distance mini
-    #     tmini   = ((distmini * 3600) / (vitesse * 1.852)).item()       # la distance est en km avec ma fonction dist et vitesse en noeuds pour les polaires 
-    #     nptmini = int(iso[idx_min, 1].item())                          # transformation de idxmin en indice entier   
-    
-    #     # on va eliminer les points qui sont a plus de 3 fois la distance mini de l arrivee 
-    #     maskDiMini   = iso[:,9]<(distmini*3)
-    #     iso          = iso[maskDiMini]
-     
-    #     # calcul de ordoar et arrondi pour avoir le nb de points voulu a la fin 
-    #     iso[:,10]= iso[:,11] - m_ar * iso[:,12]                                  # calcul ordoar :  ordonnee a  l origine  
-    #     ordomini, ordomaxi = torch.min(iso[:,10]), torch.max(iso[:,10])          # min et max sur la colonne 10
-                                                                   
-    #     coeff         = (n3-1)/ (ordomaxi-ordomini)                              # coefficient pour ecremer et garder n3 points
-    #     iso[:,10]  = (iso[:,10]*coeff).int() 
-    
-    #     # tris et elimination 
-    #     indices_9 = torch.argsort(iso[:, 9], stable=False)                       # indice des elements tries    
-    #     iso = iso[indices_9]                                                     # on reconstitue iso avec le tableau des elements triés sur l indice 9
-    #     indices_10 = torch.argsort(iso[:, 10], stable=True)                      # indices des elements triés de la colonne 10
-    #     iso = iso[indices_10]                                                    # on reconstitue iso avec le tableau des elements triés sur l indice 10
-    #     torch.cuda.synchronize()  # on attend que le GPU ait fini pour mesurer le temps 
-    #     iso[1:,14]= iso[1:,10] - iso[:-1,10]                                     # on fait l ecart entre 2 points successifs sur la colonne 10 ordoar dans la colonne 11
-    #     mask   = iso[:,14]!=0
-    #     iso    = iso[mask]                                                       # on elimine les points pour lesquels l ecart est egal a zero   
-    #     #  on recalcule le boost sur 512 points pour l avoir a la fin 
-    #     iso[:,14]= iso[:,16]/(iso[:,15]+0.0001)
-    
-        
-    #     # elimination des points terre 
-    #     iso[:,12]=terremer(iso[:,3],iso[:,4])                                   #on stocke le resultat terre mer en 12   
-    #     mask   = iso[:,12]!=0
-    #     iso    = iso[mask]                                                      # on garde les points pour lesquels iso[:,12]==1 
-    #     try:
-    #         # elimination des points dans les zones d exclusion 
-    #         maskexclu = points_in_any_polygon_vectorized(iso[:,3],iso[:,4], self.segments)
-    #         iso    = iso[~maskexclu] 
-    #     except:
-    #         None
-        
-    #     try:
-    #         # calcul des barrieres et elimination des trajets traversant les barrieres
-    #         mask=detect_barrier_crossings(iso[:,18],iso[:,19],iso[:,3],iso[:,4] , self.barrieres)
-    #         iso=iso[~mask]
-    #     except:
-    #         None
-    #     # recalcul du vent sur les points pour transmission vent ini a chemin
-    #     #a voir suivant dash    tisovent= t_c[numisom1-1]
-
-    #     # on calcule le vent pour la prochaine iteration 
-       
-    #     dtigiso= dtig0GFS+ecart
-          
-    #     #print ('ecart grib en h ',ecart/3600)
-
-
-    #     iso[:,9],iso[:,10]= prevision025todtig(GRGFS_gpu,dtigiso, iso[:,3],iso[:,4])    # correction erreur le vent est calcule pour le prochain point avec les nuvelles coordonnees
-      
-    #     iso[:,11]=torch.rad2deg(iso[:,13])            # on remet le cap initial en 11 a partir du cap en radian que l on a toujours   
-    #     iso[:,14] = iso[:,16]/(iso[:,15]+0.0001)      # on va remettre le boost en colonne 14 a la place de la twa   
-    #     iso[:,13] = iso[:,16]   # copie de la vitesse max en 13 pour la passer a isoglobal
-    #     iso[:,12] = ecart   
-        
-    #     # renumerotation 
-    #     iso[:,1]= dernier+torch.arange(len(iso)) +1                         # on va renumeroter les points 
-      
-    #     # Copie des points de l isochrone dans isoglobal
-    #    # print ('premier iso ' ,iso[0])
-
-    #     torch.cuda.synchronize()           # Pour attendre que la synchronisation soit complete et essayer d eviter des erreurs 
-    #     premier= int(iso[0,1].item())
-    #     dernier= int(iso[-1,1].item())
-    #     # print ('numiso {} dtiso {} premier {} dernier {} shape {} isoglobal.shape {} '.format(numiso ,dtiso,premier,dernier,iso.shape,self.isoglobal.shape))
-       
-        
-    #     self.isoglobal[premier:dernier+1, :] = iso[:, 0:15]
-        
-    #     return iso, tmini,distmini,nptmini
+        self.indiceroutage=indiceroutage
+        self.numisoini = numisoini
+        self.deptoR =  deptoR
+        self.aritoR =  aritoR
    
+        self.lat_depart_rad = torch.tensor( math.radians(y0), device='cuda', dtype=torch.float32)
+        self.lon_depart_rad = torch.tensor( math.radians(wrap180(x0)), device='cuda', dtype=torch.float32)        
+        self.lat_depart=y0
+        self.lon_depart=x0
+        
+        self.y0 =  y0
+        self.x0 =  x0
+        self.y1 =  y1
+        self.x1 =  x1
+
+        self.lat_arrivee_rad = torch.tensor( math.radians(y1), device='cuda', dtype=torch.float32)
+        self.lon_arrivee_rad = torch.tensor( math.radians(wrap180(x1)), device='cuda', dtype=torch.float32)  
+        
+        self.rwp                      =  rwp
+        self.dti                      =  dti
+        self.cap_ar                   =  cap_ar
+        self.range_caps               =  range_caps
+        self.range_capsR              =  range_capsR
+        self.m_ar                     =  m_ar
+        self.dx_ar                    = dlon_short(x1, x0)
+        self.dy_ar                    = y1 - y0
+        self.rayonRoutage             =  rayonRoutage
+        self.distDepAri               =  distDepAri
+        self.cocheexclusions          =  1
+        self.dtglobal                 = tabdt                                  # c est le tableau des dt 
+        #self.retardpeno               = retardpeno
+        self.latcR, self.loncR        = centreRoutageR
+        self.latc, self.lonc          = centreRoutage
+        self.nmax                     = 512
+        self.p                        = self.range_caps.shape[0] 
+        self.trajets_buf              = torch.empty((self.p * self.nmax, 16), device=self.device,dtype=torch.float32 )     
+
+        return
     
+    def fractions_controle_terre(self,dt):
+        dt_s = float(dt.item()) if torch.is_tensor(dt) else float(dt)
+        if dt_s <= 60:
+            return (0.25,0.5,0.75)
+        elif dt_s <= 300:
+            return (0.2, 0.4, 0.6, 0.8)
+        elif dt_s <= 1800:
+            return (0.25, 0.5, 0.75)
+        else:
+            # tous les 10 %
+            return tuple(i / 10 for i in range(1, 10))
+        
 
 
-
-
-    # isoplusun 
-    # ****************
+        
     @torch.no_grad()
-    def isoplusun(self,iso,tmini,paramRoutage,mode ):
-        ''' Donnees a charger propres au routage'''
-        ''' polairesglobales10to, lw, hw, lwtimer, hwtimer,MF, coeffboat, rayonRoutage     '''
-        ''' necessite comme donnneees externes  GRGFS_gpu ,polairesglobales10to,range_caps,range_capsR,carabateau,lw,....                                   '''
-        ''' Les penalites sont affichees sur l iteration et ne sont diminuees du temps de l iteration que sur l iteration suivante '''
-       
-        MF             = 0.8
-        furler         = 0.8
-        tolerancehvmg  = self.tolerancehvmg         #tolerance de hvmg
-      
-        numisom1       = int(iso[0,0].item())                                                 # numero de l'iso precedent 
+    def isoplusun(self, iso_record, mode):
+        # -----------------------------
+        # Colonnes isochrone
+        # -----------------------------
     
-        numiso         = numisom1+1    
-        t0             = self.t0
-
-    ### Pour Calcul meteo
-        dtig0GFS       = t0-tigGFS           # anciennement dtig0GFS=t0-tigGFS
-        dtig0ECM       = t0-tigECM 
-    
-
-            # if ecart<9*3600 :
-            #     iso[:,9],iso[:,10]   = gfs_interpolateur(dtigGFS,iso[:,3],iso[:,4] )    
-            # else :
-            #     iso[:,9],iso[:,10]   = ecm_interpolateur(dtigECM,iso[:,3],iso[:,4] ) 
-
-        
-
-        
-        # print('t0 ',time.strftime(" %d %b %H:%M %S",time.localtime(t0)))
-        # print('tigGFS ',time.strftime(" %d %b %H:%M %S",time.localtime(tigGFS)))
-        # print ('dtig0GFS en h ',dtig0GFS/3600)
-        
-        ecartprecedent=iso[0,12].item()         # c est l ecart de temps de a la fin de l iso precedent par rapport a t0 , c est le temps ou sont les points de depart de calcul de l iso 
-        #print ('ecartprecedent /t0',ecartprecedent)
-    
-        
-
-        # print('iso.shape',iso.shape)
-        n3=512
-        range_caps     = paramRoutage["range_caps"]
-        range_capsR    = paramRoutage["range_capsR"]
-        centreRoutageR = paramRoutage['centreRoutageR']
-        centreRoutage  = paramRoutage['centreRoutage']
-        rayonRoutage   = paramRoutage['rayonRoutage']
-        aritoR         = paramRoutage ["aritoR"]
-        deptoR         = paramRoutage ["deptoR"]
-        m_ar           = paramRoutage ["m_ar"]
-        numisoini      = paramRoutage ["numisoini"]
-        indiceroutage  = paramRoutage ["indiceroutage"]
-        dtglobal       = paramRoutage ["dtglobal"]
-        retardpeno     = paramRoutage ["retardpeno"]
-
-
-        #print ('retardpeno et tolerance hvmg', retardpeno,self.tolerancehvmg)
-        
-        latcR, loncR         = centreRoutageR
-        latc, lonc           = centreRoutage
-        lw                   = self.carabateau["lws"]
-        hw                   = self.carabateau["hws"]
-        lwtimer              = self.carabateau["lwtimer"]
-        hwtimer              = self.carabateau["hwtimer"]
-        gybeprolwtimer       = self.carabateau['gybeprolwtimer']
-        gybeprohwtimer       = self.carabateau['gybeprohwtimer']
-        coeffboat            = self.carabateau['coeffboat']
-        polairesglobales10to = self.polairesglobales10to
-        tabvmg10to           = self.tabvmg10to
-        
-        ecartprecedent=iso[0,12].item()                                               # c est l ecart de temps de l iso precedent par rapport a t0
-    
-        n=len (iso)                                                                   # Longueur de l iso precedent sert a dupliquer 
-        p=len(range_caps)                                                             # nombre de caps du rangecaps 
-        dernier=iso[-1,1].item()                                                      # dernier point de l iso precedent   
-        
-        ordre=numiso-numisoini -1                                                     # ordre par rapport a numisoini pour calculer le dt 
-    
-    
-        
-        if tmini>3600:                                                                # cas normal a plus de 1h  de l objectif  
-            dt=dtglobal[ordre]
-    
-        else :
-            dt = torch.tensor(60.0, dtype=torch.float32, device='cuda:0')
-        
-        iso[:,0]  = numiso                                                              # on ajoute 1 au numero d iso sur toute la colonne  
-        ecart=ecartprecedent+dt     # c est l ecart de temps de l iso  par rapport a t0
-
-        # print ('numiso  {} numisoini {}  ecartprecedent {} ecart {}'.format(numiso,numisoini, tmini, ecartprecedent,ecart))     
-        # if (numiso!=1):                                                            # Pour le premier isochrone la penalite appliquable au trajet a deja ete amputee du dt  de 60 secondes dans  isodepart  
-        
-        iso[:,8]=torch.clamp(iso[:,8]-dt,min=0)                                     # pour le calcul de la penalite appliquable au trajet on defalque le dt qui permet de passer 
-                                                                                    # de l iso precedent a celui que l on est en train de calculer et on bloque a 0 min 
-        
-        iso[:,11]=torch.round(iso[:,9]*10)
-    
-        iso            = iso.repeat((p, 1))                                                                # répète p fois les lignes (nb de caps)
-        tws10          = iso[:,11] .to(torch.int)                                                          # nombre de points de l iso precedent pour pouvoir dupliquer les caps 
-        caps_expanded  = range_caps.repeat_interleave(n)                                                   # on duplique les caps (cap1,cap1,cap1,cap2,cap2,cap2,cap3,cap3.......)
-        capsR_expanded = range_capsR.repeat_interleave(n)
-        iso[:,12]      = caps_expanded                                                                     # caps dupliques en col12
-        iso[:,13]      = capsR_expanded                                                                    # caps en radians dupliqués en col13
-        iso[:,2]       = iso[:,1]                                                                          # on enregistre les numeros de points comme des numeros de point mere 
-    
-
-        # calcul suivant des twa entieres au lieu de caps entiers
-        iso[:,14] = torch.round(ftwato(iso[:,12],iso[:,10]) )                                                           # twa    arrondies  
-        iso[:,12] = fcapto (iso[:,14],iso[:,10])
-        iso[:,13]  =iso[:,12].deg2rad()
-
-
-        # # calcul de la voile
-        iso[:,14] = ftwato(iso[:,12],iso[:,10])                                                            # twa                                                     
-        # iso[:,18] = torch.round(abs(  iso[:,14])* 10  ) 
-        twa10=torch.round(torch.abs(iso[:,14]) * 10).to(torch.int)
-        # la je peux directement reduire le horsvmg 
-
-        # print('iso.shape avant reduction vmg',iso.shape)
-                                                            # on calcule vmgmin et max a partir de tws et twd 
-        vmg_min = tabvmg10to[tws10,2]-self.tolerancehvmg
-        vmg_max = tabvmg10to[tws10,4]+self.tolerancehvmg
-
-        vmg = torch.abs(iso[:, 14])
-        mask = (vmg >= vmg_min) & (vmg <= vmg_max)
-
-        iso = iso[mask]
-        
-        tws10          = iso[:,11] .to(torch.int)   #on est oblige de redefinir la taaille de tws10 et twa10   # si on avait pris iso ce serait pas necessaire
-        twa10=torch.round(torch.abs(iso[:,14]) * 10).to(torch.int)
-        # print('iso.shape apres reduction vmg',iso.shape)
-
-
-        
-        #twa10 ftwato (cap,twd)*10)     (non signee)
-        iso[:,15] = polairesglobales10to[iso[:,5].int(), tws10, twa10.int()]                               # vitesse voileini[voileini,tws10,twa10
-        iso[:,16] = polairesglobales10to[7,  tws10, twa10]                                                 # vitesse meilleure voile[voileini,tws10,twa10
-        iso[:,17] = polairesglobales10to[8,  tws10, twa10]                                                 # meilleure voile
-        iso[:,18] = iso[:,16]/(iso[:,15]+0.0001)                                                                               # Boost remplace twa10
-        iso[:,19] = torch.where(iso[:,18]>1.014,iso[:,17],iso[:,5])                                                            # voile definitive 
-        iso[:,5]  = iso[:,19]                                                                                                  #*** on met la nouvelle voile dans la colonne 5 a la place de l ancienne
-    
-        
-        # calcul des penalites
-        iso[:,19] = torch.where(iso[:,18]>1.014,1,0)                                                                            # on remplit la colonne chgt a la place de voiledef
-        iso[:,18] = (iso[:,6]*iso[:,14])<0                                                                                      # on remplit la colonne 16 Tgybe a la place de boost  (signe de twam1*twa10
-        
-        iso[:,6]  = iso[:,14]                                                                                                  # on met la nouvelle twa a la place de l ancienne  
-        Cstamina  = 2 - 0.015 * iso[:,7]                                                                                        # coefficient de stamina en fonction de la staminaini
+        COL_NPT      = 0
+        COL_NPTMERE  = 1
+        COL_LAT      = 2
+        COL_LON      = 3
+        COL_VOILE    = 4
+        COL_TWA_ANT  = 5
+        COL_STAMINA  = 6
+        COL_PENO     = 7
+        COL_TWS      = 8
+        COL_TWD      = 9
         
     
-        mask_voile = iso[:,19] != 0
-        mask_tack  = iso[:,18] != 0
-        PenaliteChgt     = torch.zeros_like(iso[:,19])   
-        PenaliteTackGybe = torch.zeros_like(iso[:,19])   
-        # formule globalisee
-        # Stamina = iso[:,7]
-        # Tws     = iso[:,9]    # le vent est en colonne 9 de iso 
-
-
-
-        ######################################################################################################################
-        #   Calcul des penalites avec calculs version pour tableur 
-        ######################################################################################################################
-        
-        
-        PenaliteChgt  [mask_voile]    = peno_torch(lwtimer,hwtimer,iso[mask_voile,9] ,iso[mask_voile,7] )*furler
-        PenaliteTackGybe[mask_tack]   = peno_torch(gybeprolwtimer,gybeprohwtimer,iso[mask_tack,9],iso[mask_tack,7])
-        # iso[:,8]+=PenaliteChgt+PenaliteTackGybe      # on ajoute a la penalite restant eventuellement 
-        iso[:,8].add_(PenaliteChgt)
-        iso[:,8].add_(PenaliteTackGybe)
-        
-        iso[:,7]  +=  - calc_perte_stamina_to(iso[:,9], iso[:,18],iso[:,19], coeffboat)  +   frecupstaminato(dt,iso[:,9])    # la stamina est egale a l ancienne (col4 )-perte (tws,TG,Chgt,coeff,MF)  + frecupstaminato(dt,Tws,pouf=0.8):
-
+        # -----------------------------
+        # Colonnes supplémentaires trajet
+        # -----------------------------
+        COL_MEMO     = 10
+        COL_CAP      = 11
+        COL_TWA      = 12
+        COL_SPEED    = 13
+        COL_LAT_AR   = 14
+        COL_LON_AR   = 15
     
-        iso[:,7]  = torch.clamp(iso[:,7],min=0,max=100)                                                                          #*** le max pourra eventuellement etra passse a 110 avec une boisson 
+        # -----------------------------
+        # Réutilisation mémoire temporaire
+        # -----------------------------
+        COL_PROJ     = 8
+        COL_DIST_AR  = 9
         
-        # # # calcul des nouvelles coordonnees
+        device = self.device
+        dtype  = self.dtype
 
-        # print(type(dt))
-        iso[:,17]=dt-0.3*torch.clamp(iso[:,8],max=dt )                                                                           # dt remplace boost en colonne 17    
-        iso[:,18]=iso[:,3]                                                                                      # on copie la latitude initiale en 18 pour les barrieres 
-        iso[:,19]=iso[:,4]                                                                                      # on copie la longitude initiale en 19 pour calculer les barrieres 
-        # nouvelles coordonnees 
-    
-
+        empty_iso = torch.empty((0, 11), device=device, dtype=dtype)
+        numisoprecedent = iso_record['numiso']
+        iso             = iso_record['points']
+        ecart_precedent = iso_record['ecart']             # ecart par rapport à t0vr
+        tmini           = iso_record['tmini']
+        nptmini         = iso_record['nptmini']
         
+        n = iso.shape[0]
+
+        if n == 0:                     # cas ou l isochrone precedent etait vide 
+            iso_record = {
+                "numiso": numisoprecedent,
+                "ecart": ecart_precedent,          # secondes ou minutes depuis t0
+                "points": empty_iso,           # tenseur uniquement avec les colonnes utiles par point
+                "tmini": 0,
+                "distmini": 0,
+                "nptmini": nptmini,
+                "idxptmini": 0
+              }
             
-        iso[:,3]= iso[:,18] + iso[:,17] * iso[:,16] / 3600 / 60 * torch.cos(iso[:,13])                                         #  
-        iso[:,4]= iso[:,19] + iso[:,17] * iso[:,16] / 3600 / 60 * torch.sin(iso[:,13])/torch.cos(iso[:,3].deg2rad())                      #    (le cos utilise pour la lat est avec la latitude deja calculee ?)
+            return iso_record
+  
+        numiso  = numisoprecedent + 1    
+        ordre   = numiso - self.numisoini - 1         
     
-        
-        iso[:,11]= iso[:,3].deg2rad()                                # on stocke la lat en rad pour le calcul de distance a l arrivee
-        iso[:,12]= iso[:,4].deg2rad() 
-        
-        # on elimine les points hors cercle                          la distance par rapport au centre est calculee en colonne 15 anciennement colonne twa           latcR, loncR                                                     
-        
-        iso[:,17]=dist_mn_vec(iso[:,11],iso[:,12],latcR, loncR) 
+        if tmini > 3600:
+            dt = self.dtglobal[ordre]               # tensor scalaire
+        else:
+            dt = torch.tensor(60.0, dtype=torch.float32, device=device)
+    
+        ecart = ecart_precedent + dt                      # ecart par rapport à t0vr
+        ecart_val = float(ecart.item())
+    
+        # constantes scalaires réutilisées
+        inv_3600_60    = 1.0 / 216000.0
+        bonus          = 0.0   #0.6
+        memo_reset     = 12.0
+        seuil_min_dist = torch.tensor(0.5, device=device, dtype=dtype)
 
+    
+        # ---------------------------------------------------------
+        # Construction des trajets candidats
+        # ---------------------------------------------------------
+        m              = n * self.p
+        trajets        = self.trajets_buf[:m]
+        
+        trajets3d      = trajets.view(self.p, n, 16)                            # trajet 3 d ne comprend que 16 colonnes 
+        trajets3d[:, :, :iso.shape[1]] = iso.unsqueeze(0)
+        trajets3d[:, :, COL_CAP] = self.range_caps[:, None]
+    
+        # décrément pénalité restante
+        trajets3d[:, :, COL_PENO].sub_(dt).clamp_(min=0.0)
+    
+        # TWA
+        trajets3d[:, :, COL_TWA]     = ftwao( self.range_caps[:, None], trajets3d[:, :, COL_TWD] )
+        trajets3d[:, :, COL_NPTMERE] = trajets3d[:, :, COL_NPT] 
+        tws                          = trajets3d[:, :, COL_TWS]
+        twa                          = trajets3d[:, :, COL_TWA]
+        tws10 = torch.round(tws * 10).to(torch.long).clamp_(0, 699)
+    
+        # ---------------------------------------------------------
+        # Filtre VMG
+        # ---------------------------------------------------------
+
+        twa_abs = twa.abs()
+        twa_min = self.tabvmg10to[tws10, 2] - self.tolerancehvmg
+        twa_max = self.tabvmg10to[tws10, 4] + self.tolerancehvmg
+        mask    = (twa_abs >= twa_min) & (twa_abs <= twa_max)
+        trajets_valid = trajets3d[mask]
+
+        if trajets_valid.shape[0] == 0 :
+                iso_record = {
+                "numiso": numisoprecedent,
+                "ecart": ecart_precedent,          # secondes ou minutes depuis t0
+                "points": empty_iso,           # tenseur uniquement avec les colonnes utiles par point
+                "tmini": 0,
+                "distmini": 0,
+                "nptmini": nptmini,
+                "idxptmini": 0
+              }
+            
+                return iso_record
+        
+        # vues locales
+        tws_valid       = trajets_valid[:, COL_TWS]
+        twa_ant_valid   = trajets_valid[:, COL_TWA_ANT]
+        twa_valid       = trajets_valid[:, COL_TWA]
+        stamina_valid   = trajets_valid[:, COL_STAMINA]
+        voile_ini_valid = trajets_valid[:, COL_VOILE].to(torch.long)
+    
+        tws10_valid = torch.round(tws_valid * 10).to(torch.long).clamp_(0, 699)
+        twa10_valid = torch.round(twa_valid.abs() * 10).to(torch.long).clamp_(0, 1799)
 
         
-        # print ( 'iso[:,17] ', iso[:,17])
-                
-        maskDiCentreRoutage   = iso[:,17]<(rayonRoutage*1.15)
-        iso    = iso[maskDiCentreRoutage] 
     
-        # calcul de distar, du point le plus proche et du temps estime vers l arrivee  
-        
-        # iso[:,9]=dist(iso[:,11],iso[:,12],aritoR[0], aritoR[1]) *1.852       # Calcul de distar en mN en colonne 9 on utilise les valeurs en radians deja calculees pour les points et pour l arrivee 
-        
-        iso[:,9]=dist_mn_vec(iso[:,11],iso[:,12],aritoR[0], aritoR[1])
+        # ---------------------------------------------------------
+        # Voile / vitesse / changement
+        # ---------------------------------------------------------
+        pol = self.polairesglobales10to
+        vitessevoileini_valid = pol[voile_ini_valid, tws10_valid, twa10_valid]
+        vitessemaxi_valid = pol[7, tws10_valid, twa10_valid]
+        meilleurevoile_valid = pol[8, tws10_valid, twa10_valid].to(torch.long)
+    
+        boost = vitessemaxi_valid / (vitessevoileini_valid + 1e-4)
+        chgt = boost > 1.014
+        nouvelle_voile_valid = torch.where(chgt, meilleurevoile_valid, voile_ini_valid)
+    
+        trajets_valid[:, COL_VOILE] = nouvelle_voile_valid.to(dtype)
+        trajets_valid[:, COL_SPEED] = vitessemaxi_valid
+    
+        tackgybe = (twa_ant_valid * twa_valid) < 0
+        trajets_valid[:, COL_TWA_ANT] = twa_valid
+    
+        # MEMO avant filtrages
+        memo_col = trajets_valid[:, COL_MEMO]
+        memo_col.sub_(1.0).clamp_(min=0.0)
+        memo_col[chgt | tackgybe] = memo_reset
+    
+        # ---------------------------------------------------------
+        # Pénalités
+        # ---------------------------------------------------------
+        penalite_chgt = torch.zeros_like(tws_valid)
+        penalite_tackgybe = torch.zeros_like(tws_valid)
+    
+        if chgt.any():
+            penalite_chgt[chgt] = (
+                peno_torch(
+                    self.lwtimer,
+                    self.hwtimer,
+                    tws_valid[chgt],
+                    stamina_valid[chgt]
+                ) * self.furler
+            )
+    
+        if tackgybe.any():
+            penalite_tackgybe[tackgybe] = peno_torch(
+                self.gybeprolwtimer,
+                self.gybeprohwtimer,
+                tws_valid[tackgybe],
+                stamina_valid[tackgybe]
+            )
+    
+        trajets_valid[:, COL_PENO].add_(penalite_chgt + penalite_tackgybe)
+    
+        peno_active = torch.clamp(trajets_valid[:, COL_PENO], max=dt)
+        dt_penalise = torch.clamp(dt - 0.3 * peno_active, min=0.0)
 
-        distmini, idx_min = torch.min(iso[:, 9], dim=0)                # idx_min est l’indice de la ligne où la distance est minimale   
-        vitesse = iso[idx_min, 16]                                     # Vitesse en nœuds (milles nautiques par heure) au point de distance mini
-        tmini   = ((distmini * 3600) / (vitesse * 1.852)).item()       # la distance est en km avec ma fonction dist et vitesse en noeuds pour les polaires 
-        nptmini = int(iso[idx_min, 1].item())                          # transformation de idxmin en indice entier   
+        
     
-        # on va eliminer les points qui sont a plus de 3 fois la distance mini de l arrivee 
-        maskDiMini   = iso[:,9]<(distmini*3)
-        iso          = iso[maskDiMini]
+        # ---------------------------------------------------------
+        # Déplacement
+        # ---------------------------------------------------------
+        cap_rad = torch.deg2rad(trajets_valid[:, COL_CAP])
+        lat_rad = torch.deg2rad(trajets_valid[:, COL_LAT])
     
-        # calcul de ordoar et arrondi pour avoir le nb de points voulu a la fin 
-        iso[:,10]= iso[:,11] - m_ar * iso[:,12]                                  # calcul ordoar :  ordonnee a  l origine  
-        ordomini, ordomaxi = torch.min(iso[:,10]), torch.max(iso[:,10])          # min et max sur la colonne 10
-                                                                
-        coeff         = (n3-1)/ (ordomaxi-ordomini)                              # coefficient pour ecremer et garder n3 points
-        iso[:,10]  = (iso[:,10]*coeff).int() 
+        cos_cap = torch.cos(cap_rad)
+        sin_cap = torch.sin(cap_rad)
+        coslat  = torch.cos(lat_rad).clamp_min_(1e-6)
     
-        # tris et elimination 
-        indices_9 = torch.argsort(iso[:, 9], stable=False)                       # indice des elements tries    
-        iso = iso[indices_9]                                                     # on reconstitue iso avec le tableau des elements triés sur l indice 9
-        indices_10 = torch.argsort(iso[:, 10], stable=True)                      # indices des elements triés de la colonne 10
-        iso = iso[indices_10]                                                    # on reconstitue iso avec le tableau des elements triés sur l indice 10
-        torch.cuda.synchronize()  # on attend que le GPU ait fini pour mesurer le temps 
-        iso[1:,14]= iso[1:,10] - iso[:-1,10]                                     # on fait l ecart entre 2 points successifs sur la colonne 10 ordoar dans la colonne 11
-        mask   = iso[:,14]!=0
-        iso    = iso[mask]                                                       # on elimine les points pour lesquels l ecart est egal a zero   
-        #  on recalcule le boost sur 512 points pour l avoir a la fin 
-        iso[:,14]= iso[:,16]/(iso[:,15]+0.0001)
+        speed = trajets_valid[:, COL_SPEED]
+        
+        facteur = speed * dt_penalise * inv_3600_60
+        # print ('facteur',facteur)
+        # print('sin_cap',sin_cap)
+        
+        trajets_valid[:, COL_LAT_AR] = trajets_valid[:, COL_LAT] + facteur * cos_cap
+        trajets_valid[:, COL_LON_AR] = trajets_valid[:, COL_LON] + facteur * sin_cap / coslat
+    
+        # ---------------------------------------------------------
+        # Stamina
+        # ---------------------------------------------------------
+        trajets_valid[:, COL_STAMINA].add_(
+            -calc_perte_stamina_to(tws_valid, tackgybe, chgt, self.coeffboat)
+            + frecupstaminato(dt, tws_valid)
+        )
+        trajets_valid[:, COL_STAMINA].clamp_(min=0.0, max=100.0)
+    
+        # ---------------------------------------------------------
+        # Filtre cercle de routage
+        # ---------------------------------------------------------
+        lat_ar = trajets_valid[:, COL_LAT_AR]
+        lon_ar = trajets_valid[:, COL_LON_AR]
+    
+        lat_pt_rad = torch.deg2rad(lat_ar)
+        lon_pt_rad = torch.deg2rad(lon_ar)
+    
+        distcentre = dist_mn_vec(lat_pt_rad, lon_pt_rad, self.latcR, self.loncR)
+        mask_centre = distcentre < (self.rayonRoutage * 1.15)
+    
+        trajets_valid = trajets_valid[mask_centre]
 
-        # elimination des points terre 
-        iso[:,12]=terremer(iso[:,3],iso[:,4])                                   #on stocke le resultat terre mer en 12   
-        mask   = iso[:,12]!=0
-        iso    = iso[mask]                                                      # on garde les points pour lesquels iso[:,12]==1 
+        if trajets_valid.shape[0] == 0 :
+                iso_record = {
+                "numiso": numisoprecedent,
+                "ecart": ecart_precedent,          # secondes ou minutes depuis t0
+                "points": empty_iso,           # tenseur uniquement avec les colonnes utiles par point
+                "tmini": 0,
+                "distmini": 0,
+                "nptmini": nptmini,
+                "idxptmini": 0
+              }
+            
+                return iso_record
        
-            # elimination des points dans les zones d exclusion 
-        maskexclu = points_in_any_polygon_vectorized(iso[:,3],iso[:,4], self.segments)
-        iso    = iso[~maskexclu] 
+        # vues réactualisées
+        lat_ar = trajets_valid[:, COL_LAT_AR]
+        lon_ar = trajets_valid[:, COL_LON_AR]
+        lat_pt_rad = torch.deg2rad(lat_ar)
+        lon_pt_rad = torch.deg2rad(lon_ar)
+
+        # print("après filtre centre", trajets_valid.shape[0])
+    
+        # ---------------------------------------------------------
+        # Réutilisation mémoire : colonnes 9 et 10
+        # ---------------------------------------------------------
+        lon_proj = dlon_short_torch(lon_ar, self.lon_depart)
+        trajets_valid[:, COL_PROJ] = self.dx_ar * lat_ar - self.dy_ar * lon_proj
+        trajets_valid[:, COL_DIST_AR] = dist_mn_vec(
+            lat_pt_rad,
+            lon_pt_rad,
+            self.lat_arrivee_rad,
+            self.lon_arrivee_rad
+        )
+    
+        proj = trajets_valid[:, COL_PROJ]
+        dist_col = trajets_valid[:, COL_DIST_AR]
+        memo_manoeuvre = trajets_valid[:, COL_MEMO]
+        score = dist_col - bonus * (memo_manoeuvre / 12.0)
+    
+        ordomini = proj.min()
+        ordomaxi = proj.max()
+    
+        # ---------------------------------------------------------
+        # Réduction par buckets
+        # ---------------------------------------------------------
+        if torch.isclose(ordomaxi, ordomini):
+            idx = torch.argsort(score, stable=True)
+            trajets_valid = trajets_valid[idx[:1]]
+        else:
+            coeff = (self.nmax - 1) / (ordomaxi - ordomini + 1e-12)
+            buckets = torch.round((proj - ordomini) * coeff).to(torch.long)
+            buckets.clamp_(0, self.nmax - 1)
+    
+            idx = torch.argsort(score, stable=True)
+            trajets_valid = trajets_valid[idx]
+            buckets = buckets[idx]
+    
+            idx = torch.argsort(buckets, stable=True)
+            trajets_valid = trajets_valid[idx]
+            buckets = buckets[idx]
+    
+            keep = torch.ones_like(buckets, dtype=torch.bool)
+            keep[1:] = buckets[1:] != buckets[:-1]
+            trajets_valid = trajets_valid[keep]
+            
+    
+        if trajets_valid.shape[0] == 0 :
+                iso_record = {
+                "numiso": numisoprecedent,
+                "ecart": ecart_precedent,          # secondes ou minutes depuis t0
+                "points": empty_iso,           # tenseur uniquement avec les colonnes utiles par point
+                "tmini": 0,
+                "distmini": 0,
+                "nptmini": nptmini,
+                "idxptmini": 0
+              }
+            
+                return iso_record
+                    
+        # print("après buckets", trajets_valid.shape[0])
+
+        # impression_trajets (trajets_valid,titre='Trajet ')
+    
+        # # ---------------------------------------------------------
+        # # Terre sur point d'arrivée
+        # # ---------------------------------------------------------
+        # mask_mer = terremer(
+        #     trajets_valid[:, COL_LAT_AR],
+        #     trajets_valid[:, COL_LON_AR]
+        # ) != 0
+    
+        # trajets_valid = trajets_valid[mask_mer]
+        # if trajets_valid.shape[0] == 0:
+
+        #     iso_record = {
+        #         "numiso": numisoprecedent,
+        #         "ecart": ecart_precedent,          # secondes ou minutes depuis t0
+        #         "points": empty_iso,           # tenseur uniquement avec les colonnes utiles par point
+        #         "tmini": 0,
+        #         "distmini": 0,
+        #         "nptmini": nptmini,
+        #         "idxptmini": 0
+        #       }
+        #     return iso_record
+    
+        # ---------------------------------------------------------
+        # Terre sur segments +point arrivee 
+        # ---------------------------------------------------------
+        lat0 = trajets_valid[:, COL_LAT]
+        lon0 = trajets_valid[:, COL_LON]
+        lat1 = trajets_valid[:, COL_LAT_AR]
+        lon1 = trajets_valid[:, COL_LON_AR]
+
+        dlat = lat1 - lat0
+        dlon = dlon_short_torch(lon1, lon0)
+
+        mask_mer = torch.ones(
+            trajets_valid.shape[0],
+            dtype=torch.bool,
+            device=trajets_valid.device
+        )
+
+        for f in (*self.fractions_controle_terre(dt), 1.0):
+            lat_t = lat0 + f * dlat
+            lon_t = wrap180_t(lon0 + f * dlon)
+            mask_mer &= (terremer(lat_t, lon_t) != 0)
+
+        trajets_valid = trajets_valid[mask_mer]
+
+        if trajets_valid.shape[0] == 0:
+            iso_record = {
+                "numiso": numisoprecedent,
+                "ecart": ecart_precedent,
+                "points": empty_iso,
+                "tmini": 0,
+                "distmini": 0,
+                "nptmini": nptmini,
+                "idxptmini": 0
+            }
+            return iso_record
+          
+        # print("après terre segment", trajets_valid.shape[0])    
+    
+        # ---------------------------------------------------------
+        # Zones d'exclusion
+        # ---------------------------------------------------------
+        maskexclu = points_in_any_polygon_vectorized(
+            trajets_valid[:, COL_LAT_AR],
+            trajets_valid[:, COL_LON_AR],
+            self.segments
+        )
+        trajets_valid = trajets_valid[~maskexclu]
+        if trajets_valid.shape[0] == 0:
+             iso_record = {
+                "numiso": numisoprecedent,
+                "ecart": ecart_precedent,          # secondes ou minutes depuis t0
+                "points": empty_iso,           # tenseur uniquement avec les colonnes utiles par point
+                "tmini": 0,
+                "distmini": 0,
+                "nptmini": nptmini,
+                "idxptmini": 0
+              }
+            
+             return iso_record
+          
+        # print("après exclusions", trajets_valid.shape[0])    
+        # ---------------------------------------------------------
+        # Barrières
+        # ---------------------------------------------------------
+        lat0 = trajets_valid[:, COL_LAT]
+        lon0 = trajets_valid[:, COL_LON]
+        lat1 = trajets_valid[:, COL_LAT_AR]
+        lon1 = trajets_valid[:, COL_LON_AR]
+    
+        mask_barriere = detect_barrier_crossings(
+            lat1, lon1, lat0, lon0, self.barrieres
+        )
+        trajets_valid = trajets_valid[~mask_barriere]
+        if trajets_valid.shape[0] == 0:
+             iso_record = {
+                "numiso": numisoprecedent,
+                "ecart": ecart_precedent,          # secondes ou minutes depuis t0
+                "points": empty_iso,           # tenseur uniquement avec les colonnes utiles par point
+                "tmini": 0,
+                "distmini": 0,
+                "nptmini": nptmini,
+                "idxptmini": 0
+              }
+            
+             return iso_record
+    
+        # ---------------------------------------------------------
+        # Réduction à 3x la meilleure distance
+        # ---------------------------------------------------------
+        dist = trajets_valid[:, COL_DIST_AR]
+        distmini = dist.min()
+    
+        seuil_dist = torch.maximum(3.0 * distmini, seuil_min_dist)
+        trajets_valid = trajets_valid[dist <= seuil_dist]
+        if trajets_valid.shape[0] == 0:
+             iso_record = {
+                "numiso": numisoprecedent,
+                "ecart": ecart_precedent,          # secondes ou minutes depuis t0
+                "points": empty_iso,           # tenseur uniquement avec les colonnes utiles par point
+                "tmini": 0,
+                "distmini": 0,
+                "nptmini": nptmini,
+                 "idxptmini": 0
+
+              }
+            
+             return iso_record
+      
+    
+        # ---------------------------------------------------------
+        # Mise à jour colonnes isochrone
+        # ---------------------------------------------------------
+        n_out = trajets_valid.shape[0]
+        trajets_valid[:, COL_NPT] = torch.arange( self.next_npt, self.next_npt + n_out,  device=device, dtype=dtype)
+        self.next_npt += n_out
+        trajets_valid[:, COL_LAT] = trajets_valid[:, COL_LAT_AR]
+        trajets_valid[:, COL_LON] = trajets_valid[:, COL_LON_AR]
+
+        # ---------------------------------------------------------
+        # Meilleur point
+        # ---------------------------------------------------------
+        dist = dist_mn_vec(
+        torch.deg2rad(trajets_valid[:, COL_LAT_AR]),
+        torch.deg2rad(trajets_valid[:, COL_LON_AR]),
+        self.lat_arrivee_rad,
+        self.lon_arrivee_rad
+        )
+    
+        idx_best = torch.argmin(dist)
+        distmini = dist[idx_best]
+      
+        v_best   = trajets_valid[idx_best, COL_SPEED]
+        tmini    = (distmini / torch.clamp(v_best, min=1e-3)) * 3600.0
+        tmini = float(tmini.item())
+        # identifiant du point le plus proche
+        nptmini = int(trajets_valid[idx_best, COL_NPT].item())
+    
+        # ---------------------------------------------------------
+        # Météo aux points d'arrivée
+        # ---------------------------------------------------------
+        lat_arr = trajets_valid[:, COL_LAT]
+        lon_arr = trajets_valid[:, COL_LON]
+    
+        if mode == 'gfs':
+            dtigGFS = self.dtig0GFS + ecart_val
+            trajets_valid[:, COL_TWS], trajets_valid[:, COL_TWD] = gfs_interpolateur_to(
+                dtigGFS, lat_arr, lon_arr
+            )
+    
+        elif mode == 'mixte':
+            if ecart_val < 9 * 3600:
+                dtigGFS = self.dtig0GFS + ecart_val
+                trajets_valid[:, COL_TWS], trajets_valid[:, COL_TWD] = gfs_interpolateur_to(
+                    dtigGFS, lat_arr, lon_arr
+                )
+            else:
+                dtigECM = self.dtig0ECM + ecart_val                                                                                       
+                trajets_valid[:, COL_TWS], trajets_valid[:, COL_TWD] = ecm_interpolateur(
+                    dtigECM, lat_arr, lon_arr
+                )
+        else:
+            raise ValueError(f"mode inconnu : {mode}")
+     
+        # ---------------------------------------------------------
+        # Iso suivant
+        # ---------------------------------------------------------
+        
+        iso_suivant = trajets_valid[:, 0:11].clone()
+    
+        # ---------------------------------------------------------
+        # isoglobal on copie cap et speed en colonnes 10 et 
+        # col 10 <- CAP
+        # col 11 <- SPEED
+        # ---------------------------------------------------------
+        trajets_valid[:, 10] = trajets_valid[:, COL_CAP]
+        trajets_valid[:, 11] = trajets_valid[:, COL_SPEED]
+
+        self.npt_to_global_idx = {}       #dictionnaire pour garder les references de points 
+        start=self.kglobal
+        end = self.kglobal + n_out
+
+        npts = trajets_valid[:, COL_NPT].long().detach().cpu().tolist()
+
+        for i, npt in enumerate(npts):
+            self.npt_to_global_idx[npt] = start + i
+
+
+        self.isoglobal[start:end] = trajets_valid[:, 0:12]
+
+        idx_global = self.npt_to_global_idx[nptmini]
+        distmini = float(distmini.item())
+        
+        self.isoglobal_meta.append({
+            "numiso": numiso,
+            "ecart": ecart_val,
+            "start": start,
+            "end": end,   
+            "tmini": tmini,
+            "distmini": distmini,
+            "nptmini": nptmini,
+            "idxptmini": 0
+           
+        })
        
+        self.kglobal = end
+        iso_record = {
+                "numiso"  : numiso,
+                "ecart"   : ecart,          # secondes ou minutes depuis t0
+                "points"  : iso_suivant,           # tenseur uniquement avec les colonnes utiles par point
+                "tmini"   : tmini,
+                "distmini": distmini,
+                "nptmini" : nptmini,
+                "idxptmini": idx_global
+              }
+          
+        return iso_record
+
+
+        
+        
+    def construit_dico_isochrones_1sur6(self, seuil=0.01):
+        dico_isochrones = {}
+        for rec in self.isoglobal_meta:
+            numiso = rec["numiso"]
+    
+            if numiso % 6 != 0:
+                continue
+    
+            start = rec["start"]
+            end = rec["end"]
+    
+            bloc = self.isoglobal[start:end]
+    
+            # nouvelles colonnes : LAT=2, LON=3
+            lat_lon = bloc[:, [2, 3]]
+    
+            segs = decoupe_latlon_folium(lat_lon, seuil=seuil)
+    
+            if segs:
+                dico_isochrones[int(numiso)] = segs
+    
+        return dico_isochrones
+
+    #@torch.no_grad()
+    def reconstruire_chemin_rapide(self,isoglobal, nptmini) :
+        """
+        Reconstruit le chemin depuis le point d’ID nptmini jusqu’au point d’ID 0 (inclus).
+        """
+        # Création des dictionnaires pour remonter efficacement
+        point_ids = isoglobal[:, 0].to(torch.int32).tolist()
+        parent_ids = isoglobal[:, 1].to(torch.int32).tolist()
+        dico_parents = dict(zip(point_ids, parent_ids))
+        dico_index = {pid: idx for idx, pid in enumerate(point_ids)}
+        chemin_indices = []
+        pt = nptmini
+        while True:
+            idx = dico_index.get(pt)
+            if idx is None:
+                raise ValueError(f"Point {pt} introuvable dans isoglobal")
+            chemin_indices.append(idx)
+            if pt == 0:
+                break
+            pt = dico_parents.get(pt, 0)   
+        chemin_indices.reverse()
+        return chemin_indices
+    
+
+
+
+
+    def construit_routage_depuis_chemin(self, chemin_indices):
+        chemin = self.isoglobal[chemin_indices]        
+        routage = torch.zeros((chemin.shape[0], 16), device=self.device, dtype=self.dtype)
+    
+        # Colonnes récupérées depuis isoglobal
+        routage[:, [2, 3, 5, 6, 9, 10, 12, 13, 14, 15]] = chemin[:, [2, 3, 5, 10, 11, 4, 8, 9, 6, 7]]
+    
+        # numiso / ecart depuis isoglobal_meta
+        chemin_indices_t = torch.as_tensor(chemin_indices, device=self.device)
+    
+        for rec in self.isoglobal_meta:
+            mask = (chemin_indices_t >= rec["start"]) & (chemin_indices_t < rec["end"])
+            if mask.any():
+                routage[mask, 0] = rec["numiso"]
+                routage[mask, 1] = rec["ecart"]
+    
+        # temps unix
+        routage[:, 4] = self.t0vr + routage[:, 1]
+    
+        # vmgmin / vmgmax
+        tws10 = torch.round(routage[:, 12] * 10).long().clamp(0, 699)
+        routage[:, 7] = self.tabvmg10to[tws10, 2]
+        routage[:, 8] = self.tabvmg10to[tws10, 4]
+    
+        # boost
+        voile = routage[:, 10].long()
+        twa10 = torch.round(routage[:, 5].abs() * 10).long().clamp(0, 1799)
+    
+        vitesse_voile = self.polairesglobales10to[voile, tws10, twa10]
+        vitesse_maxi = self.polairesglobales10to[7, tws10, twa10]
+    
+        routage[:, 11] = vitesse_maxi / (vitesse_voile + 1e-4)    
+        return routage
+
+        
+    def lissage_routage_np(self, routage_np, window=3, poly=1, marge=1):
+        ''' La fonction travaille sur du numpy '''
+        tabres = np.copy(routage_np)
+    
+        n = len(routage_np)
+        if n < 3:
+            return tabres
+    
+        numiso = routage_np[:, 0]
+        ecart  = routage_np[:, 1]
+        twa    = routage_np[:, 5]
+    
+        pos_twa = np.where(twa[:-1] * twa[1:] < 0)[0] + 1
+    
+        dt = np.diff(ecart)
+        pos_dt = np.where(np.diff(dt) != 0)[0] + 1 if len(dt) >= 2 else np.array([], dtype=int)
+    
+        numiso_wp = np.array(
+            [rec["numiso"] for rec in self.wp_passages.values()],
+            dtype=numiso.dtype
+        ) if getattr(self, "wp_passages", None) else np.array([], dtype=numiso.dtype)
+    
+        pos_wp = np.where(np.isin(numiso, numiso_wp))[0]
+
+        pos_fix_base = np.unique(np.concatenate((
+            np.array([0, n - 1], dtype=int),
+            pos_twa.astype(int),
+            pos_dt.astype(int),
+            pos_wp.astype(int),
+        )))
+        
+        pos_fix = ajoute_marge_points_fixes(pos_fix_base, n, marge=2)
+        pos_fix = pos_fix[(pos_fix >= 0) & (pos_fix < n)]
+    
+        window = int(window)
+        if window % 2 == 0:
+            window += 1
+        poly = min(int(poly), window - 1)
+    
+        for k in range(len(pos_fix) - 1):
+            i0 = pos_fix[k]
+            i1 = pos_fix[k + 1]
+    
+            j0 = i0 + marge
+            j1 = i1 - marge
+    
+            if j1 <= j0:
+                continue
+    
+            segment = routage_np[i0:i1 + 1]
+            if len(segment) < window:
+                continue
+    
+            lat = segment[:, 3]
+            lon = segment[:, 4]
+    
+            lat_s = savgol_filter(lat, window, poly, mode="nearest")
+            lon_s = savgol_filter(lon, window, poly, mode="nearest")
+    
+            # On ne modifie ni les points fixes ni leurs voisins si marge=1
+            tabres[j0:j1 + 1, 3] = lat_s[(j0 - i0):(j1 - i0 + 1)]
+            tabres[j0:j1 + 1, 4] = lon_s[(j0 - i0):(j1 - i0 + 1)]
+    
+        return tabres
+
+    def reconstruit_colonnes_routage_lisse(self, tabpointslisses, mode="gfs"):
+        """
+        tabpointslisses :
+          col 0 = numiso
+          col 1 = ecart
+          col 2 = lat
+          col 3 = lon
+          col 4 = timestamp unix
+    
+        retourne un tableau numpy/torch routage avec 16 colonnes
+        """
+    
+        if not torch.is_tensor(tabpointslisses):
+            routage = torch.as_tensor(tabpointslisses, dtype=self.dtype, device=self.device)
+        else:
+            routage = tabpointslisses.to(device=self.device, dtype=self.dtype)
+    
+        n = routage.shape[0]
+    
+        if routage.shape[1] < 16:
+            tmp = torch.zeros((n, 16), device=self.device, dtype=self.dtype)
+            tmp[:, :routage.shape[1]] = routage
+            routage = tmp
+    
+        if n < 2:
+            return routage
+    
+        lat = routage[:, 2]
+        lon = routage[:, 3]
+        ecart = routage[:, 1]
+    
+        # --------------------------------------------------
+        # Météo aux points lissés
+        # --------------------------------------------------
+        if mode == "gfs":
+            dtig = self.dtig0GFS + ecart
+            routage[:, 12], routage[:, 13] = gfs_interpolateur_to(dtig, lat, lon)
+    
+        elif mode == "mixte":
+            mask_gfs = ecart < 9 * 3600
+    
+            if mask_gfs.any():
+                dtig_gfs = self.dtig0GFS + ecart[mask_gfs]
+                routage[mask_gfs, 12], routage[mask_gfs, 13] = gfs_interpolateur_to(
+                    dtig_gfs,
+                    lat[mask_gfs],
+                    lon[mask_gfs]
+                )
+    
+            if (~mask_gfs).any():
+                dtig_ecm = self.dtig0ECM + ecart[~mask_gfs]
+                routage[~mask_gfs, 12], routage[~mask_gfs, 13] = ecm_interpolateur(
+                    dtig_ecm,
+                    lat[~mask_gfs],
+                    lon[~mask_gfs]
+                )
+        else:
+            raise ValueError(f"mode inconnu : {mode}")
+    
+        # --------------------------------------------------
+        # Cap et vitesse entre i-1 et i
+        # --------------------------------------------------
+        lat0 = lat[:-1]
+        lon0 = lon[:-1]
+        lat1 = lat[1:]
+        lon1 = lon[1:]
+    
+        dlat = lat1 - lat0
+        dlon = dlon_short_torch(lon1, lon0)
+    
+        latm_rad = torch.deg2rad((lat0 + lat1) * 0.5)
+        dx = dlon * torch.cos(latm_rad)
+        dy = dlat
+    
+        cap = torch.rad2deg(torch.atan2(dx, dy)) % 360.0
+    
+        dist = dist_mn_vec(
+            torch.deg2rad(lat0),
+            torch.deg2rad(lon0),
+            torch.deg2rad(lat1),
+            torch.deg2rad(lon1)
+        )
+    
+        dt_h = (ecart[1:] - ecart[:-1]) / 3600.0
+        speed = dist / torch.clamp(dt_h, min=1e-6)
+    
+        routage[1:, 6] = cap
+        routage[1:, 9] = speed
+    
+        # Pour le premier point : pas de déplacement précédent
+        routage[0, 6] = routage[1, 6]
+        routage[0, 9] = routage[1, 9]
+    
+        # --------------------------------------------------
+        # TWA au point d'arrivée
+        # --------------------------------------------------
+        routage[1:, 5] = ftwao(routage[1:, 6], routage[1:, 13])
+        routage[0, 5] = routage[1, 5]
+    
+        # --------------------------------------------------
+        # VMG min / max
+        # --------------------------------------------------
+        tws10 = torch.round(routage[:, 12] * 10).long().clamp(0, 699)
+    
+        routage[:, 7] = self.tabvmg10to[tws10, 2]
+        routage[:, 8] = self.tabvmg10to[tws10, 4]
+    
+        
+        # --------------------------------------------------
+        # Voile et boost avec logique séquentielle
+        # --------------------------------------------------
+        twa10 = torch.round(routage[:, 5].abs() * 10).long().clamp(0, 1799)
+        
+        voile_best = self.polairesglobales10to[8, tws10, twa10].long()
+        vitesse_best = self.polairesglobales10to[7, tws10, twa10]
+        
+        voile_calc = torch.empty_like(voile_best)
+        boost_calc = torch.empty_like(vitesse_best)
+        
+        # voile initiale : on garde celle du routage original si disponible
+        voile_prec = int(routage[0, 10].item())
+        
+        for i in range(routage.shape[0]):
+            tws_i = tws10[i]
+            twa_i = twa10[i]
+        
+            vitesse_voile_prec = self.polairesglobales10to[voile_prec, tws_i, twa_i]
+            boost_i = vitesse_best[i] / (vitesse_voile_prec + 1e-4)
+        
+            if boost_i > 1.014:
+                voile_i = int(voile_best[i].item())
+            else:
+                voile_i = voile_prec
+        
+            voile_calc[i] = voile_i
+            boost_calc[i] = boost_i
+        
+            voile_prec = voile_i
+        
+        routage[:, 10] = voile_calc.to(self.dtype)
+        routage[:, 11] = boost_calc
+        routage[:, 9] = vitesse_best
+        
+    
+        # --------------------------------------------------
+        # Stamina / peno
+        # --------------------------------------------------
+        # Option simple : on garde les anciennes valeurs si elles existent,
+        # sinon on laisse à 0.
+        #
+        # Pour recalculer précisément stamina et peno, il faut rejouer toute
+        # la logique manoeuvres/changements de voile depuis le début du routage.
+    
+        return routage
+
+    def routage_actions(self, routage):
+        ''' On decale les colonnes pour avoir les actions à faire '''
+        cols_actions = [5, 6, 7, 8, 9, 10, 11, 14, 15]
+        # 5 twa
+        # 6 cap
+        # 9 speed
+        # 7 vmgmin
+        # 8 vmgmax
+        # 10 voile
+        # 11 boost
+        # 14 stamina
+        # 15 peno
+        
+        routage_actions = routage.clone()   # si torch
+        routage_actions[:-1, cols_actions] = routage[1:, cols_actions]
+        
+        # dernière ligne : pas d'action suivante
+        routage_actions[-1, cols_actions] = routage[-1, cols_actions]
+        return routage_actions
+       
+              
+# fin de la classe RoutageSession               
+
+# classe simulation
+###################
+
+class Simulation:                                                  # version avec nouvel algorithme
+
+    
+    def __init__(self, course, user_id):
+        
+        tic=time.time()
+        self.device='cuda'
+        self.dtype=torch.float32
+
+        self.carte_cache = {}                           #Dictionnaire pour le cache des cartes 
+        # Initialisation globale
+        ########################
+               
+        self.course    = course
+        self.user_id   = user_id
+        self.tigGFS    = tigGFS
+                      
+        # Chargement des données
+        DonneesCourse1                                                      = rechercheDonneesCourseCache(course)   # c 'est un objet de la classe DonneesCourse
+        self.boatinfos,self.posStartVR,self.exclusionsVR2  ,self.positionvr = rechercheDonneesCourseUser( user_id,course)                  # self.exclusionsVR2 est un dictionnaire avec les exclusions VR qui ne sert pas 
+        self.personalinfos,self.ari,self.waypoints,self.exclusionsperso,self.barrieres,self.trajets,self.tolerancehvmg,retardpeno = rechercheDonneesPersoCourseUser( user_id,course)
+        baDate,boatActions         = rechercheTableBoatActions(user_id,course)
+        # self.boatactions           = json.loads(boatActions)
+        self.baDate                = baDate
+        self.leginfos              = DonneesCourse1.leginfos
+        self.exclusionsVR          = DonneesCourse1.tabexclusions                     # ce sont les exclusions VR
+        self.tabicelimits          = DonneesCourse1.tabicelimits
+        self.carabateau            = DonneesCourse1.carabateau
+        self.polairesglobales10to  = DonneesCourse1.polaires_gpu
+        self.tabvmg10to            = DonneesCourse1.vmg_gpu
+        self.polaires_np           = DonneesCourse1.polaires_np                               #ce sont les polaires10
+        self.tabvmg                = DonneesCourse1.vmg_cpu
+        self.polairesjson          = DonneesCourse1.polairesjson
+        self.typevoile             = self.carabateau['typevoile']  
+        self.exclusionsVR.update(self.exclusionsperso)          # on rajoute exclusionsperso à exclusions VR 
+
+        # print ('boatinfos',self.boatinfos)
+        # print ('boatactions',boatActions)
+        
         
         try:
-            # calcul des barrieres et elimination des trajets traversant les barrieres
-            mask=detect_barrier_crossings(iso[:,18],iso[:,19],iso[:,3],iso[:,4] , self.barrieres)
-            iso=iso[~mask]
-        except:
-            None
-    
-### Calcul meteo    
-        if mode=='gfs':
-            dtigGFS=dtig0GFS+ecart 
-            iso[:,9],iso[:,10]=gfs_interpolateur(dtigGFS,iso[:,3],iso[:,4])
+            self.exclusions = {  nom: torch.tensor([[lon, lat] for lat, lon in coords], device='cuda')   for nom, coords in self.exclusionsVR.items()  }    
+            self.exclusions_json = {  nom: tensor.cpu().tolist()  for nom, tensor in self.exclusions.items()}
+
+        except : 
+            self.exclusions = {}  
+            self.exclusions_json = {}    
+              
+
+        self.segments             = prepare_segments(self.exclusions)  # [S, 4] segments [x1, y1, x2, y2]        
+        self.t0vr                 = self.posStartVR['t0']
+        self.MF                   = 0.8
+        self.furler               = 0.8
+
+        polairesjson    =   self.polairesjson 
+        self.polar_id                    = polairesjson['_id']
+        self.label                       = polairesjson['label']                              # type du bateau
+        self.globalSpeedRatio            = polairesjson['globalSpeedRatio']       
+        self.foilSpeedRatio              = polairesjson['foil']['speedRatio']
+        self.autoSailChangeTolerance     = polairesjson["autoSailChangeTolerance"]
+        self.badSailTolerance            = polairesjson["badSailTolerance"]
+        self.iceSpeedRatio               = polairesjson['iceSpeedRatio']
+        self.maxSpeed                    = polairesjson['maxSpeed']
+        self.twaMin                      = polairesjson['foil']['twaMin']
+        self.twaMax                      = polairesjson['foil']['twaMax']
+        self.twaMerge                    = polairesjson['foil']['twaMerge']
+        self.twsMin                      = polairesjson['foil']['twsMin']
+        self.twsMax                      = polairesjson['foil']['twsMax']
+        self.twsMerge                    = polairesjson['foil']['twsMerge']
+        self.speedRatio                  = polairesjson['foil']['speedRatio']
+        self.hull                        = polairesjson['hull']['speedRatio']
+        self.lws                         = polairesjson['winch']['lws']
+        self.hws                         = polairesjson['winch']['hws']
+        self.lwtimer                     = polairesjson['winch']['sailChange']['pro']['lw']['timer']
+        self.hwtimer                     = polairesjson['winch']['sailChange']['pro']['hw']['timer']
+        self.lwratio                     = polairesjson['winch']['sailChange']['pro']['lw']['ratio']
+        self.hwratio                     = polairesjson['winch']['sailChange']['pro']['hw']['ratio']
+        self.tackprolwtimer              = polairesjson['winch']['tack']['pro']['lw']['timer']
+        self.tackprolwratio              = polairesjson['winch']['tack']['pro']['lw']['ratio']
+        self.tackprohwtimer              = polairesjson['winch']['tack']['pro']['hw']['timer']
+        self.tackprohwratio              = polairesjson['winch']['tack']['pro']['hw']['ratio']
+        self.gybeprolwtimer              = polairesjson['winch']['gybe']['pro']['lw']['timer']
+        self.gybeprolwratio              = polairesjson['winch']['gybe']['pro']['lw']['ratio']
+        self.gybeprohwtimer              = polairesjson['winch']['gybe']['pro']['hw']['timer']
+        self.gybeprohwratio              = polairesjson['winch']['gybe']['pro']['hw']['ratio']
+
+        self.tabtws                      = polairesjson['tws']                                            
+        self.tabtwa                      = polairesjson['twa']
+        self.update                      = polairesjson['_updatedAt']
+        self.nbvoiles                    = len(polairesjson['sail'])
+        self.typevoile= []
+        for i in range(self.nbvoiles) :
+            self.typevoile.append( self.polairesjson['sail'][i]['name'])
+        # print (self.typevoile) 
+        self.coeffboat                   = tabCoeffboat[self.polar_id]['stamina']
+        voile_auto=1
         
-        if mode=='mixte':
-            dtigGFS=dtig0GFS+ecart 
-            dtigECM    = dtig0ECM + ecart
+         ### Pour Calcul meteo
+        self.dtig0GFS               = self.t0vr-tigGFS          
+        self.dtig0ECM               = self.t0vr-tigECM 
+
+        posStartVR=self.posStartVR     
+        self.state       = posStartVR['state']
+        self.y0          = posStartVR['y0']
+        self.x0          = posStartVR['x0']
+        self.t0          = posStartVR['t0']
+        self.sail        = posStartVR['voile']
+        self.voileAuto   = posStartVR['voileAuto']
+        self.tws         = posStartVR['tws']
+        self.twd         = posStartVR['twd']
+        self.twa         = posStartVR['twa']
+        self.twaAuto     = posStartVR['twaAuto']
+        self.heading     = posStartVR['heading']
+        self.speed       = posStartVR['speed']
+        self.stamina     = posStartVR['stamina']
+        self.soldepeno   = posStartVR['penovr']        
+        self.boost       = posStartVR['boost']
+        self.lastCalcDate= posStartVR['lastCalcDate'] 
+       
+        tws, twd = gfs_interpolateur_np(self.dtig0GFS, self.y0, self.x0)   
+        print ('tws et twd calcules au depart  tws {:6.3f} twd {:6.3f} '.format(tws,twd))
+        
+        if self.sail>10:
+                self.voileAuto = 1
+                self.voile     = self.sail%10
+        else :
+                self.voileAuto = 0
+                self.voile     = self.sail
+
+        # print ('state ',state)
+        print ('twas auto',self.twa,self.twaAuto)
+        if self.twaAuto==True:
+            Option=1
+            valeur=self.twa
+         
+        else :
+            Option=0
+            valeur=self.heading
             
-            if ecart<9*3600 :
-                iso[:,9],iso[:,10]   = gfs_interpolateur(dtigGFS,iso[:,3],iso[:,4] )    
-            else :
-                iso[:,9],iso[:,10]   = ecm_interpolateur(dtigECM,iso[:,3],iso[:,4] ) 
+
+        tws10=round(self.tws*10)    
+
+        # if self.twaAuto==True:
+        #     Option=1
+        #     valeur=self.twa
+        # else :
+        #     Option=0
+        #     valeur=self.heading
+
+        if self.state == 'waiting'  :
+            # Les valeurs de vent ont deja ete calculees dans posStartVR , donc il n y a rien a faire    par contre heading peut etre faux , il faut aller chercher boatactions
+            timestamp,progstable           = rechercheTableProgsvr(user_id,course) 
+            
+            progstable                             = json.loads(progstable) 
+            print ('\n***************************************dans init de simulation',progstable)
+            if "progs" in progstable:
+                Option=progstable['progs'][0][1]
+                valeur=progstable['progs'][0][2]
+                if Option==0:
+                    self.heading=valeur                
+                    self.twa=ftwaos(self.heading, self.twd)  
+                if Option==1:
+                    self.twa=valeur 
+                    self.heading= fcap(self.twa,self.twd)
+                    
+               # il faut aussi mettre à jour la voile et la vitesse qui pour l instant ne sont pas donnés par vr 
+
+            if "wps" in progstable:
+                Option = 1                # j ai necessairement 2 waypoints depart et waypoint 1 
+                 
+                print (' La valeur de progsstable est la suivante ****************************************************',progstable )   
+                progswaypoints = progstable["wps"]
+                            
+                WP0 = [self.y0,self.x0]
+
+                WP1 =[progswaypoints[0]['lat'],progswaypoints[0]['lon']]
+
+               
+                print ('WP1 ',WP1)
+                self.heading = calcul_cap_grand_cercle( WP0 [0],WP0[1], WP1[0], WP1[1] )
+                print ('cap_initial',self.heading)
+               
                 
-                
-        iso[:,11]=torch.rad2deg(iso[:,13])            # on remet le cap initial en 11 a partir du cap en radian que l on a toujours   
-        iso[:,14] = iso[:,16]/(iso[:,15]+0.0001)      # on va remettre le boost en colonne 14 a la place de la twa   
-        iso[:,13] = iso[:,16]   # copie de la vitesse max en 13 pour la passer a isoglobal
-        iso[:,12] = ecart   
+                self.twa=ftwaos(self.heading, self.twd)     
+            twa10=round(abs(self.twa)*10)
+              
+            vitessevoileini        = self.polaires_np[int(self.voile), tws10, twa10] 
+            self.meilleurevitesse  = self.polaires_np[  7         , tws10, twa10] 
+            self.meilleurevoile    = self.polaires_np[  8         , tws10, twa10] 
+            self.voile             = self.meilleurevoile 
+            
+            self.boost             = float(self.meilleurevitesse/(vitessevoileini+0.0001))    
+            self.speed             = self.meilleurevitesse  
+            self.bestvmgmin        = self.tabvmg[tws10, 2].item()
+            self.bestvmgmax        = self.tabvmg[tws10, 4].item() 
+             
+            
+            
+            dt = 0
+            self.lastCalcDate     = self.boatinfos['bs']['legStartDate'] 
+            self.bestvmgmin       = self.tabvmg[tws10, 2].item()
+            self.bestvmgmax       = self.tabvmg[tws10, 4].item()
+            self.penoSail         = 0
+            self.penoGybe         = 0
+            self.penoTack         = 0      
+
+            
+            self.posDepart=np.array([0,Option,valeur,60,self.y0,self.x0,self.t0,self.twa,   self.heading,self.voile,self.voile,\
+                                     self.boost,self.speed,self.bestvmgmin,self.bestvmgmax,self.twd,self.tws,self.stamina,self.penoSail,self.penoGybe,self.penoTack,0])        
+
+
+           
         
-        # renumerotation 
-        iso[:,1]= dernier+torch.arange(len(iso)) +1                         # on va renumeroter les points 
+       
+        if self.state != 'waiting'  :  
+            self.lastCalcDate= posStartVR['lastCalcDate']           
+           
+            if self.twaAuto==self.twa:                  # navigation au cap 
+                self.cap= fcap(self.twa,self.twd)
+            else :                            # navigation a la twa 
+                self.twa =ftwaos(self.heading, self.twd) 
+      
+                
+        # Penalites initiales 
+       
+        try :
+            tsEndOfSailChange = self.boatinfos['bs']['tsEndOfSailChange']
+            self.penoSail     = (tsEndOfSailChange - self.lastCalcDate )/1000
+        except: 
+            self.penoSail     = 0
+
+        try:   
+            tsEndOfGybe       = self.boatinfos['bs']['tsEndOfGybe']
+            self.penoGybe     = (tsEndOfGybe - self.lastCalcDate )/1000
+        except:
+            self.penoGybe     = 0
+
+        try:   
+            tsEndOfTack       = self.boatinfos['bs']['tsEndOfTack']
+            self.penoTack     = (tsEndOfTack - self.lastCalcDate)/1000 
+        except:
+            self.penoTack     = 0
+
+        # Calcul du boost initial 
+
+        
+        twa10=round(abs(self.twa)*10)
+              
+        vitessevoileini   = self.polaires_np[int(self.voile)%10, tws10, twa10] 
+        meilleurevitesse  = self.polaires_np[  7         , tws10, twa10] 
+        self.meilleurevoile    = self.polaires_np[  8         , tws10, twa10] 
+        self.boost        = float(meilleurevitesse/(vitessevoileini+0.0001))    
+
+        self.bestvmgmin       = self.tabvmg[tws10, 2].item()
+        self.bestvmgmax       = self.tabvmg[tws10, 4].item()
+
+        
+        # numero ite 
+        # 1 Option cap 0 ou twa 1
+        # 2 valeur : valeur du cap ou de la twa imposee
+        # 3 dt : delta de temps pour la position suivante
+        # 4 lat : latitude du point
+        # 5 lon : longitude du point
+        # 6 voile : voile à l'arrivee sur ce point
+        # 7 twa_ant : twa à l'arrivee sur ce point
+        # 8 stamina_ant : energie à l'arrivee sur ce point
+        # 9 peno        _ant : penalite à l'arrivee sur ce point
+        # 10 twd : direction du vent sur le point 10)10 tws : vitesse du vent sur le point
+        
+     
+
+        self.posDepart=np.array([0,Option,valeur,60,self.y0,self.x0,self.t0,self.twa,   self.heading,self.voile,self.meilleurevoile,self.boost,\
+                                 self.speed,self.bestvmgmin,self.bestvmgmax,self.twd,self.tws,self.stamina,self.penoSail,self.penoGybe,self.penoTack,0])        
+
+
     
-        # Copie des points de l isochrone dans isoglobal
-        torch.cuda.synchronize()           # Pour attendre que la synchronisation soit complete et essayer d eviter des erreurs 
-        # print ('iso.shape ' ,iso.shape)
-        premier= int(iso[0,1].item())
-        dernier= int(iso[-1,1].item())
-        self.isoglobal[premier:dernier+1, :] = iso[:, 0:15]
+  
+    
+  
+    
+            
+       
+    def condenseprogs(self,progs):
+        progsx=[]
+        try:
+            for i in range (len(progs)):
+                deg     = progs [i]['deg']
+                autoTwa = progs [i]['autoTwa']
+                isProg  = progs [i]['isProg']
+                user_id = progs [i]['_id']['user_id']
+                race    = progs [i]['_id']['race_id']
+                leg     = progs [i]['_id']['leg_num']
+                ts      = progs [i]['_id']['ts']
+                action  = progs [i]['_id']['action']
+    
+                # print (progs[i])
+                if (progs[i]['autoTwa'] ):                # twa= true
+                    twa=progs[i]['deg']
+                    value=twa
+                    option=1
+                            
+                else :
+                    option=0
+                    value=progs[i]['deg']
+    
+                progsx.append([int(ts/1000),option,value,isProg])
+        except:
+            print('\npas de programmation dans boataction\n' )
+    
+        # print()
+        # print ('progsx\n',progsx)
+        return progsx
+
+
+    def extraitprogrammations (self):
+        # boatInfos,poSStart,positionvr=rechercheDonneesCourseUser( user_id,course)
+        # print (boatinfos)
+    
+         #3) # on recupere les dernières valeurs de boatactions qui on tete stockees dans la base de donnees 
+        timestamp,progstable           = rechercheTableProgsvr(self.user_id,self.course)                                  # progstablestr
+        # print()
+        # print ('dernier enregistrement boatAction',time.strftime(" %d %b %H:%M ",time.localtime(lastCalcDateBA)))
+        # print ('progstablestr ', progstablestr)
+        # print()
+    
         
+        #######################################################################################################
+        boatInfos=self.boatinfos
+        #1)  Etat et Position dans VR   pour calcul de progDepart 
+        state       = boatInfos['bs']['state']
+        heading     = boatInfos['bs']['heading']
+        try :
+            ts          = int(boatInfos['bs']['lastCalcDate']/1000)
+        except :   
+            ts          = int(boatInfos['bs']['legStartDate']/1000)  
+        tsmn           = math.ceil(ts / 60) * 60  # Arrondi à la minute supérieure 
+        lastCalcDateBI = ts                                              # si on n est pas parti la premeire prog est au moment du depart
+        
+        try:    
+            twa         = boatInfos['bs']['twa']                       # c est la twa initiale, si on n'est pas parti pas de twa 
+        except :
+            twa = 45     #par defaut 
+        try : 
+            twaAuto     = boatInfos['bs']['twaAuto']
+        except:     
+            twaAuto     = twa              # il n'y a pas de twaauto au depart 
+        if twa!= twaAuto:
+            option=0
+            valeur=heading
+        else:       
+            option=1    
+            valeur=twa     
+        progDepart=[[ts,option,valeur,False]]   # c est la prog depart pour progs ( c'est la situation vr et le False indique que ce n'est pas une programmation mais l etat actuel ) 
+        
+        
+        try:
+            progstable                             = json.loads(progstable) 
+            lastCalcDateBA=timestamp.timestamp()
+        except:
+            progstable=progDepart                   # s il n y a jamais eu de programmations sur cette course 
+            lastCalcDateBA=time.time()-3600         # pour que la programmation prise en charge soit boatinfos  
+            
+       ###################################################################################################
+    
+        # on va reaorganiser car il peut y avoir une contradiction entre les 2 
+        # print  ('lastCalcDateBA',time.strftime(" %d %b %H:%M ",time.localtime(lastCalcDateBA)),lastCalcDateBA)
+        # print  ('lastCalcDateBI',time.strftime(" %d %b %H:%M ",time.localtime(lastCalcDateBI)),lastCalcDateBI)
+    
+        
+        if (lastCalcDateBA>lastCalcDateBI-60 or state=='waiting') :           # c estle boat action  et donc progstable qui s applique 
+            date    = lastCalcDateBA
+            origine='Boatactions'
+            
+            if  "wps" in  progstable  :
+                # print ('c\'est progtable issu de BoatActions qui s applique pour les wp')            
+                origine ='Boatactions'
+                progsBA=progstable['wps'] 
+                # print ('progsBA',progsBA)
+                programmations=json.dumps({'wps': progsBA})  
+    
+            else:
+                # print ('c\'est progtable issu de BoatActions qui s applique pour les progs et qui existe ') 
+                # print ('progstable ',progstable)
+                try:
+                    progsBA=progstable['progs']
+                    if progsBA[0][3]!=False:
+                        progsBA.insert(0, progDepart[0])  # Insère 1 à l'index 0
+                        # print ('progsBA',progsBA)    
+                    programmationsBA=json.dumps({'progs': progsBA})  
+                    programmations=programmationsBA
+                except:
+                    progsBA=  progDepart 
+                    programmationsBA=json.dumps({'progs': progsBA})  
+                    programmations=programmationsBA
+    
+    
+        else:
+            date=lastCalcDateBI    
+            origine='BoatInfos' 
+    
+            if "waypoints" in boatInfos['bs']:
+                programmations=json.dumps({'wps':boatInfos['bs']['waypoints']  })
+    
+            else:
+                try:                                            # boatInfos['ba'] peut ne pas exister 
+                    boatInfosba=boatInfos['ba']   
+                    # print()
+                    # print ('boatinfosba',boatInfosba)
+                    # print()
+                    progsboatInfosba = [item for item in boatInfosba if item.get('_id', {}).get('action') == 'heading']
+                    progsInfosGlobales=self.condenseprogs(progsboatInfosba)
+                    if progsInfosGlobales[0][3]!=False:
+                        progsInfosGlobales.insert(0, progDepart[0])  # Insère 1 à l'index 0  
+                    programmations=json.dumps({'progs': progsInfosGlobales})  
+                
+                except:
+                    print ("Il n'y a pas de boatinfos['ba'] on prend la programmation du depart progDepart")  
+                    origine='Pas de progs'  
+                    progsInfosGlobales=progDepart
+                    programmations=json.dumps({'progs': progsInfosGlobales})    
+    
+     
+        programmations=json.loads(programmations)      # on transforme en objetjson
+        return date,origine,programmations
+
+
+    def deplacement(self,position,calcMer=False):
+        global tigGFS
+        '''A partir des valeurs de depart et de l option cap ou twa calcule le point apres le deplacement'''
+        # Colonnes du tableau point
+        COL_INDICE     = 0
+        COL_OPTION     = 1
+        COL_VALEUR     = 2
+        COL_DTI        = 3
+        COL_LAT        = 4
+        COL_LON        = 5
+        COL_T0         = 6
+        COL_TWA        = 7
+        COL_HEADING    = 8
+        COL_VOILE      = 9
+        COL_MEVOILE    = 10
+        COL_BOOST      = 11
+        COL_SPEED      = 12
+        COL_BESTVMGMIN = 13
+        COL_BESTVMGMAX = 14
+        COL_TWD        = 15
+        COL_TWS        = 16
+        COL_STAMINA    = 17
+        COL_PENOSAIL   = 18
+        COL_PENOGYBE   = 19
+        COL_PENOTACK   = 20
+        COL_ISMER        = 21
+        p=position.copy()
+
+        # -----------------------------
+        # Lecture du point d'entrée
+        # -----------------------------
+        indice      = int(p[COL_INDICE])
+        option      = int(p[COL_OPTION])
+        valeur      = p[COL_VALEUR]
+        dt          = p[COL_DTI]
+    
+        y0          = p[COL_LAT]
+        x0          = p[COL_LON]
+        t0          = p[COL_T0]
+    
+        twa_ant     = p[COL_TWA]                   # sert pour calculer tack Gybe
+        heading_ant = p[COL_HEADING]
+        twdini      = p[COL_TWD]
+
+        voile_ant   = int(p[COL_VOILE])            # sert pour calculer le boost  
+        stamina_ini = p[COL_STAMINA]
+
+
+
+        peno_sail_ant = max(0.0, p[COL_PENOSAIL])
+        peno_gybe_ant = max(0.0, p[COL_PENOGYBE])
+        peno_tack_ant = max(0.0, p[COL_PENOTACK])
+        
+        # Temps pénalisé pendant cette itération
+       
+        # temps_penalise = min(dt, peno_totale_avant)
+        
+        # Décompte au début du pas
+        peno_sail_avant = max(0.0, peno_sail_ant - dt)
+        peno_gybe_avant = max(0.0, peno_gybe_ant - dt)
+        peno_tack_avant = max(0.0, peno_tack_ant - dt)
+
+        # peno_totale_avant =max( peno_sail, peno_gybe, peno_tack)
+
+        # print ('peno ant ',peno_gybe_ant)
+        
+    
+        # -----------------------------
+        # Vent au point de départ
+        # -----------------------------
+   
+        
+        dtig = t0 - self.tigGFS
+        tws, twd = gfs_interpolateur_np(dtig, y0, x0)
+
+
+
+        if indice==0:
+            print ('*******************************************************************************')
+            print ('*******************************************************************************')
+            print (' 5576   Verification du calcul vent au point initial ')         
+            print ("tigGFS {}  t0vr {}  dtig en h {}  ".format( time.strftime(" %d %b %H:%M ",time.localtime(self.tigGFS)),  time.strftime(" %d %b %H:%M ",time.localtime(t0)),dtig/3600))
+           # print (" tigGFS =", tigGFS ,time.strftime(" %d %b %H:%M ",time.gmtime(self.tigGFS)))
+           # print (' dtig {} soit  {:6.2f}h '.format(dtig, dtig/3600))
+            print ()
+            print (' Valeurs issues de position    tws   {:6.5f}  twd   {:6.5f}  t0 {}'.format(position [COL_TWS] ,position [COL_TWD],position [COL_T0]) )
+            print (' Valeurs calculees             tws   {:6.5f}  twd   {:6.5f}  t0 {}'.format(tws,twd,t0))
+            print ('*******************************************************************************')
+            print ('*******************************************************************************')
+            print ()
+
+         # -----------------------------
+        # Calcul TWA / heading
+        # -----------------------------
+        if option == 1:
+            # TWA fixe
+            twa = valeur
+            heading = fcap(twa, twdini)
+        else:
+            # Cap fixe
+            heading = valeur
+            twa = ftwao(heading, twdini)
+    
+        twa_abs = abs(twa)
+
+        # -----------------------------
+        # Lecture polaires
+        # -----------------------------
+        # print('voile_ant',voile_ant)
+        voile_ant=int(voile_ant)
+        voile,speed,meilleure_voile,boost=self.calc_voile(voile_ant ,tws,twa )
+         
+        if voile != voile_ant:
+            chgt = 1
+           
+        else:
+            chgt = 0
          
         
-        return iso, tmini,distmini,nptmini
+        # -----------------------------
+        # Détection gybe / tack
+        # -----------------------------
+        changement_bord = twa_ant * twa < 0
+        TGybe= ((twa_ant*twa)<0)*1
+        gybe = int(changement_bord and abs(twa_ant) > 90)
+        tack = int(changement_bord and abs(twa_ant) <= 90)
+
+
+         # -----------------------------
+        # Nouvelles pénalités
+        # -----------------------------
+        peno_chgt,peno_gybe,peno_tack,perte_stamina=0,0,0,0
+        if chgt>0 :
+            peno_chgt =  chgt * peno_np(self.lwtimer, self.hwtimer, tws, stamina_ini) * self.furler
+        if gybe>0 :
+            peno_gybe =  gybe* peno_np(self.gybeprolwtimer, self.gybeprohwtimer, tws, stamina_ini)
+        if tack>0 : 
+            peno_tack =    tack* peno_np(self.tackprolwtimer, self.tackprohwtimer, tws, stamina_ini)  
+
+
+        # On ajoute les nouvelles pénalités aux pénalités restantes
+      
+       
+        peno_sail_total = peno_sail_avant + peno_chgt
+        peno_gybe_total = peno_gybe_avant + peno_gybe
+        peno_tack_total = peno_tack_avant + peno_tack
+        
+        peno_totale =max( peno_sail_total,peno_gybe_total, peno_tack_total)
+        temps_penalise = min(dt, peno_totale)
+
+        dt_effectif = dt - 0.30 * temps_penalise
+        distance_nm = speed * dt_effectif / 3600.0
+
+        cap_rad = np.round(np.deg2rad(heading),5)
+        lat_rad = np.deg2rad(y0)
+
+        dy = distance_nm * np.cos(cap_rad) / 60.0
+        dx = distance_nm * np.sin(cap_rad) / (60.0 * np.cos(lat_rad))
+
+        y1 = y0 + dy
+        x1 = x0 + dx
+
+        # Normalisation longitude éventuelle
+        x1 = ((x1 + 180.0) % 360.0) - 180.0
+
+       
+
+        # -----------------------------
+        # Mise à jour de la stamina
+        # -----------------------------
+        if chgt+gybe+tack>0: 
+            perte_stamina   = calc_perte_stamina_np(tws, TGybe, chgt, self.coeffboat)
+        
+        recup           = pts_recuperes(dt, tws)
+        stamina         = stamina_ini - perte_stamina + recup
+        stamina         = np.clip(stamina, 0.0, 100.0)
+       
+
+        # -----------------------------
+        #  Calcul du vent au point de sortie avec le nouveau temps et les nouvelles coordonnées 
+        # -----------------------------
+
+        tws, twd = gfs_interpolateur_np(dtig+dt , y1, x1)
+        
+        if option == 1:
+            # TWA fixe
+            twa = valeur
+            heading = fcap(twa, twdini)
+
+        else:
+            # Cap fixe
+            heading = valeur
+            twa = ftwao(heading, twdini)    
+
+        
+
+        tws10 = int(round(tws * 10))
+        tws10 = max(0, min(tws10, self.tabvmg10to.shape[0] - 1))
+       
+        # -----------------------------
+        # VMG min / max pour ce TWS
+        # -----------------------------      
+        
+        bestvmgmin = self.tabvmg10to[tws10, 2]
+        bestvmgmax = self.tabvmg10to[tws10, 4]
+
+        # -----------------------------
+        # Collision avec les terres
+        # -----------------------------
+        if calcMer:
+            cartepy = self.get_carte_segment(y0, x0, y1, x1)            
+            segment = [[y0, x0], [y1, x1]]
+            
+            coupe_terre = intersection(segment, cartepy)
+            isMER = 1 if coupe_terre else 0
+        else :
+            isMER=0  
+
+
+        
+        
+        # -----------------------------
+        # Point de sortie ce sont les valeurs affichees 
+        # -----------------------------
+        sortie = p.copy()   
+       
+        
+        sortie[COL_INDICE]     = indice + 1
+        sortie[COL_OPTION]     = option
+        sortie[COL_VALEUR]     = valeur
+        sortie[COL_DTI]        = dt
+        
+        sortie[COL_LAT]        = y1
+        sortie[COL_LON]        = x1
+        sortie[COL_T0]         = t0 + dt
+        
+        sortie[COL_TWA]        = twa
+        sortie[COL_HEADING]    = heading
+        
+        sortie[COL_VOILE]      = voile
+        sortie[COL_MEVOILE]    = meilleure_voile
+        
+        sortie[COL_BOOST]      = boost
+        sortie[COL_SPEED]      = speed
+        
+        sortie[COL_BESTVMGMIN] = bestvmgmin
+        sortie[COL_BESTVMGMAX] = bestvmgmax
+        sortie[COL_TWD]        = twd
+        sortie[COL_TWS]        = tws
+        sortie[COL_STAMINA]    = stamina
+        
+        sortie[COL_PENOSAIL]   = peno_sail_total
+        sortie[COL_PENOGYBE]   = peno_gybe_total
+        sortie[COL_PENOTACK]   = peno_tack_total
+        sortie[COL_ISMER]        = isMER
+   
+        return sortie
     
+    def trajectoire_24h(
+        self,
+        position_depart,
+        progstable,
+        duree_h=24,
+        dt_standard=60,
+        calcMer=False
+    ):
+        COL_OPTION = 1
+        COL_VALEUR = 2
+        COL_DTI    = 3
+        COL_T0     = 6
+
+        position = position_depart.copy()
+        position[COL_DTI] = dt_standard
+
+        t_depart = int(position[COL_T0])
+
+        progs_originales = sorted(
+            progstable.get("progs", []),
+            key=lambda x: x[0]
+        )
+
+        if not progs_originales:
+            raise ValueError("Aucune programmation fournie")
+
+        # La première ligne doit représenter l'état initial
+     
+        # if is_prog:
+        #     raise ValueError(
+        #        "Attention : la première ligne est marquée True, "
+        # "elle sera néanmoins utilisée comme état de départ."
+
+        #     )
+
+        # -------------------------------------------------
+        # Initialisation de la position de départ
+        # -------------------------------------------------
+        ts_reference, option_initiale, valeur_initiale, _ = progs_originales[0]
+
+
+        position[COL_OPTION] = option_initiale
+        position[COL_VALEUR] = valeur_initiale
+
+        # -------------------------------------------------
+        # Recalage temporel de toutes les programmations
+        #
+        # La première programmation est placée à t_depart.
+        # Les autres gardent leur décalage temporel relatif.
+        # -------------------------------------------------
+        progs = []
+
+            
+        for timestamp, option, valeur, is_prog in progs_originales[1:]:
+            decalage = int(timestamp) - int(ts_reference)
+            nouveau_timestamp = t_depart + decalage
+
+            progs.append([
+                nouveau_timestamp,
+                option,
+                valeur,
+                True
+            ])
+                
+        
+        print( "\nDépart :", time.strftime("%d %b %H:%M:%S", time.localtime(t_depart)),"option :", position[COL_OPTION], "valeur :",  position[COL_VALEUR]    )
+        print("\nProgrammations recalées :")
+
+        for prog in progs:
+            print(  time.strftime(  "%d %b %H:%M:%S",  time.localtime(prog[0])  ), "option :", prog[1], "valeur :", prog[2],"isProg :",  prog[3]  )
+
+        n_steps = int(duree_h * 3600 // dt_standard)
+
+        positions = np.zeros( (n_steps + 1, position.shape[0]), dtype=position.dtype  )
+        positions[0] = position.copy()
+        iprog = 0
+
+        for i in range(n_steps):
+            t0 = int(position[COL_T0])
+            # Application des programmations atteintes
+            while iprog < len(progs) and progs[iprog][0] <= t0:
+                timestamp, option, valeur, is_prog = progs[iprog]
+                if is_prog:
+                    position[COL_OPTION] = option
+                    position[COL_VALEUR] = valeur
+                    print( "Application programmation",  iprog,  time.strftime( "%d %b %H:%M:%S", time.localtime(timestamp) ),"option :", option,"valeur :", valeur )
+                iprog += 1
+            position[COL_DTI] = dt_standard
+            position_suivante = self.deplacement(  position,  calcMer   )
+            positions[i + 1] = position_suivante.copy()
+            position = position_suivante.copy()
+        return positions
+
+
+
+
+    def positions_pour_affichage(self, positions):
+        print ('on applique positions _pour affichage ******************************************************************************')
+
+        COL_INDICE     = 0
+        COL_OPTION     = 1
+        COL_VALEUR     = 2
+        COL_DTI        = 3
+        COL_LAT        = 4
+        COL_LON        = 5
+        COL_T0         = 6
+        COL_TWA        = 7
+        COL_HEADING    = 8
+        COL_VOILE      = 9
+        COL_MEVOILE    = 10
+        COL_BOOST      = 11
+        COL_SPEED      = 12
+        COL_BESTVMGMIN = 13
+        COL_BESTVMGMAX = 14
+        COL_TWD        = 15
+        COL_TWS        = 16
+        COL_STAMINA    = 17
+        COL_PENOSAIL   = 18
+        COL_PENOGYBE   = 19
+        COL_PENOTACK   = 20
+        COL_ISMER        = 21
+
+
+       
+        cols_a_remonter = [
+
+            COL_OPTION,
+            COL_VALEUR,
+            COL_TWA,
+            COL_HEADING,
+            COL_VOILE,
+            COL_MEVOILE,
+            COL_BOOST,
+            COL_SPEED,                     #je ne remonte pas la speed qui correspond au tws et twd 
+            #COL_BESTVMGMIN,
+            #COL_BESTVMGMAX,
+            #COL_TWD,       
+            #COL_TWS,       
+            COL_STAMINA,
+            COL_PENOSAIL,
+            COL_PENOGYBE,
+            COL_PENOTACK,
+            #COL_ISMER,
+        ]
+    
+        aff = positions.copy()
+    
+        # On remonte les valeurs de la ligne i vers i-1,
+        # mais seulement à partir de i > 1 pour ne pas modifier le départ.
+        for i in range(2, positions.shape[0]):
+            aff[i - 1, cols_a_remonter] = positions[i, cols_a_remonter]
+            
+            if aff[i,COL_BOOST]>1.014:
+                # print ('position' ,i,'boost>1.014')
+                aff[i-1,COL_BOOST]=1
+    
+        return aff
+
+
+
+    
+       
+        
+    def trajectoire_waypoints(self, position_depart, programmations, duree_h=24, dt_standard=60):
+    
+        COL_INDICE     = 0
+        COL_OPTION     = 1
+        COL_VALEUR     = 2
+        COL_DTI        = 3
+        COL_LAT        = 4
+        COL_LON        = 5
+        COL_T0         = 6
+        COL_TWA        = 7
+        COL_HEADING    = 8
+        COL_VOILE      = 9
+        COL_MEVOILE    = 10
+        COL_BOOST      = 11
+        COL_SPEED      = 12
+        COL_BESTVMGMIN = 13
+        COL_BESTVMGMAX = 14
+        COL_TWD        = 15
+        COL_TWS        = 16
+        COL_STAMINA    = 17
+        COL_PENOSAIL   = 18
+        COL_PENOGYBE   = 19
+        COL_PENOTACK   = 20
+        COL_ISMER        = 21
+    
+        if "wps" not in programmations:
+            return [], [], np.array([position_depart.copy()])
+    
+        progswaypoints = programmations["wps"]
+        position = position_depart.copy()
+    
+        WP = [[position[COL_LAT], position[COL_LON]]]
+    
+        for elt in progswaypoints:
+            WP.append([elt["lat"], elt["lon"]])
+    
+        nmax = int(duree_h * 3600 // dt_standard) + len(WP) + 10
+    
+        positions = np.zeros(
+            (nmax, position_depart.shape[0]),
+            dtype=position_depart.dtype
+        )
+    
+        # Cap initial vers le premier waypoint
+        if len(WP) > 1:
+            cap_initial = calcul_cap_grand_cercle(
+                position[COL_LAT],
+                position[COL_LON],
+                WP[1][0],
+                WP[1][1]
+            )
+    
+            position[COL_OPTION]  = 0
+            position[COL_VALEUR]  = cap_initial
+            position[COL_HEADING] = cap_initial
+    
+        positions[0] = position.copy()
+        idx = 0
+        sections = []
+    
+        for j in range(len(WP) - 1):
+    
+            lat_wp = WP[j + 1][0]
+            lon_wp = WP[j + 1][1]
+    
+            section = {
+                "wp_depart": WP[j],
+                "wp_arrivee": WP[j + 1],
+                "idx_start": idx,
+                "y0": positions[idx, COL_LAT],
+                "x0": positions[idx, COL_LON],
+                "t_start": positions[idx, COL_T0],
+                "twa": positions[idx, COL_TWA],
+                "cap": positions[idx, COL_HEADING],
+                "stamina": positions[idx, COL_STAMINA],
+                "voile": positions[idx, COL_VOILE],
+                "meilleure_voile": positions[idx, COL_MEVOILE],
+                "twd": positions[idx, COL_TWD],
+                "tws": positions[idx, COL_TWS],
+                "peno_sail": positions[idx, COL_PENOSAIL],
+                "peno_gybe": positions[idx, COL_PENOGYBE],
+                "peno_tack": positions[idx, COL_PENOTACK],
+            }
+    
+            while idx < nmax - 1:
+    
+                position = positions[idx].copy()
+    
+                lat0 = position[COL_LAT]
+                lon0 = position[COL_LON]
+    
+                # Cap utilisé pour ce déplacement
+                cap = calcul_cap_grand_cercle(lat0, lon0, lat_wp, lon_wp)
+    
+                position[COL_OPTION] = 0
+                position[COL_VALEUR] = cap
+                position[COL_HEADING] = cap
+                position[COL_DTI] = dt_standard
+    
+                dist_wp = distance_haversine(lat0, lon0, lat_wp, lon_wp)
+                speed = position[COL_SPEED]
+    
+                temps_restant = dist_wp / (speed + 1e-6) * 3600.0
+    
+                if temps_restant <= dt_standard:
+    
+                    position[COL_DTI] = max(1.0, temps_restant)
+    
+                    position_suivante = self.deplacement(position)
+    
+                    # On force exactement le waypoint
+                    position_suivante[COL_LAT] = lat_wp
+                    position_suivante[COL_LON] = lon_wp
+                    position_suivante[COL_DTI] = dt_standard
+    
+                    # Au waypoint, on garde le cap d'arrivée
+                    position_suivante[COL_OPTION] = 0
+                    position_suivante[COL_VALEUR] = cap
+                    position_suivante[COL_HEADING] = cap
+    
+                    idx += 1
+                    positions[idx] = position_suivante.copy()
+                    break
+    
+                else:
+    
+                    position_suivante = self.deplacement(position)
+    
+                    # Cap de sortie recalculé depuis le point final vers le waypoint
+                    cap_sortie = calcul_cap_grand_cercle(
+                        position_suivante[COL_LAT],
+                        position_suivante[COL_LON],
+                        lat_wp,
+                        lon_wp
+                    )
+    
+                    position_suivante[COL_OPTION] = 0
+                    position_suivante[COL_VALEUR] = cap_sortie
+                    position_suivante[COL_HEADING] = cap_sortie
+    
+                    idx += 1
+                    positions[idx] = position_suivante.copy()
+    
+            section.update({
+                "idx_end": idx,
+                "y1": positions[idx, COL_LAT],
+                "x1": positions[idx, COL_LON],
+                "t_end": positions[idx, COL_T0],
+                "duree": positions[idx, COL_T0] - section["t_start"],
+                "stam_end": positions[idx, COL_STAMINA],
+                "voile_end": positions[idx, COL_VOILE],
+                "meilleure_voile_end": positions[idx, COL_MEVOILE],
+                "twd_end": positions[idx, COL_TWD],
+                "tws_end": positions[idx, COL_TWS],
+                "twa_end": positions[idx, COL_TWA],
+                "cap_end": positions[idx, COL_HEADING],
+                "peno_sail_end": positions[idx, COL_PENOSAIL],
+                "peno_gybe_end": positions[idx, COL_PENOGYBE],
+                "peno_tack_end": positions[idx, COL_PENOTACK],
+            })
+    
+            sections.append(section)
+    
+        positions = positions[:idx + 1]
+    
+        routeprogs = positions[:, [
+            COL_T0,
+            COL_OPTION,
+            COL_VALEUR,
+            COL_LAT,
+            COL_LON,
+            COL_VOILE,
+            COL_MEVOILE,
+            COL_TWA,
+            COL_HEADING,
+            COL_SPEED,
+            COL_TWD,
+            COL_TWS,
+        ]].tolist()
+    
+        return sections, routeprogs, positions
+
+
+
+    def base_carte_10deg(self, lat, lon):
+        """
+        Retourne le coin haut-gauche du carré 10° x 10°
+        contenant lat/lon.
+        """
+        lat_base = np.ceil(lat / 10.0) * 10.0
+        lon_base = np.floor(lon / 10.0) * 10.0
+        return lat_base, lon_base
+    
+    
+    def point_dans_carte_10deg(self, lat, lon, lat_base, lon_base):
+        """
+        Carte 10° x 10° avec coin haut-gauche :
+        lat_base, lon_base
+        """
+        return (
+            lat_base - 10.0 <= lat <= lat_base
+            and lon_base <= lon <= lon_base + 10.0
+        )
+    
+    
+    def get_carte_segment(self, y0, x0, y1, x1):
+        """
+        Retourne une carte couvrant le segment y0/x0 -> y1/x1.
+        Utilise un cache simple dans self.
+        """
+    
+        lat_base0, lon_base0 = self.base_carte_10deg(y0, x0)
+        lat_base1, lon_base1 = self.base_carte_10deg(y1, x1)
+    
+        # Cas courant : les deux points sont dans le même carré 10°
+        if lat_base0 == lat_base1 and lon_base0 == lon_base1:
+    
+            if (
+                not hasattr(self, "carte_lat_base")
+                or not hasattr(self, "carte_lon_base")
+                or self.carte_lat_base != lat_base0
+                or self.carte_lon_base != lon_base0
+            ):
+                cartenp = get_carte3(y0, x0)
+                self.cartepy = cartenp.tolist()
+                self.carte_lat_base = lat_base0
+                self.carte_lon_base = lon_base0
+    
+            return self.cartepy
+    
+        # Cas rare : le segment traverse une limite de carte
+        carte0 = get_carte3(y0, x0).tolist()
+        carte1 = get_carte3(y1, x1).tolist()
+    
+        return carte0 + carte1
+
+
+    def extrait_polaires_voile(self,i):
+       
+            # print (self.polairesjson['sail'][i]['speed'])
+        self.polaires_voile=self.polairesjson['sail'][i]['speed'] 
+        # pour 
+        return self.polaires_voile
+       
+
+
+    def calc_voile(self,voile_ant ,tws,twa ):
+        ''' determine
+        voile_def,speed,voile_max,boost
+        la voile definitive voiledef 
+        sa vitesse speed tenant compte du boost eventuel  
+        la meilleure voile voile_max et le boost eventuel par rapport  
+        '''
+        tabtws = np.asarray(self.tabtws, dtype=float)
+        tabtwa = np.asarray(self.tabtwa, dtype=float)
+        
+        voile_auto=1
+        # On limite aux bornes disponibles
+        tws = np.clip(tws, self.tabtws[0], self.tabtws[-1])
+        twa = np.clip(abs(twa), self.tabtwa[0], self.tabtwa[-1])
+    
+        # Indices encadrants TWS
+        j1 = np.searchsorted(self.tabtws, tws)
+        j0 = max(0, j1 - 1)
+        j1 = min(j1, len(self.tabtws) - 1)
+    
+        # Indices encadrants TWA
+        i1 = np.searchsorted(self.tabtwa, twa)
+        i0 = max(0, i1 - 1)
+        i1 = min(i1, len(self.tabtwa) - 1)
+    
+        tws0, tws1 = self.tabtws[j0], self.tabtws[j1]
+        twa0, twa1 = self.tabtwa[i0], self.tabtwa[i1]
+    
+        # Coefficients d'interpolation
+        if tws1 == tws0:
+            wtws = 0.0
+        else:
+            wtws = (tws - tws0) / (tws1 - tws0)
+    
+        if twa1 == twa0:
+            wtwa = 0.0
+        else:
+            wtwa = (twa - twa0) / (twa1 - twa0)
+
+        nb=self.nbvoiles
+        speed=np.zeros(nb)
+        for i in range (nb): 
+            P = np.asarray(self.extrait_polaires_voile(i), dtype=float)
+            # Valeurs aux 4 coins
+            v00 = P[i0, j0]
+            v01 = P[i0, j1]
+            v10 = P[i1, j0]
+            v11 = P[i1, j1]
+        
+            # Interpolation bilinéaire
+            v0 = v00 * (1 - wtws) + v01 * wtws
+            v1 = v10 * (1 - wtws) + v11 * wtws
+            res=self.hull*(v0 * (1 - wtwa) + v1 * wtwa)
+            # print ('res',res)
+            # print ('coeff',foil(twa,tws,carabateau))
+            # print ('coeffFoil',self.foil(twa,tws))
+            speed[i]=round(self.foil(twa,tws)*res,5)   #*self.hull
+        # print ('speed ',speed)
+        # print(speed.dtype)
+        # print ('voile_ant',voile_ant)
+        voile_ant      =int(voile_ant)%10
+        speed_voile_ant= speed[voile_ant]
+        speed_max      = np.max(speed)
+        voile_max      = np.argmax(speed)
+        boost          = speed_max/speed_voile_ant
+        
+        if boost>1.014 :
+            voile_def=voile_max
+        else:
+            voile_def=voile_ant
+            speedf = speed_max 
+        
+        if voile_auto!=1:
+            voile_def =voile_ant
+            speed_max= speed_voile_ant
+
+        return voile_def,speed_max,voile_max,boost
+
+
+
+
+        
+    def foil(self, twa, tws):
+        """Calcule le coefficient foil en fonction de twa et tws."""
+
+        twa = abs(twa)
+    
+        def rampe(x, xmin, xmax, merge):
+            """
+            Retourne un coefficient entre 0 et 1 :
+            - 0 hors zone élargie
+            - 1 dans la zone pleine [xmin, xmax]
+            - interpolation linéaire dans les zones merge
+            """
+    
+            if x <= xmin - merge:
+                return 0.0
+    
+            if x < xmin:
+                return (x - (xmin - merge)) / merge
+    
+            if x <= xmax:
+                return 1.0
+    
+            if x < xmax + merge:
+                return (xmax + merge - x) / merge
+    
+            return 0.0
+    
+        coeff_twa = rampe(twa, self.twaMin, self.twaMax, self.twaMerge)
+        coeff_tws = rampe(tws, self.twsMin, self.twsMax, self.twsMerge)
+    
+        coeff_activation = coeff_twa * coeff_tws
+    
+        coeff = 1.0 + (self.speedRatio - 1.0) * coeff_activation
+    
+        return coeff
+   
+
+
+
+    def controle_terre_trajectoire(self, positions):
+        """
+        positions : tableau avec lat/lon en colonnes COL_LAT / COL_LON
+        Ajoute ou remplit une colonne isMer :
+          1 = segment coupe la terre
+          0 = segment ne coupe pas la terre
+        """
+    
+        COL_LAT = 4   # à adapter
+        COL_LON = 5   # à adapter
+        COL_ISMER = 21  # à adapter si tu as déjà une colonne
+    
+        n = len(positions)
+    
+        # par défaut : pas d'intersection terre
+        positions[:, COL_ISMER] = 0
+    
+        # cache local des cartes
+        cartes = {}
+    
+        for i in range(n - 1):
+            y0 = positions[i, COL_LAT]
+            x0 = positions[i, COL_LON]
+            y1 = positions[i + 1, COL_LAT]
+            x1 = positions[i + 1, COL_LON]
+    
+            lat_base0, lon_base0 = self.base_carte_10deg(y0, x0)
+            lat_base1, lon_base1 = self.base_carte_10deg(y1, x1)
+    
+            segment = [[y0, x0], [y1, x1]]
+    
+            if lat_base0 == lat_base1 and lon_base0 == lon_base1:
+                key = (lat_base0, lon_base0)
+    
+                if key not in cartes:
+                    cartes[key] = get_carte3(y0, x0).tolist()
+    
+                cartepy = cartes[key]
+    
+            else:
+                # cas rare : segment sur frontière de carte
+                key0 = (lat_base0, lon_base0)
+                key1 = (lat_base1, lon_base1)
+    
+                if key0 not in cartes:
+                    cartes[key0] = get_carte3(y0, x0).tolist()
+    
+                if key1 not in cartes:
+                    cartes[key1] = get_carte3(y1, x1).tolist()
+    
+                cartepy = cartes[key0] + cartes[key1]
+                
+            
+    
+            coupe_terre = intersection(segment, cartepy)
+    
+            # dans ton code actuel : 1 si coupe terre, 0 sinon
+            positions[i + 1, COL_ISMER] = 1 if coupe_terre else 0
+
+        # cartepy=np.asarray(cartepy)
+        # print ('cartepy.shape',cartepy.shape)
+    
+        return positions
+
+    def masque_cellules_carte(self,carte_np, lat_base, lon_base, n=1000):
+        """
+        carte_np : shape (N, 2, 2)
+            carte_np[:, 0, :] = point C [lat, lon]
+            carte_np[:, 1, :] = point D [lat, lon]
+    
+        lat_base, lon_base : coin supérieur gauche de la carte 10°
+            exemple lat_base = 50, lon_base = -10
+    
+        n = 1000 pour pas de 0.01°
+            n = 100  pour pas de 0.1°
+    
+        Retourne :
+            masque shape (n, n), bool
+            True = au moins un segment de côte touche cette cellule
+        """
+    
+        masque = np.zeros((n, n), dtype=bool)
+    
+        pas = 10.0 / n
+    
+        lat0 = carte_np[:, 0, 0]
+        lon0 = carte_np[:, 0, 1]
+        lat1 = carte_np[:, 1, 0]
+        lon1 = carte_np[:, 1, 1]
+    
+        # indices ligne/colonne des extrémités
+        # ligne 0 = nord / haut de carte
+        i0 = np.floor((lat_base - lat0) / pas).astype(int)
+        j0 = np.floor((lon0 - lon_base) / pas).astype(int)
+    
+        i1 = np.floor((lat_base - lat1) / pas).astype(int)
+        j1 = np.floor((lon1 - lon_base) / pas).astype(int)
+    
+        i0 = np.clip(i0, 0, n - 1)
+        i1 = np.clip(i1, 0, n - 1)
+        j0 = np.clip(j0, 0, n - 1)
+        j1 = np.clip(j1, 0, n - 1)
+    
+        for a, b, c, d in zip(i0, j0, i1, j1):
+            # segment vertical
+            if b == d:
+                imin = min(a, c)
+                imax = max(a, c)
+                masque[imin:imax + 1, b] = True
+    
+            # segment horizontal
+            elif a == c:
+                jmin = min(b, d)
+                jmax = max(b, d)
+                masque[a, jmin:jmax + 1] = True
+    
+            else:
+                # normalement inutile chez toi si les segments sont uniquement H/V
+                imin = min(a, c)
+                imax = max(a, c)
+                jmin = min(b, d)
+                jmax = max(b, d)
+                masque[imin:imax + 1, jmin:jmax + 1] = True
+    
+        return masque
+
+
+
+
+        
+
+    def get_carte_cache(self, y0, x0, n=1000):
+        """
+        Retourne la carte 10° + son masque.
+        Cache par carré 10°.
+        """
+    
+        lat_base, lon_base = self.base_carte_10deg(y0, x0)
+        key = (lat_base, lon_base, n)
+    
+        if key not in self.carte_cache:
+            carte_np = fcarte3(y0, x0)   # shape (N, 2, 2)
+    
+            masque = self.masque_cellules_carte(
+                carte_np,
+                lat_base,
+                lon_base,
+                n=n
+            )
+    
+            self.carte_cache[key] = {
+                "lat_base": lat_base,
+                "lon_base": lon_base,
+                "segments": carte_np,
+                "masque": masque,
+            }
+    
+        return self.carte_cache[key]
+            
+    
+  
+# fin de la classe Simulation
+#############################    
+
+
+#Classe CarteCache
+
+class CarteCache:
+    def __init__(self):
+        self.cache_masques = {}
+
+    def angle_superieur_gauche(self, lat, lon):
+        lat0 = int(10 * (lat // 10) + 10)
+        lon0 = int(10 * (lon // 10))
+        return lat0, lon0
+
+    def masque_segments_10deg(self, carte, lat0, lon0, n=1460):
+        masque = np.zeros((n, n), dtype=bool)
+        scale = n / 10.0
+    
+        lat_min = carte[:, :, 0].min()
+        lat_max = carte[:, :, 0].max()
+        lon_min = carte[:, :, 1].min()
+        lon_max = carte[:, :, 1].max()
+    
+        print("lat0 lon0 :", lat0, lon0)
+        print("lat min/max carte :", lat_min, lat_max)
+        print("lon min/max carte :", lon_min, lon_max)
+    
+        # Cas 1 : carte en coordonnées locales 0..10
+        carte_locale = (
+            0 <= lat_min <= 10 and 0 <= lat_max <= 10 and
+            0 <= lon_min <= 10 and 0 <= lon_max <= 10
+        )
+    
+        print("carte_locale :", carte_locale)
+    
+        for seg in carte:
+            lat1, lon1 = seg[0]
+            lat2, lon2 = seg[1]
+    
+            if carte_locale:
+                # Ici lat/lon sont supposées locales dans la tuile
+                # lat locale : 0 en haut, 10 en bas
+                i1 = int(np.floor(lat1 * scale))
+                j1 = int(np.floor(lon1 * scale))
+                i2 = int(np.floor(lat2 * scale))
+                j2 = int(np.floor(lon2 * scale))
+            else:
+                # Ici lat/lon sont absolues
+                i1 = int(np.floor((lat0 - lat1) * scale))
+                j1 = int(np.floor((lon1 - lon0) * scale))
+                i2 = int(np.floor((lat0 - lat2) * scale))
+                j2 = int(np.floor((lon2 - lon0) * scale))
+    
+            i1 = max(0, min(n - 1, i1))
+            i2 = max(0, min(n - 1, i2))
+            j1 = max(0, min(n - 1, j1))
+            j2 = max(0, min(n - 1, j2))
+    
+            imin, imax = sorted((i1, i2))
+            jmin, jmax = sorted((j1, j2))
+    
+            masque[imin:imax + 1, jmin:jmax + 1] = True
+    
+        return masque
+
+    def get_masque_carte(self, lat, lon, get_carte3):
+        tic = time.time()
+    
+        lat0, lon0 = self.angle_superieur_gauche(lat, lon)
+        key = (lat0, lon0)
+    
+        # print("key masque :", key)
+    
+        if key not in self.cache_masques:
+            # print("le masque n etait pas dans le cache")
+    
+            lat_carte = lat0 - 5
+            lon_carte = lon0 + 5
+    
+            # print("appel get_carte3 avec :", lat_carte, lon_carte)
+    
+            carte = get_carte3(lat_carte, lon_carte)
+    
+            # print("lat min/max carte :", carte[:, :, 0].min(), carte[:, :, 0].max())
+            # print("lon min/max carte :", carte[:, :, 1].min(), carte[:, :, 1].max())
+    
+            self.cache_masques[key] = self.masque_segments_10deg(
+                carte,
+                lat0,
+                lon0
+            )
+    
+        else:
+            print("Utilisation du cache*****************************")    
+        print("temps de recherche {} s".format(time.time() - tic))
+    
+        return self.cache_masques[key]    
+
+
+    def point_to_ij(self,lat, lon, lat0, lon0, n=730):
+        scale = n / 10.0
+    
+        i = np.floor((lat0 - lat) * scale).astype(int)
+        j = np.floor((lon - lon0) * scale).astype(int)
+    
+        return i, j
+
+    def segments_touchent_masque(self,positions, masque, lat, lon):
+        """
+        Retourne un booléen par segment de route.
+        True  -> le segment traverse au moins une case True du masque
+        False -> aucune case True dans sa bbox
+        """
+        lat0, lon0 = self.angle_superieur_gauche(lat, lon)
+        pts = positions[:, [4, 5]]  # lat, lon
+    
+        lat1 = pts[:-1, 0]
+        lon1 = pts[:-1, 1]
+        lat2 = pts[1:, 0]
+        lon2 = pts[1:, 1]
+    
+        n = masque.shape[0]
+    
+        i1, j1 = self.point_to_ij(lat1, lon1, lat0, lon0, n)
+        i2, j2 = self.point_to_ij(lat2, lon2, lat0, lon0, n)
+    
+        # clamp dans le masque
+        i1 = np.clip(i1, 0, n - 1)
+        i2 = np.clip(i2, 0, n - 1)
+        j1 = np.clip(j1, 0, n - 1)
+        j2 = np.clip(j2, 0, n - 1)
+    
+        imin = np.minimum(i1, i2)
+        imax = np.maximum(i1, i2)
+        jmin = np.minimum(j1, j2)
+        jmax = np.maximum(j1, j2)
+    
+        touche = np.zeros(len(lat1), dtype=bool)
+    
+        for k in range(len(lat1)):
+            touche[k] = masque[
+                imin[k]:imax[k] + 1,
+                jmin[k]:jmax[k] + 1
+            ].any()
+    
+        return touche
+
+
+    def segments_se_croisent(self,A, B, C, D):
+        """
+        Teste si les segments [A,B] et [C,D] se croisent
+        A, B, C, D : [lat, lon]
+        """
+        def ccw(P, Q, R):
+            return (R[1] - P[1]) * (Q[0] - P[0]) > (Q[1] - P[1]) * (R[0] - P[0])
+        return (ccw(A, C, D) != ccw(B, C, D)) and (ccw(A, B, C) != ccw(A, B, D))
+    
+
+    def intersection(self,segment, carte, marge=0.1):
+        [[lat0, lon0], [lat1, lon1]] = segment
+    
+        # Fenêtre élargie autour du segment
+        latmin = min(lat0, lat1) - marge
+        latmax = max(lat0, lat1) + marge
+        lonmin = min(lon0, lon1) - marge
+        lonmax = max(lon0, lon1) + marge
+    
+        A, B = segment
+    
+        for C, D in carte:
+            # Si le segment côtier est hors de la zone élargie, on saute
+            if max(C[0], D[0]) < latmin or min(C[0], D[0]) > latmax:
+                continue
+            if max(C[1], D[1]) < lonmin or min(C[1], D[1]) > lonmax:
+                continue
+    
+            if self.segments_se_croisent(A, B, C, D):
+                return True
+    
+        return False     
+        
+
+    def indices_intersections_route(self,positions, carte, touche, marge=0.1):
+        """
+        Retourne les indices k tels que le segment :
+            positions[k] -> positions[k+1]
+        croise un segment de côte.
+        """
+    
+        indices_touche = np.where(touche)[0]
+        indices_croise = []
+    
+        for k in indices_touche:
+            segment = [
+                [positions[k, 4],     positions[k, 5]],
+                [positions[k + 1, 4], positions[k + 1, 5]]
+            ]
+    
+            if self.intersection(segment, carte, marge=marge):
+                indices_croise.append(k)
+    
+        return np.array(indices_croise, dtype=int)        
+
+   
+   
+###################################################
+#    Fin de Classe CarteCache
+################################################## #
+
+
+
 
 
 
@@ -5020,278 +6562,109 @@ def routageGlobal(course,user_id,isMe,ari,y0,x0,t0,tolerancehvmg,optionroutage,m
     session         = RoutageSession(course, user_id,isMe,ari) 
     waypoints       = session.waypoints
     tabvmg10to      = session.tabvmg10to
-    iso             = session.isodepart            # la on est systematiquement sur ma pposition 
-    posStartVR      = session.posStartVR
-    posStart        = session.posStart
-
-  
-
-    # print ('\n Demande de routage global ')
-    # print ('course',course)
-    # print ('ari',ari)
-    # print ('Option routage ',optionroutage)
-    # print ('\nposStartVR\n',posStartVR)
-    # print ('\nposStart  \n',posStart)
-    # print()
-
-
-    # suivant l option de routage, on va changer sessionposStartVR
-    #positionvr=torch.tensor([0,t0vr,dt1,option,valeur,y0vr,x0vr,voile,twavr,headingvr,speedvr,staminavr,penovr,twdvr,twsvr,voileAuto,boost],dtype=torch.float64,device='cpu')
+    exclusions      = session.exclusions_json
 
     if optionroutage==1:
-
-        # print ('On est dans l option de routage option1 avant modif posStartVR',posStart)
-        posStart['t0']= t0               # transformation de t0 en tenseur    
-        posStart['y0']= y0               # transformation de t0 en tenseur
-        posStart['x0']= x0
-        print ('iso \n',iso )
-        iso[0,3]=y0
-        iso[0,4]=x0
-
-        # print ('\n On est dans l option de routage option1 posStartVR apresmodif ',posStart)
+        # coordonnees heure manuelle 
+        print ('partie a revoir ')
+       
    
     if optionroutage==2:
-        session.posStartVR[1]= torch.tensor([t0], dtype=torch.float64)               # transformation de t0 en tenseur
-        session.posStartVR[5]= torch.tensor([y0], dtype=torch.float64)               # transformation de t0 en tenseur
-        session.posStartVR[6]= torch.tensor([x0], dtype=torch.float64)      
+        # coordonnees heure de depart 
+        print ('partie a revoir ')
 
+    print ('Dans isMe {} routage global y0 {},x0{} t0 {}'.format(isMe, y0,x0,t0))    
+    
 
-    if isMe=='no':
-        print ('On est dans l option de routage option1 avant modif posStartVR',posStart)
-        posStart['t0']= t0               # transformation de t0 en tenseur    
-        posStart['y0']= y0               # transformation de t0 en tenseur
-        posStart['x0']= x0
-        print ('iso \n',iso )
-        iso[0,3]=y0
-        iso[0,4]=x0
-
-    tic=time.time()
-
-    for indiceroutage in range(len(ari)):     # Parcourt les differents  waypoints 
-        if indiceroutage==0:
-            #posStart=session.posStart   
+    for indiceroutage in range(len(ari)):     # Parcourt les differents  waypoints        
+        if indiceroutage==0: 
+            iso_record=session.calculePosDepart(dt=60)
+            points=iso_record['points'] 
             if isMe=='no':
-               posStart['y0']=y0
-               posStart['x0']=x0   
+                ecart=t0-session.t0vr
+                dtig=  session.dtig0GFS + ecart
+                tws,twd = gfs_interpolateur_np(dtig,y0,x0) 
+                #torch.tensor ([[0,0,y0,x0,voile,twa,stamina,soldepeno,tws,twd]], dtype=torch.float32, device='cuda')
+                isodepart       = torch.tensor ([[0,0,y0,x0,0,0,100,0,tws,twd]], dtype=torch.float32, device='cuda')
+                iso_record = {
+                "numiso"  : 0,
+                "ecart"   : ecart,          # secondes ou minutes depuis t0
+                "points"  : isodepart,           # tenseur uniquement avec les colonnes utiles par point
+                "tmini"   : 10000,
+                "distmini": 1000,
+                "nptmini" : 0,
+                "idxptmini": 0
+              }
 
-               print ()
-               print ('on est dans le cas du routage d un concurrent')
-               print ('posStart',posStart)     
-                
+
+
         else:
-            posStart=posEnd
+            point=session.isoglobal[npt_proche]
+            points= point.unsqueeze(0)      # on rajoute une dimension pour transformer en isochrone 
+            iso_record = {
+                "numiso"  : numiso,
+                "ecart"   : ecart,          # secondes ou minutes depuis t0
+                "points"  : points,           # tenseur uniquement avec les colonnes utiles par point
+                "tmini"   : tmini,
+                "distmini": distmini,
+                "nptmini" : nptmini,
+                "idxptmini": npt_proche
+              }
 
-        #print ('\n On est dans l option de routage option1 posStart avant initialise ',posStart)
-        paramRoutage,iso = session.initialiseRoutagePartiel(posStart,ari,indiceroutage)  # print ('Premier iso',iso)
-
-        #impression_tensor15 (iso,titre='\niso de depart correspondant à PositionVR decalee')
-       
-
-        tmini            = 10000
-        distmini         = 1000
-        rwp              = paramRoutage["rwp"]
-        if rwp==0:            # probleme des lignes d arrivee a gerer ulterieurement
-            rwp=0.2
-
-
-        numisoini        = paramRoutage['posStartPartiel']['numisoini']
-        # print ('rwp',rwp)
-        # print ('numisoini',numisoini)
-        
-        tic=time.time()
-        n=0
-      
-        while distmini > rwp :        
-            iso, tmini, distmini, nptmini = session.isoplusun(iso, tmini,paramRoutage,mode)
-            print ('{}  {} distmini {:4.2f}'.format(n,iso.shape,distmini)) 
-            n+=1
-
-               
-        # Dernière itération pour rentrer dans le cercle 
-       
-        # try:
-        iso, tmini, distmini, nptmini    = session.isoplusun(iso, tmini,paramRoutage,mode)
-
-        tempsexe =time.time()-tic
-        print('_________________________________________________________________________________________________________________________________________________________________________________________\
-          \nRoutage effectué en {:4.2f}s  {} isochrones  {:4.4f}s par Iso  \
-          \n_________________________________________________________________________________________________________________________________________________________________________________________\
-           '.format(tempsexe,n ,tempsexe/n) )  # Ajouter iso à session.isoglobal
-
-        
-       
-        # except:
-        #     print ('Limite grib atteinte 2 ')
-        #     distmini, idx_min = torch.min(iso[:, 9], dim=0)                # idx_min est l’indice de la ligne où la distance est minimale   
-        #     vitesse = iso[idx_min, 16]                                     # Vitesse en nœuds (milles nautiques par heure) au point de distance mini
-        #     tmini   = ((distmini * 3600) / (vitesse * 1.852)).item()       # la distance est en km avec ma fonction dist et vitesse en noeuds pour les polaires 
-        #     nptmini = int(iso[idx_min, 1].item())    
-                 
-
-        distmini, idx_min = torch.min(iso[:, 9], dim=0)                # idx_min est l’indice de la ligne où la distance est minimale  
-      
-        pointfinal=torch.zeros(20)                                      # dernier point le plus pres 
-        pointfinal[:15]=session.isoglobal [nptmini]
-        # impression_tensor15 ([pointfinal],titre='Point d arrivee')
-        # print ('\npointfinal',pointfinal)
-        posEnd= pointfinalToPosEnd(pointfinal)
-        derniereligne = int(iso[-1,1].item())
-        pointfinal[0]+=1           #on incremente directement le numero d iso
-        pointfinal[1]= derniereligne        
-   
-    derniereligne = int(iso[-1,1].item())                                     # derniere ligne du dernier iso donne le dernier numero de point et donc la derniere ligne de  de isoglobal   
-    session.isoglobal = session.isoglobal[:derniereligne,:]                   # on ne garde que la partie contenant les valeurs calculees dans isoglobal
             
-    dico_isochrones = {}                                                      # Dictionnaire pour stocker les courbes des isos 
-    numerosIso = torch.unique(session.isoglobal[:, 0])
+        
+        session.initialiseRoutagePartiel(indiceroutage,iso_record )        
+        rwp              = session.rwp
+        tmini            = 10000
+        distmini         = 1000       
+        n                = 0
+         
+        
+        while distmini > rwp:      
+            iso_record = session.isoplusun(iso_record,mode) 
+            distmini    = iso_record['distmini']  
+            # n+=1
+            # print (n)          
+           # print ('n  {} tmini {:6.0f} distmini {:6.1f} nptmini{} '.format(n,tmini,distmini,nptmini))              
+          
+        # Recuperation des donnees d arrivee sur le wp
+        numiso     = iso_record['numiso']
+        ecart      = iso_record['ecart']
+        nptmini    = iso_record['nptmini']
+        tmini      = iso_record['tmini']
+        distmini   = iso_record['distmini']
+        npt_proche = iso_record['idxptmini']
+        session.wp_passages[indiceroutage] = {
+                                                "numiso": numiso,
+                                                "ecart": float(ecart),
+                                                "npt": int(nptmini),
+                                                "rwp":   rwp,    
+                                                "distmini": distmini,
+                                                "tmini":tmini            
+                                            }
+      
 
+    print(' session.wp_passages ', session.wp_passages)
+        
+    # tac=time.time()    
+    # print ('temps exe SIMPLE  {:6.0f}s pour {} isos ,par iso {:6.5f}s '.format(tac-tic,n,(tac-tic)/n))   
+    session.isoglobal         = session.isoglobal[:session.kglobal].clone()
+    chemin_indices            = session.reconstruire_chemin_rapide(session.isoglobal, nptmini)  
+    routage                   = session.construit_routage_depuis_chemin(chemin_indices)
+    dico_isochrones           = session.construit_dico_isochrones_1sur6( 0.05)
     
-
-    tic =time.time()
-    dico_isochrones =     construit_dico_isochrones_1sur6(session.isoglobal, 0.05)
-    
-    # print ('\ntemps exe 2')
-    # for iso in numerosIso:
-    #     mask = session.isoglobal[:, 0] == iso                                 # Masque pour sélectionner les lignes de cet isochrone
-    #     lat_lon = session.isoglobal[mask][:, [3, 4]]                          # Extraction des colonnes lat/lon (3 et 4)    
-    #     isodecoupe=decoupe_latlon_folium(lat_lon, seuil=0.01)
-    #     dico_isochrones[int(iso.item())] = isodecoupe                         # Ajout au dictionnaire (clé en int pour faciliter la lecture)
-   
-   # build_dico_isochrones_1sur6(session, seuil=0.01, pas_iso=6)
-   
-    print ('temps exe2 ' ,time.time()-tic) 
-    #print (dico_isochrones)
-    dernieriso=pointfinal[0]
-
-    # print('_________________________________________________________________________________________________________________________________________________________________________________________\
-    #       \nRoutage effectué en {:4.2f}s  {} isochrones  {:4.4f}s par Iso  \
-    #       \n_________________________________________________________________________________________________________________________________________________________________________________________\
-    #        '.format(tempsexe,dernieriso ,tempsexe/dernieriso) )  # Ajouter iso à session.isoglobal
-
-    return waypoints,session.isoglobal,session.posStartVR,session.posStart,nptmini,session.exclusionsVR,session.tabvmg10to,dico_isochrones
+    arrayroutage              = routage.cpu().tolist()                      # passage de torch a tableau python
+    routage_np                = np.array(arrayroutage,dtype=np.float64)
+    tabpointslisses           = session.lissage_routage_np( routage_np) 
+    routage_lisse             = session.reconstruit_colonnes_routage_lisse(tabpointslisses, mode="gfs")
+    routage_actions           = session.routage_actions(routage_lisse)
+          
+    routage_list              = routage_actions.cpu().tolist()
+    return  waypoints,exclusions,routage_list,dico_isochrones
+ 
 
 
 
-def decoupe_latlon_fast(lat_lon, seuil=0.01):
-    n = lat_lon.size(0)
-    if n == 0:
-        return []
-    if n == 1:
-        return [lat_lon.tolist()]
-
-    # écart max entre deux points consécutifs sur lat/lon
-    diffs = (lat_lon[1:] - lat_lon[:-1]).abs()
-    sauts = torch.nonzero(diffs.amax(dim=1) > seuil, as_tuple=False).flatten()
-
-    if sauts.numel() == 0:
-        return [lat_lon.tolist()]
-
-    split_indices = torch.cat([
-        torch.tensor([0], device=lat_lon.device),
-        sauts + 1,
-        torch.tensor([n], device=lat_lon.device)
-    ])
-
-    return [
-        lat_lon[int(split_indices[i].item()):int(split_indices[i+1].item())].tolist()
-        for i in range(split_indices.numel() - 1)
-    ]
-
-
-def build_dico_isochrones_1sur6(session, seuil=0.01, pas_iso=6):
-    ig = session.isoglobal
-
-    # colonne iso
-    iso_ids = ig[:, 0]
-
-    # repère les changements d'isochrone
-    change = torch.nonzero(iso_ids[1:] != iso_ids[:-1], as_tuple=False).flatten() + 1
-
-    # bornes [début, fin) de chaque bloc isochrone
-    starts = torch.cat([torch.tensor([0], device=ig.device), change])
-    ends   = torch.cat([change, torch.tensor([ig.size(0)], device=ig.device)])
-
-    dico_isochrones = {}
-
-    # 1 isochrone sur 6
-    for k in range(0, len(starts), pas_iso):
-        s = int(starts[k].item())
-        e = int(ends[k].item())
-        iso = int(iso_ids[s].item())
-
-        lat_lon = ig[s:e, 3:5]   # colonnes 3,4
-        dico_isochrones[iso] = decoupe_latlon_fast(lat_lon, seuil=seuil)
-
-    return dico_isochrones
-
-
-
-
-
-
-
-def cheminToRoutage(chemin,tabvmg10to):
-
-    ''' Transforme un chemin (extrait de isoglobal ) en tableau de routage '''
-    routage =torch.zeros((len(chemin),17) , dtype=torch.float32, device='cuda')
-    # reorganisation des colonnes 
-    routage[:,[0,1,2,3,5,6,9,10,11,12,13,14,15]]=chemin[:,[0,12,3,4,6,11,13,5,14,9,10,7,8]]
-    
-    #decalage des colonnes pour que les actions a faire correspondent au temps a venir et non au temps passé 
-    decaler_colonnes(routage, colonnes=[0,5,6,9,10,11,15])     # on decale les colonnes twa cap,  voile et boost car ce sont les valeurs pour les commandes a realiser a l a prendre 
-    
-    #calcul des vmg 
-    tws10=torch.round(routage[:,12]*10).int()                                                            # on calcule vmgmin et max a partir de tws et twd 
-    routage[:,7] = tabvmg10to[tws10,2]
-    routage[:,8] = tabvmg10to[tws10,4]
-    
-    # on garde les avants dernieres valeurs pour la twa le cap la vitesse et la voile le boost et la stamina 
-    routage[-1,[5,6,9,10,11,14]]=routage[-2,[5,6,9,10,11,14]]
-    return routage
-    
-
-def smooth(tab, tol=1, window=1):
-    """
-    Lissage discret : si un point diffère légèrement (≤ tol)
-    de ses voisins identiques, il est remplacé par leur valeur.
-
-    tab : tableau numpy (ou liste)
-    tol : écart maximal considéré comme aberration isolée (défaut 1)
-    window : nombre de voisins de chaque côté (défaut 1)
-    """
-    tab = np.asarray(tab, dtype=float).copy()
-    n = len(tab)
-    if n < 3 or window < 1:
-        return tab
-
-    for i in range(window, n - window):
-        gauche = tab[i - window]
-        droite = tab[i + window]
-        if abs(tab[i] - gauche) <= tol and abs(tab[i] - droite) <= tol and abs(gauche - droite) <= tol:
-            # voisins quasi identiques → remplacement
-            tab[i] = gauche # ou simplement gauche, car proches
-    return tab
-    
-
-
-def smoothTo(t):
-    """
-    Smooth un tensor 1D en remplaçant toute valeur qui est
-    différente de ses voisins mais entourée de deux valeurs identiques.
-    """
-    t = t.clone()  # pour ne pas modifier l'original
-
-    # On compare les décalages
-    left  = t[:-2]    # tous sauf les 2 derniers
-    mid   = t[1:-1]   # tous sauf les extrémités
-    right = t[2:]     # tous sauf les 2 premiers
-
-    mask = (left == right) & (mid != left)   # condition de correction
-
-    # on corrige uniquement au milieu
-    t[1:-1][mask] = left[mask]
-
-    return t
 
 
 
@@ -5299,10 +6672,11 @@ def smoothTo(t):
 @app.route('/calculeroutage', methods=["GET", "POST"])
 # c 'est celui qui est utilise par index nouveau modèle
 def calculeroutage():
-    print('\nDemande de routage sur url routageajax3\n*************************************')
+    print('\nDemande de routage sur url calculeroutage\n***************************************')
     
 
-    # username            = request.args.get('username')          # recupere les donnees correspondant a valeur dans le site html
+    username            = request.args.get('username')          # recupere les donnees correspondant a valeur dans le site html
+    print ('username',username)
     course              = request.args.get('course')              # recupere les donnees correspondant a valeur dans le site html
     user_id             = request.args.get('user_id')  
     aristr              = request.args.get('ari')                # on a besoin de ari pour savoir sur quels waypoints on va 
@@ -5316,7 +6690,7 @@ def calculeroutage():
     ari                 = json.loads(aristr)
     mode                = request.args.get('mode')
    
-    username            = findUsername(user_id)
+    #username            = findUsername(user_id)
     #username            =  users[user_id]
     print ('course                                  ',course)
     print ('username                                ',username)
@@ -5333,36 +6707,29 @@ def calculeroutage():
     
   
 
-    tic=time.time()
-    #print ('routage  pour {}'.format( username))
-    # try:
-    waypoints,isoglobal,posStartVR,posStart,nptmini,exclusions,tabvmg10to,dico_isochrones=routageGlobal(course, user_id,isMe,ari,y0,x0,t0,tolerancehvmg,optionroutage,mode)  
-    chemin            = reconstruire_chemin_rapide(isoglobal, nptmini)
-    routage           = cheminToRoutage(chemin,tabvmg10to)
-    arrayroutage      = routage.cpu().tolist()
-    routage_np        = np.array(arrayroutage,dtype=np.float64)
-    routagelisse      = lissage(course,routage_np,t0,posStartVR,posStart)  
-    tabtwa            = routagelisse[:,5]
-
-    twasmooth         = smooth(tabtwa)                      #    c est du smooth torch 
-    twasmooth2        = smooth(twasmooth)  
-    routagelisse[:,5] = twasmooth2                   # c 'est juste une substitution de facade, il faudrait recalculer le routage  
-    arrayroutage2     = [arr.tolist() for arr in routagelisse] 
-    dico              = {'message':'Routage OK','waypoints':waypoints,'arrayroutage':arrayroutage,'arrayroutage2':arrayroutage2,'isochrones':dico_isochrones,'t0routage':t0}
-    eta = t0 + routagelisse[-1,1]
-
-    # except:
-    #     waypoints,arrayroutage,arrayroutage2,dico_isochrones,t0,eta=0,0,0,0,0,0  
-    #     dico={'message':'Erreur','waypoints':waypoints,'arrayroutage':arrayroutage,'arrayroutage2':arrayroutage2,'isochrones':dico_isochrones,'t0routage':t0}    
-
-  
     
-
-    print ('Routage pour {} sur course {} le {} {} ETA {} \n******************************************************************'.format(username,course,format_time(t0),dico['message'],format_time(eta)))
    
-    eta=time.time()+10000
+    tic=time.time()
+    waypoints,exclusions,routage_list,dico_isochrones=routageGlobal(course, user_id,isMe,ari,y0,x0,t0,tolerancehvmg,optionroutage,mode)  
+    tac=time.time()
+    nombreisos=len(routage_list)
+    print ('temps exe {} par iso {}  ',tac-tic,(tac-tic)/nombreisos)
+
+    # print (waypoints )
+    # print (exclusions )
+    # print (routage_list)
+    # print (dico_isochrones)
+
+    dico              = {'message':'Routage OK','waypoints':waypoints,'exclusions':exclusions,'arrayroutage':routage_list,'isochrones':dico_isochrones}
+    
+    eta = routage_list[-1][4]
+   
+    print('************************************************************************************************\n')
+    print ('Routage EFFECTUÉ pour {} sur course {} le {} - {} - ETA {} \n*******************************************************************************************'.format(username,course,format_time(t0),'Routage OK',format_time(eta)))
+   
+    
     insert_historoutages(  username,course, user_id,dico['message'], t0, y0, x0, eta)
-    print('****************************************************************\n')
+    print ('insere dans historoutage')
     return dico
 
 
@@ -5399,39 +6766,6 @@ def chargecarte3():
     # print()
     response.headers.add('Access-Control-Allow-Origin', '*')  # Autorise toutes les origines
     return response
-
-
-# def chargecarte3():
-#    #print('on est dans chargecarte3')
-
-#     # on va recuperer la pos 
-#     lat      = float(request.args.get('lat'))  
-#     lon      = float(request.args.get('lon')) 
-   
-#     tic=time.time()
-    
-#     # try:
-#     print ('lat ',lat, ' lon ',lon)
-
-#     pos=(lat,lon)
-#     carte1 = get_carte(lat,lon)
-#     # print ('cartenp',carte1)
-
-
-#     # cartepy =cartenp.tolist()           #on transforme en tableau pour transmettre
-    
-#     # except:
-#     #     print ('la carte demandee est vide \n**********************************************\n')
-#     #     cartepy=[] 
-#     # #print ('temps de chargement de la carte ',time.time()-tic)
-    
-#     response=make_response(jsonify({'message':'Cartes envoyees par Serveur','carte':carte1}))
-
-#     # print()
-#     # print(' Taille de la carte en octets '.sys.getsizeof(cartepy))
-#     # print()
-#     response.headers.add('Access-Control-Allow-Origin', '*')  # Autorise toutes les origines
-#     return response
 
 
 
@@ -5679,8 +7013,6 @@ def calculepolaires():
     amort=0.3*v2*(pena1+pena2)/abs(v2-v1+0.00001)
 
 
-
-    
     # on charge le tableau des vmg
 
     filenamelocal2='vmg10_'+str(polar_id)+'.npy'
@@ -5725,8 +7057,6 @@ def calculepolaires():
 
 
 def cherchecarabateau(polar_id):
-
-
     updated,polar_id,polairesjsonstr=rechercheTablePolaires(polar_id)    # nouvelle version
     polairesjson=json.loads(polairesjsonstr) 
     polairesjson=json.loads(polairesjson) 
@@ -5782,111 +7112,6 @@ def cherchecarabateau(polar_id):
 
 
 
-# def calculpenalitesnump(Tws10, Chgt, twam1, twa, staminaini, carabateau):
-#     """
-#     Revision de la formule de la perte le 28 02 2025
-#     Calcule les pénalités de stamina et de temps.
-#     Accepte soit des scalaires soit des np.array en entrée.
-#     retourne staminaend et temps de peno sous forme de numpy array si necessaire
-#     La stamina recuperee pendant dt n'est pas prise en compte
-#     Le temps de penalite est un temps brut le coefficient de 0.3ou 0.5 n'est pas applique
-#     """
-#     Perte=0
-#     MF=0.8
-#     Tws10 = np.asarray(Tws10, dtype=np.float64)
-#     tws=Tws10/10
-#     Chgt = np.asarray(Chgt, dtype=np.int32)
-#     twam1 = np.asarray(twam1, dtype=np.float64)
-#     twa = np.asarray(twa, dtype=np.float64)
-#     staminaini = np.asarray(staminaini, dtype=np.float64)
-
-#     TackGybe = (twam1 * twa < 0).astype(int)
-#     Tack = np.where((TackGybe == 1) & (np.abs(twa) < 90), 1, 0)
-#     Gybe = np.where((TackGybe == 1) & (np.abs(twa) >= 90), 1, 0)
-#     lw = carabateau['lws']
-#     hw = carabateau['hws']
-#     coeffboat = carabateau['coeffboat']
-#     Cstamina = 2 - 0.015 * staminaini
-
-#     m = np.select(
-#         [tws <= 10, (tws > 10) & (tws <= 20), (tws > 20) & (tws < 30), tws >= 30],
-#         [0, 0.2, 0.6, 0]
-#     )
-#     p = np.select(
-#         [tws <= 10, (tws > 10) & (tws <= 20), (tws > 20) & (tws < 30), tws >= 30],
-#         [10, 8, 0, 18]
-#     )
-#     Perte = ((m * tws + p) * (TackGybe + 2 * Chgt * MF)) * coeffboat
-#     staminaend = staminaini - Perte 
-#     staminaend = np.maximum(0, staminaend)
-
-#     # Initialisation de tempspeno en float
-#     tempspeno = np.zeros_like(tws, dtype=np.float64)
-#     tempspenom = np.zeros_like(tws, dtype=np.float64)
-
-#     if np.any(Chgt == 1):
-#         lwtimer = carabateau['lwtimer']
-#         hwtimer = carabateau['hwtimer']
-
-
-
-
-#         tempspeno += np.where( Chgt == 1,  spline(lw, hw, lwtimer, hwtimer, tws) * MF * Cstamina, 0 )
-
-#     if np.any(Gybe == 1):
-#         lwtimer = carabateau['gybeprolwtimer']
-#         hwtimer = carabateau['gybeprohwtimer']
-#         tempspenom += np.where( Gybe == 1, spline(lw, hw, lwtimer, hwtimer, tws) * Cstamina,   0    )
-
-#     if np.any(Tack == 1):
-#         lwtimer = carabateau['tackprolwtimer']
-#         hwtimer = carabateau['tackprohwtimer']
-#         tempspenom += np.where( Tack == 1, spline(lw, hw, lwtimer, hwtimer, tws) * Cstamina,   0    )
-
-
-#     if np.any(Chgt == 1) and (np.any(Gybe == 1) or np.any(Tack == 1) ):
-#         tempspeno=np.maximum(tempspeno,tempspenom)
-
-#     elif np.any(Chgt == 0) :
-#         tempspeno=tempspenom
-
-#     return staminaend, tempspeno
-
-
-
-
-
-# @app.route('/chargecarte', methods=["GET", "POST"])
-# def chargecarte():
-#     print('on est dans chargecarte')
-#     # points=request.args.get('points')
-#     # points=json.loads(points)
-#     data = request.get_json()  # Récupération du JSON envoyé
-#     points = np.asarray(data["points"])  # Conversion en array numpy
-
-
-
-
-#    # points=np.asarray(points)
-
-#     b=np.ceil(points[:,0]).reshape(-1,1)
-#     c=np.floor(points[:,1]).reshape(-1,1)
-#     cartes=np.concatenate((b,c),axis=1)
-#     listecartes=np.unique(cartes,axis=0)
-#     # print ('Ligne 2940 points ',listecartes )
-#     cartevr=[]
-#     for i in range (len(listecartes)):
-#         cartevr.append(charge_carto(listecartes[i,0],listecartes[i,1]))
-
-#     # print ('ligne 2944 cartevr \n ',cartevr)
-#     response=make_response(jsonify({'message':'Cartes envoyees par Serveur','carte':cartevr}))
-#     print()
-#     print(sys.getsizeof(response))
-#     print()
-#     response.headers.add('Access-Control-Allow-Origin', '*')  # Autorise toutes les origines
-#     return response
-
-
 
 
 @app.route('/rechercheflotte', methods=["GET", "POST"])
@@ -5897,8 +7122,6 @@ def rechercheflotte():
   
     # print ('id_user {} course {} '.format(id_user,course))
     fleetinfos=rechercheTableFleetinfos(id_user, course)
-
-    # print ('Ligne 3621 Fleetinfos',fleetinfos) 
 
     return jsonify({"message": 'Recuperation de la flotte effectué avec succes '  ,"fleetinfos":fleetinfos }), 200
 

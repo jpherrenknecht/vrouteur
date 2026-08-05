@@ -16,6 +16,7 @@
 
 
     <link rel="stylesheet" type="text/css" href="{{ url_for('static', filename='css/vrouteur.css') }}">
+    <!-- <link rel="icon" href="{{ url_for('static', filename='img/favicon.ico') }}?v=3"> -->
     <link rel="shortcut icon" href="{{ url_for('static', filename='img/favicon.ico') }}">
 
     <script type="text/javascript" src="{{ url_for('static', filename='js/vrouteur.js') }}"></script>
@@ -222,14 +223,14 @@
         var y1;                           // derniers coordonnés de l 'arrivee 
         var x1;
         var dep;                          // valeur de depart
-        var lastCalcDate ;
+        var lastCalcDate;
 
         var Source;
 
         // Variables routage
         var t0routage;                    // heure de depart du routage 
-        var t1routage = 0;                    // heure de depart du routage
-        var tolerancehvmg = 0;
+        var t1routage = 0;                // heure de depart du routage
+        var tolerancehvmg = 2;
         var retardpeno = 0;
         var eta;
         var dureeroutage;
@@ -303,6 +304,7 @@
         var lgMarkersVR = new L.LayerGroup()     //waypoints vr 
         var lgMarkersVR2 = new L.LayerGroup()     //waypoints vr 
         var grilleLayer = new L.LayerGroup()
+        var marqueursWptLayer = new L.layerGroup();
 
         var circlew = new L.circle();
         var popup = L.popup();
@@ -389,6 +391,9 @@
 
 
 
+
+
+
             L.control.scale({
                 position: 'bottomright',
                 imperial: false,
@@ -414,16 +419,19 @@
                 if (typereponse == 'boatinfos') {
                     // console.log ('Traitement de  boatinfos')
                     // console.log('********************************************************')
+
+                    console.log('reception par websocket de changement deboatinfos pour ' + username + ' course ' + course + ' bloque ' + bloque)
+                    update(username, course, bloque)
+                    console.log('boatinfos traité')
+                    if (overlay) { overlay.remove(); }
+
                     if (course2 != course) {
                         console.log('Changement de courseà effectuer ')
                         changementcourse(username, course2)
                         course = course2
                     }
 
-                    console.log('Update de boatinfos pour ' + username + ' course ' + course + ' bloque ' + bloque)
-                    update(username, course, bloque)
-                    console.log('boatinfos traité')
-                    if (overlay) { overlay.remove(); }
+
                 }
 
 
@@ -463,8 +471,8 @@
                 if (bloque == 0) {
 
                     // on a besoin des donnees boatinfos
-                    console.log('\nDemande de update le ' + intlhmn.format(Date.now()))
-                    console.log('Course ' + course)
+                    console.log('\nDemande de update le ' + intlhmn.format(Date.now()) + ' pour course ' + course2)
+
 
 
                     if (course2 != course) {
@@ -473,18 +481,19 @@
                         leginfos = chercheleginfos(course2)
                         changementcourse(username, course2)
                         course = course2
-
                     }
 
                     boatinfosdata = await chercheboatinfos(username, course2)
                     boatinfos = boatinfosdata.result
 
 
-                    //console.log ('Informations boatinfos reçues '+JSON.stringify(boatinfos))
+                    console.log('Informations boatinfos reçues par la fonction update ' + JSON.stringify(boatinfos))
 
                     if (boatinfos != null) {
-
+                        console.log('mise a jour de boatinfos par la fonction update ')
                         afficheboatinfos(boatinfosdata)
+                        // on va aussi mettre à jour les programmations 
+                        chercheprogsvr(user_id, course2, t0routage, detail = 0, echouage = 1)
                     }
                     else { console.log("Ce bateau n'etant pas connu dans boatinfos , ça ne sert à rien de faire un update ") }
 
@@ -577,7 +586,7 @@
     <span class='heuredepart'><label>Heure Depart :</label>
     <input type="datetime-local" id="datetime"   class= "datetime-compact" />
      </span><br>
-    <span> Hvmg + <input class="classinput2" type="number" id="tolerancehvmg" min="0" max="10" step="1" value="0">°</span>
+    <span> Hvmg + <input class="classinput2" type="number" id="tolerancehvmg" min="0" max="10" step="1" value="2">°</span>
     <span> RetardPeno <input class="classinput3" type="number" id="retardpeno" min="0" max="7200" step="300" value="0"> </span><br>
 
     <div   id ='dategrib' class='dategrib' > Grib :  </div>
@@ -741,20 +750,24 @@
 
 
             var texteboite44 =
-                `<div class='progsvr' >
-         <span class= 'col150' > Programmations VR </span>       
-        <button  id='rafraichir' class='blackwhite11' value='0' > Rafraichir </button>
-       
+                `<div class='checkbox' >
+              
+        
+
+        <button  id='ligneproj' class='blackwhite11' value='0' > Detail Ligne projection </button> 
+          
         <button  id='dupliquerprogsvr' class='blackwhite11' value='0' > Dupliquer  </button>
-        <div id='idprogrammationsvr' class='idprogrammationsvr' ></div>
-       </div>`;
+        Verif Echouages  <input type='checkbox' id='echouages'  name='echouages'   />   
+        
+       
+        </div>`;
 
-
+            //<br>  <div id='idprogrammationsvr' class='idprogrammationsvr' ></div>
 
             var texteboitejaune = "<div id='boitejaune' ></div>"
             //+ intlhmn.format(t0*1000)+textsimultwa(donnees[0][0],donnees[0][1],donnees[0][2],donnees[0][3],donnees[0][4])+
 
-
+            //<button  id='echouages' class='blackwhite11' value='0' > Echouages </button>  
 
             var texteEditeurWP =
                 `<div id="waypointEditor" class="waypointeditor">
@@ -1021,8 +1034,6 @@
                 tig = boatinfosdata.tig
                 boatinfos = JSON.parse(boatinfos)
                 boatinfosbs = boatinfos['bs']
-
-
                 //Variables qui existent toujours 
                 typebateau = boatinfosbs['boat']['name']                    //ok si course pas demarree              
                 username = boatinfosbs['displayName']                     //ok si course pas demarree   
@@ -1133,32 +1144,8 @@
 
                 if (twaAuto == twavr) { document.getElementById('twaauto').checked = true }
                 else { document.getElementById('twaauto').checked = false }
-
-                //console.log('twaAuto ' + twaAuto + 'twa ' + twavr)
-
-
-
-                //document.getElementById('lienpolaires').innerHTML= "<a href=javascript:popupbasique('http://blacksailingpolars.vrzen.org/?race_id="+course+"&tws="+twsvr+"&twa="+Math.abs(twavr)+"&stam="+stamina+"&hull=true&winch=true&foil=true&light=true&heavy=true&reach=true&magicFurler=true&comfortLoungePug=true&vrtexJacket=true&voile="+sail%10+"')>Polaires </a></span>"
-
                 urlPolaires = `http://blacksailingpolars.vrzen.org/?race_id=${course}&tws=${twsvr}&twa=${Math.abs(twavr)}&stam=${stamina}&hull=true&winch=true&foil=true&light=true&heavy=true&reach=true&magicFurler=true&comfortLoungePug=true&vrtexJacket=true&voile=${sail % 10}`
-
-
-                // document.getElementById('dategrib').innerHTML = 'Grib du ' + intldhmn.format(tig * 1000 ) + ' + ' + indicemajgrib * 3 + 'h' //+ decalageUTC * 60000
-                // document.getElementById('voilesautovr').checked = autosail
-
-                //Positionnement du bateau    
-                // t0=lastCalcDate/1000
-                //console.log(' ligne 3582 '+lastCalcDate/1000)
-                // afficheBoat(y0vr, x0vr, t0, twsvr, twdvr, heading, username)
                 afficheBoat2(y0vr, x0vr, t0, twsvr, twdvr, heading, twavr, speed, sail, username, 'blue')
-
-                //map.panTo([y0vr,x0vr])     La positionnement se fait a chaque update ce qui est genant 
-                //document.getElementById('lienpolaires').innerHTML= "<a href=javascript:popupbasique('http://blacksailingpolars.vrzen.org/?race_id="+course+"&tws="+twsvr+"&twa="+Math.abs(twavr)+"&stam="+stamina+"&hull=true&winch=true&foil=true&light=true&heavy=true&reach=true&magicFurler=true&comfortLoungePug=true&vrtexJacket=true&voile="+sail%10+"')>Polaires </a></span>"
-                // urlPolaires=`http://blacksailingpolars.vrzen.org/?race_id=${course}&tws=${twsvr}&twa=${Math.abs(twavr)}&stam=${stamina}&hull=true&winch=true&foil=true&light=true&heavy=true&reach=true&magicFurler=true&comfortLoungePug=true&vrtexJacket=true&voile=${sail%10}`
-
-                // On va chercher les valeurs pour les voiles et le vent 
-
-                // on remet a jour le trajet avec les dernieres donnees boatinfos
                 trajet = [username, course, y0vr, x0vr, y0vr, x0vr, t0vr, y1, x1, -1, user_id, ari, waypoints, 'maj par main']
                 updateTrajet(username, course, trajet)
 
@@ -1179,50 +1166,30 @@
                 else { document.getElementById('twaauto').checked = false }
 
 
-
-
-                //document.getElementById('lienpolaires').innerHTML= "<a href=javascript:popupbasique('http://blacksailingpolars.vrzen.org/?race_id="+course+"&tws="+twsvr+"&twa="+Math.abs(twavr)+"&stam="+stamina+"&hull=true&winch=true&foil=true&light=true&heavy=true&reach=true&magicFurler=true&comfortLoungePug=true&vrtexJacket=true&voile="+sail%10+"')>Polaires </a></span>"
-
                 urlPolaires = `http://blacksailingpolars.vrzen.org/?race_id=${course}&tws=${twsvr}&twa=${Math.abs(twavr)}&stam=${stamina}&hull=true&winch=true&foil=true&light=true&heavy=true&reach=true&magicFurler=true&comfortLoungePug=true&vrtexJacket=true&voile=${sail % 10}`
 
 
                 document.getElementById('dategrib').innerHTML = 'GFS du ' + intldhmn.format(arrondirALHeure(tig * 1000 + decalageUTC * 60000)) + ' + ' + indicemajgrib * 3 + 'h' //+ decalageUTC * 60000
                 document.getElementById('voilesautovr').checked = autosail
 
-                //Positionnement du bateau    
-                // t0=lastCalcDate/1000
-                //console.log(' ligne 3582 '+lastCalcDate/1000)
-                //afficheBoat(y0vr, x0vr, t0, twsvr, twdvr, heading, username)
+
                 afficheBoat2(y0vr, x0vr, t0, twsvr, twdvr, heading, twavr, speed, sail, username, 'blue')
-
-
-                //map.panTo([y0vr,x0vr])     La positionnement se fait a chaque update ce qui est genant 
-                //document.getElementById('lienpolaires').innerHTML= "<a href=javascript:popupbasique('http://blacksailingpolars.vrzen.org/?race_id="+course+"&tws="+twsvr+"&twa="+Math.abs(twavr)+"&stam="+stamina+"&hull=true&winch=true&foil=true&light=true&heavy=true&reach=true&magicFurler=true&comfortLoungePug=true&vrtexJacket=true&voile="+sail%10+"')>Polaires </a></span>"
-                // urlPolaires=`http://blacksailingpolars.vrzen.org/?race_id=${course}&tws=${twsvr}&twa=${Math.abs(twavr)}&stam=${stamina}&hull=true&winch=true&foil=true&light=true&heavy=true&reach=true&magicFurler=true&comfortLoungePug=true&vrtexJacket=true&voile=${sail%10}`
-
-                // On va chercher les valeurs pour les voiles et le vent 
 
                 // on remet a jour le trajet avec les dernieres donnees boatinfos
                 trajet = [username, course, y0vr, x0vr, y0vr, x0vr, t0vr, y1, x1, -1, user_id, ari, waypoints, 'maj par main']
                 updateTrajet(username, course, trajet)
 
 
-
-                //console.log ('ligne2743 '+intlhmn.format(t0vr*1000))
                 t0routage = Math.ceil(t0 / 60) * 60;
-                await chercheprogsvr(user_id, course, t0routage)   // se charge de l affichage
-
-                //console.log ('ligne 3599 '+y0vr+'  '+x0vr+ '  '+t0+' '+twsvr+'  '+twavr+' '+polar_id)
+                console.log('cherche progs vr lancé avec t0routage' + t0routage)
+                await chercheprogsvr(user_id, course, t0routage)   // se charge de l affichage             
                 resvoiles = await cherchevoiles(y0vr, x0vr, t0, twsvr, twavr, polar_id)
 
                 let nowUnix = Math.floor(Date.now()); // Timestamp Unix en M secondes  
                 ecartTemps = parseInt(nowUnix / 1000 - t0)
 
-
                 console.log(intlhmn.format(Date.now()) + ' AfficheBoatinfos EcartTemps / dernière MAJ  VR ' + ecartTemps + 's')
                 afficheOverlay(ecartTemps)
-                // ca sa marche si je recois des boatinfos 
-
 
             }
 
@@ -1267,6 +1234,8 @@
                 // var circleBoat2 = L.circle([y0vr, x0vr], { color: 'white', weight: 0.8, fillColor: '#f03', opacity: 1, fillOpacity: 0, radius: 500, }).bindTooltip(y0vr).addTo(circleBoatLayer);
                 // desactive provisoire 
                 boatMarkers.clearLayers()
+                console.log('on est dans afficheboat2')
+                console.log(yb + '   ' + xb + ' ' + t0b + ' ' + twsb + ' ' + twdb + ' ' + headingb + ' ' + twab + ' ' + speedb + ' ' + sailb + ' ' + username)
 
                 addBoatMarker(boatMarkers, username, yb, xb, {
                     color: color,
@@ -1279,6 +1248,12 @@
                     baseSize: 25,
                     zoomRef: 13,
                 });
+
+                fleche4([yb, xb], headingb, 0.05, 'blue', boatMarkers);
+                fleche4([yb, xb], twdb + 180, 0.10, 'green', boatMarkers);
+                fleche4([yb, xb], twdb + 90, 0.15, 'green', boatMarkers);
+                fleche4([yb, xb], twdb - 90, 0.15, 'green', boatMarkers);
+
 
 
                 if (boatVisibility == 1) { boatMarkers.addTo(map) }
@@ -1385,154 +1360,165 @@
             }
 
 
+            function afficheligneprogs(data, optioncouleur) {
+                // c'est la nouvelle fonction pour la ligne de proj
+                // on recupere un tableau ou 
+                //0) ordre 1)option 2)valeur 3)dtSec 4)y 5)x 6)t  7)twa 8)cap 9)voile 10)voilerec 11)boost 12)speed 13)vmgmin 14)vmgmax 15)twd 16)tws 17)nrj 18)penochgt 19)penotack 20)penogybe 21)ismer
 
+                if (optioncouleur == 'jaune') { Layer = progsvrLayerJaune }
+                else { Layer = progsvrLayer }
 
-
-            function afficheligneprogs(data) {
-                // Affiche la ligne des programmations sur la carte a partir des programmations recuperees dans progvr 
-
-                //console.log('Mise a jour de la ligne de projection')
-                progsvrLayer.clearLayers()
-                // console.log ('data Ligne 1237  '+JSON.stringify(data))
-                polylineprog = data.routeprogs
-                typeprogs = data.typeprogs
-                heurePremiereProg = polylineprog[0][0]        // premiere prog  
-                // console.log('heure du premier point de la simulation ' + hmns.format(heurePremiereProg * 1000))   // c est le point 1 et non le point 0 
-                // console.log('t0routage ' + t1routage + 'soit ' + hmns.format(t0routage * 1000))
-                // console.log('t0progsvr ' + polylineprog[0][0] + 'soit ' + hmns.format(polylineprog[0][0] * 1000))
-                // console.log('t1routage ' + t1routage)
-
-                for (var i = 1; i <= polylineprog.length - 1; i++)                // on affiche les nouveaux points mais pas le premier pas necessaire 
+                console.log('option de ligne ' + optioncouleur )
+                Layer.clearLayers()
+                var rayon = 10; var tourcol; var poids = 1; var opac = 1; fillopac = 0.3; var fillCol;
+                // tracé des points
+                for (var i = 0; i <= data.length - 1; i++)                // on affiche les nouveaux points mais pas le premier pas necessaire 
                 {
+                    var ordre = data[i][0];
+                    var option = data[i][1];
+                    var valeur = data[i][2]
+                    var yi = data[i][4];
+                    var xi = data[i][5];
+                    var ti = data[i][6];
+                    var twa = data[i][7].toFixed(2);
+                    var cap = data[i][8].toFixed(2);
+                    var voile = data[i][9]; if (data[i][9] == data[i][10]) { boost = 1 }
+                    var boost = data[i][11].toFixed(3);
+                    var speed = data[i][12].toFixed(1);
+                    var vmgmin = data[i][13].toFixed(1);
+                    var vmgmax = data[i][14].toFixed(1);
+                    var twd = data[i][15].toFixed(2);
+                    var tws = data[i][16].toFixed(2);
+                    var stamina = data[i][17].toFixed(1);
 
-                    couleur = colors[polylineprog[i][5]]
-                    voile = polylineprog[i][5]
-                    nomvoile = typeVoilesShort[voile]
-                    option = polylineprog[i][1]
-                    if (option == 1) {
-                        nomOption = 'Twa Fixe'
-                        tooltipprog[i] = 'Progs                ' + intlhmn.format(polylineprog[i][0] * 1000) + '<br> ' + nomOption + ': ' + polylineprog[i][2].toFixed(1) + '° Cap ' + polylineprog[i][7].toFixed(1) + ' <br> Voile :' + nomvoile + ' - Tws ' + polylineprog[i][10].toFixed(2) + 'Knts'
-                    }       // le temps est en position 3
+                    var titre = option == 0 ? 'Cap fixe ' : 'Twa fixe ';
+                    var vmg = Math.abs(twa) < 90 ? vmgmin : vmgmax;
+                    var rayon = i % 60 == 0 ? 40 : 10;
+                    var tourcol = i % 60 == 0 ? 'black' : colors[voile];
+                    var nomvoile = typeVoilesShort[voile]
+                    var positionTxt = toDMSString(yi, xi);
 
-                    else {
-                        nomOption = 'Cap Fixe'
 
-                        tooltipprog[i] = 'Progs                ' + intlhmn.format(polylineprog[i][0] * 1000) + '<br> ' + nomOption + ': ' + polylineprog[i][7].toFixed(1) + '° TWA ' + polylineprog[i][2].toFixed(1) + ' <br> Voile :' + nomvoile + ' - Tws ' + polylineprog[i][10].toFixed(2) + 'Knts'          // le temps est en position 3
+                    // Tracé des cercles 
+                    if ((data[i][11] > 1) & (data[i][9] != data[i][10])) // recouvrements
+                    { circleprog2[i] = L.circle([data[i][4], data[i][5]], { radius: 20, color: 'pink', weight: 3, }).addTo(Layer) }
 
+                    if ((i > 1) & (data[i][21] == 1))                  // echouages
+                    { circleprog2[i - 1] = L.circle([data[i - 1][4], data[i - 1][5]], { radius: 30, color: 'red', fillColor: 'red', weight: 3, }).addTo(Layer) }
+
+                    // cas general 
+                    var tooltip = ordre + ')  ' + intlhmn.format(ti * 1000) + '<br> ' + positionTxt + '<br> ' + yi.toFixed(6) + '  ' + xi.toFixed(6) + '<br>' + titre + '<br> Twa ' + twa + '°      Vmg ' + vmg + '°<br> Cap ' + cap + '° <br> Voile : ' + nomvoile + ' -  Boost : ' + boost +
+                        '<br> Tws ' + tws + ' Knts  Twd ' + twd + '°<br> Speed ' + speed + 'Knts Stam ' + stamina + '%'
+                    var fillcol = colors[voile];
+                    circleprog[i] = L.circle([data[i][4], data[i][5]], { radius: rayon, color: tourcol, weight: poids, fillColor: fillCol, opacity: opac, fillOpacity: fillopac, })
+                        .bindTooltip(tooltip).addTo(Layer)
+
+
+
+                    if (optioncouleur == 'jaune') {
+                        console.log('on a l option jaune')
+
+                        // var rayon = i % 60 == 0 ? 40 : 10;
+                        // var tourcol = i % 60 == 0 ? 'black' : colors[voile];
+                        var couleur = i % 60 == 0 ? 'black' : 'yellow';
+
+                        circleprog3[i] = L.circle([data[i][4], data[i][5]], { radius: rayon + 1, color: couleur, weight: poids, fillColor: fillCol, opacity: opac, fillOpacity: fillopac, })
+                            .bindTooltip(tooltip).addTo(Layer)
+
+                       
 
                     }
 
+                    // tracé des lignes   
 
-                    rayon = 10; tourcol = 'black'; poids = 1; opac = 0.5; fillopac = 1; fillCol = couleur;
+                    if ((i <= data.length - 2))  // on ne peut pas prendre i+1 dans la boucle 
 
-
-                    if ((polylineprog[i][0] - t1routage) % 600 == 0) { rayon = 20; tourcol = 'black'; poids = 1; fillopac = 0.5 }   //Ecart de 10 mn avec le troutage
-                    if ((polylineprog[i][0] - t1routage) % 3600 == 0) { rayon = 30; tourcol = 'White'; poids = 2; fillopac = 0.3; fillcol = couleur }   //Ecart de 10 mn avec le troutage
-                    if ((polylineprog[i][2] != polylineprog[i - 1][2]) || (i == polylineprog.length - 1)) { rayon = 30; tourcol = 'black'; poids = 2; fillopac = 0.5; fillCol = 'red' }    // Changement de programmation ou dernier point         
-
-                    circleprog[i] = L.circle([polylineprog[i][3], polylineprog[i][4]], { radius: rayon, color: tourcol, weight: poids, fillColor: fillCol, opacity: opac, fillOpacity: fillopac, }).bindTooltip(tooltipprog[i]).addTo(progsvrLayer)
-
-
-                    if (polylineprog[i][2] != polylineprog[i - 1][2]) {
-                        // Rond central
-                        circleprog3[i] = L.circle([polylineprog[i][3], polylineprog[i][4]], { radius: 1, color: 'black', weight: 1, fillColor: 'black', opacity: 0, fillOpacity: fillopac, }).bindTooltip(tooltipprog[i]).addTo(progsvrLayer)
-                    }
-
-                }
-
-
-                //     // on va aussi tracer les lignes
-                for (var i = 0; i < polylineprog.length - 1; i++)                // on affiche les nouveaux points mais pas le premier pas necessaire 
-
-
-                {
-                    couleur = colors[polylineprog[i][5]]
-                    polyglobal2[i] = L.polyline([[polylineprog[i][3], polylineprog[i][4]], [polylineprog[i + 1][3], polylineprog[i + 1][4]]], { color: couleur, weight: .5 }).addTo(progsvrLayer);
-
-                }
-
-                progsvrLayer.addTo(map)
-
-                // il faudrait aussi changer le heading du bateau 
-
-                // console.log (' on va reafficher le bateau pour '+username) 
-
-                t0Secondes = polylineprog[0][0]
-                y0 = polylineprog[0][3]
-                x0 = polylineprog[0][4]
-                sail = polylineprog[1][5]
-                twavr = polylineprog[1][6]
-                heading = polylineprog[1][7]
-                speed = polylineprog[1][8]
-                twdvr = polylineprog[0][9]
-                twsvr = polylineprog[0][10]
-
-
-                afficheBoat2(y0, x0, t0Secondes, twsvr, twdvr, heading, twavr, speed, sail, username, 'blue')
-
-                // on va aussi changer les valeurs de twa et de heading dans la boite 
-
-
-
-                document.getElementById('dateposvr').innerHTML = intlhmn.format(lastCalcDate)
-                //  document.getElementById('usernamevr').innerHTML = username
-                //  document.getElementById('y0vr').innerHTML = pos_dec_mn_lat(y0vr) + '(' + y0vr.toFixed(4) + ") "
-                //  document.getElementById('x0vr').innerHTML = pos_dec_mn_lng(x0vr) + '(' + x0vr.toFixed(4) + ") "
-                //  document.getElementById('twsvr').innerHTML = twsvr.toFixed(2)
-                //  document.getElementById('twdvr').innerHTML = twdvr.toFixed(2)
-                document.getElementById('twavr').innerHTML = twavr.toFixed(2)
-                //  document.getElementById('rankvr').innerHTML = rankvr
-                document.getElementById('speedvr1').innerHTML = speed.toFixed(2)
-                document.getElementById('sailvr').innerHTML = typeVoiles[(sail % 10)]
-                document.getElementById('headingvr').innerHTML = heading.toFixed(2)
-                //document.getElementById('staminavr').innerHTML = stamina.toFixed(2)
-
-
-
-
-            }
-
-
-
-
-
-
-
-            function afficheligneprogsjaunes(polylineprog) {
-                progsvrLayerJaune.clearLayers()
-                console.log('heure du premier point de la simulation jaune ' + intlhmn.format(polylineprog[0][4] * 1000))
-                try {
-                    ecartmn = (polylineprog[0][4] - arrayroutage[0][3]) / 60
-                    console.log(' temps initial du routage ' + intlhmn.format(arrayroutage[0][3] * 1000))
-                    console.log(' ecart en mn  entre le routage et la simulation ' + ecartmn)
-                }
-                catch { console.log('pas encore de routage'); ecartmn = 0 }
-                console.log('heure du premier point de la simulation jaune' + intlhmn.format(polylineprog[0][4] * 1000))
-
-                for (var i = 1; i < polylineprog.length - 1; i++)                // on affiche les nouveaux points mais pas le premier pas necessaire 
-                {
-                    if (polylineprog[i][2] == 0) { option = 'Cap' } else { option = 'Twa' }
-                    voile = typeVoiles[polylineprog[i][5]]
-                    couleur = colors[polylineprog[i][5]]
-                    tooltipprog[i] = intlhmn.format(polylineprog[i][4] * 1000) + '<br> ' + option + ' ' + polylineprog[i][3] + '<br>' + voile              // le temps est en position 3
-
-                    if (polylineprog[i][3] == polylineprog[i - 1][3])          // si pas de changement de programmation  on fait des cercles noirs   
                     {
-                        if ((i + ecartmn) % 10 != 0) { circleprog[i] = L.circle([polylineprog[i][0], polylineprog[i][1]], { fillColor: 'yellow', color: couleur, weight: 1, opacity: 1, fillOpacity: 0, radius: 100, }).bindTooltip(tooltipprog[i]).addTo(progsvrLayerJaune) }
-                        else {
-                            circleprog[i] = L.circle([polylineprog[i][0], polylineprog[i][1]], { fillColor: 'white', color: 'black', weight: 1, opacity: 1, fillOpacity: 0, radius: 220, }).bindTooltip(tooltipprog[i]).addTo(progsvrLayerJaune)
+                        var lat0 = data[i][4];
+                        var lon0 = data[i][5];
 
-                            if ((i + ecartmn) % 60 == 0) { circleprog[i] = L.circle([polylineprog[i][0], polylineprog[i][1]], { fillColor: 'white', color: 'yellow', weight: 1, opacity: 1, fillOpacity: 0, radius: 260, }).bindTooltip(tooltipprog[i]).addTo(progsvrLayerJaune) }
+                        var lat1 = data[i + 1][4];
+                        var lon1 = data[i + 1][5];
 
+                        var echouage = data[i + 1][21]
+                        if (echouage == 1) { couleur = 'red', poids = 2 } else { couleur = colors[voile], poids = .5 }
+                        voile = data[i][9]
+
+                        polyglobal2[i] = L.polyline([[lat0, lon0], [lat1, lon1]], { color: couleur, weight: poids }).addTo(Layer);
+
+                        //     if (Math.abs(valeur1-valeur2)>0.01)
+                        //     {                      
+                        //          circleprog2[i] = L.circle([data[i][4], data[i][5]], { radius: .1, color: 'black', weight: 2, fillColor: fillCol, opacity: 1, fillOpacity: 0, })
+                        //    .addTo(progsvrLayer)
+
+                        //         circleprog[i] = L.circle([data[i][4], data[i][5]], { radius: 30, color: 'red', weight: 2, fillColor: fillCol, opacity: 1, fillOpacity: 0, })
+                        //     .bindTooltip(tooltip).addTo(progsvrLayer)
+                        //     }
+
+                    }
+                    if ((i <= data.length - 1) & (i > 0)) {
+                        var valeur1 = data[i - 1][2]
+                        var valeur2 = data[i][2]
+
+                        if (Math.abs(valeur1 - valeur2) > 0.1) {
+                            circleprog2[i] = L.circle([data[i][4], data[i][5]], { radius: .1, color: 'black', weight: 2, fillColor: fillCol, opacity: 1, fillOpacity: 0, })
+                                .addTo(Layer)
+
+                            circleprog[i] = L.circle([data[i][4], data[i][5]], { radius: 30, color: 'red', weight: 2, fillColor: fillCol, opacity: 1, fillOpacity: 0, })
+                                .bindTooltip(tooltip).addTo(Layer)
                         }
+
                     }
 
-                    else {  //il y a un changement de programmation qui se decale automatiquement 
-                        circleprog[i] = L.circle([polylineprog[i][0], polylineprog[i][1]], { fillColor: 'red', color: 'yellow', weight: 1, opacity: 1, fillOpacity: 100, radius: 260, }).bindTooltip(tooltipprog[i]).addTo(progsvrLayerJaune)
-                    }
                 }
-                progsvrLayerJaune.addTo(map)
+                //afficheBoat2(y0, x0, t0Secondes, twsvr, twdvr, heading, twavr, speed, sail, username, 'blue')    
+                afficheBoat2(data[0][4], data[0][5], data[0][6], data[0][16], data[0][15], data[0][8], data[0][7], data[0][12], data[0][9], username, 'blue')
+                Layer.addTo(map)
             }
+
+
+
+
+
+
+
+
+
+            // function afficheligneprogsjaunes(polylineprog) {
+            //     progsvrLayerJaune.clearLayers()
+            //     console.log('heure du premier point de la simulation jaune ' + intlhmn.format(polylineprog[0][4] * 1000))
+            //     try {
+            //         ecartmn = (polylineprog[0][4] - arrayroutage[0][3]) / 60
+            //         console.log(' temps initial du routage ' + intlhmn.format(arrayroutage[0][3] * 1000))
+            //         console.log(' ecart en mn  entre le routage et la simulation ' + ecartmn)
+            //     }
+            //     catch { console.log('pas encore de routage'); ecartmn = 0 }
+            //     console.log('heure du premier point de la simulation jaune' + intlhmn.format(polylineprog[0][4] * 1000))
+
+            //     for (var i = 1; i < polylineprog.length - 1; i++)                // on affiche les nouveaux points mais pas le premier pas necessaire 
+            //     {
+            //         if (polylineprog[i][2] == 0) { option = 'Cap' } else { option = 'Twa' }
+            //         voile = typeVoiles[polylineprog[i][5]]
+            //         couleur = colors[polylineprog[i][5]]
+            //         tooltipprog[i] = intlhmn.format(polylineprog[i][4] * 1000) + '<br> ' + option + ' ' + polylineprog[i][3] + '<br>' + voile              // le temps est en position 3
+
+            //         if (polylineprog[i][3] == polylineprog[i - 1][3])          // si pas de changement de programmation  on fait des cercles noirs   
+            //         {
+            //             if ((i + ecartmn) % 10 != 0) { circleprog[i] = L.circle([polylineprog[i][0], polylineprog[i][1]], { fillColor: 'yellow', color: couleur, weight: 1, opacity: 1, fillOpacity: 0, radius: 100, }).bindTooltip(tooltipprog[i]).addTo(progsvrLayerJaune) }
+            //             else {
+            //                 circleprog[i] = L.circle([polylineprog[i][0], polylineprog[i][1]], { fillColor: 'white', color: 'black', weight: 1, opacity: 1, fillOpacity: 0, radius: 220, }).bindTooltip(tooltipprog[i]).addTo(progsvrLayerJaune)
+
+            //                 if ((i + ecartmn) % 60 == 0) { circleprog[i] = L.circle([polylineprog[i][0], polylineprog[i][1]], { fillColor: 'white', color: 'yellow', weight: 1, opacity: 1, fillOpacity: 0, radius: 260, }).bindTooltip(tooltipprog[i]).addTo(progsvrLayerJaune) }
+
+            //             }
+            //         }
+
+            //         else {  //il y a un changement de programmation qui se decale automatiquement 
+            //             circleprog[i] = L.circle([polylineprog[i][0], polylineprog[i][1]], { fillColor: 'red', color: 'yellow', weight: 1, opacity: 1, fillOpacity: 100, radius: 260, }).bindTooltip(tooltipprog[i]).addTo(progsvrLayerJaune)
+            //         }
+            //     }
+            //     progsvrLayerJaune.addTo(map)
+            // }
 
 
 
@@ -1558,7 +1544,8 @@
                     if (!overlay) {
                         overlay = document.createElement("div");
                         overlay.classList.add("boite-overlay");
-                        overlay.textContent = "La position date de plus de 10 mn";
+                        overlay.innerHTML = `    <div class="overlay-texte">        La position date de plus de 10 mn<br>        Vérifiez le Dash    </div>`;
+
                         boite.appendChild(overlay);
                     }
                 } else {
@@ -2184,26 +2171,88 @@
 
 
 
-            async function chercheprogsvr(user_id, course, t0routage) {
-                // console.log('Recherche des Progs\n*********************************')
-                progsvrLayer.clearLayers()
-                if (!t0routage) {
-                    let nowJS = new Date();
-                    let nowSec = nowJS.getTime() / 1000;
-                    let nowSecArrondi = Math.ceil(nowSec / 60) * 60;
-                    t0routage = nowSecArrondi
-                }
+            // async function chercheprogsvr_old(user_id, course, t0routage) {
+            //     // console.log('Recherche des Progs\n*********************************')
+            //     progsvrLayer.clearLayers()
+            //     if (!t0routage) {
+            //         let nowJS = new Date();
+            //         let nowSec = nowJS.getTime() / 1000;
+            //         let nowSecArrondi = Math.ceil(nowSec / 60) * 60;
+            //         t0routage = nowSecArrondi
+            //     }
 
-                const url = serveur + "/rechercheprogsvr?user_id=" + user_id + "&course=" + course + "&t0routage=" + t0routage
+            //     const url = serveur + "/rechercheprogsvr?user_id=" + user_id + "&course=" + course + "&t0routage=" + t0routage
+            //     let response = await fetch(url);
+            //     data = await response.json();
+            //     afficheligneprogs(data) // on va l afficher dans leaflet 
+
+            //     if (data['typeprogs'] == 'progs') { affichetabprogsvr(data) }
+            //     if (data['typeprogs'] == 'wps') { affichedatawaypoints(data) }
+            //     bloque = 0
+
+            // }
+
+
+
+            // async function chercheechouage(user_id, course, t0routage, detail = 0) { }
+
+
+
+
+            async function chercheprogsvr(user_id, course, t0routage, detail = 0) {    // echouage=0 ne recherche pas les echouages
+                 let checkboxechouages = document.getElementById('echouages')
+                   // echouage=checkboxiso.checked?echouage=1
+                let echouage = checkboxechouages.checked? 1:0;
+                
+                console.log (' Valeur de echouage : '+echouage)
+                console.log('on appelle rechercheprogsvr2 dans l application')
+                const url = serveur + "/rechercheprogsvr2?user_id=" + user_id + "&course=" + course + "&t0routage=" + t0routage + "&echouage=" + echouage
                 let response = await fetch(url);
                 data = await response.json();
-                afficheligneprogs(data) // on va l afficher dans leaflet 
+                programmationsvr = data.programmations
+                console.log('programmations' + JSON.stringify(programmationsvr))
+                // console.log ('data de ligneproj \n'+   data.routeprogs2);
+                bloque = 0;
 
-                if (data['typeprogs'] == 'progs') { affichetabprogsvr(data) }
-                if (data['typeprogs'] == 'wps') { affichedatawaypoints(data) }
-                bloque = 0
+                afficheligneprogs(data.routeprogs2, 'normal')
+                if (detail != 0) { afficheFeuilleRoute(data.routeprogs2, username, course, typeVoiles); }
+                // on va en profiter pour repositionner le bateau   
+            }
+
+
+
+
+            async function calculeroutejaune(user_id, course, progsjaunes, voilesauto) {
+                // avant d envoyer la demande de calcul au serveur on uniformise la premiere date jaune avec les programmations rouges
+                console.log('progsjaunes dans calculeroutejaune')
+                console.log(progsjaunes)
+
+
+                let echouage = 1
+                console.log('on est dans chercheprogsjaunes')
+                const url = serveur + "/rechercheprogsjaunes?user_id=" + user_id + "&course=" + course + "&programmations=" + progsjaunes + "&echouage=" + echouage
+                let response = await fetch(url);
+                
+                data = await response.json();
+
+                programmationsjaunes = data.routeprogs2
+                console.log('programmationsjaunes \n')
+                console.log (programmationsjaunes)
+
+                afficheligneprogs(programmationsjaunes, 'jaune')
+
+
 
             }
+
+
+
+
+
+
+
+
+
 
 
 
@@ -2300,12 +2349,17 @@
                     // on lance ici directement l affichage pour pouvoir utiliser la fonction dans les mises a jour 
                     twscalc = resvoiles.twscalc
                     twdcalc = resvoiles.twdcalc
+
+                    // valeurs calculees retournees par le serveur et qui servent pour l affichage                     
+                    console.log('twdcalc ' + twdcalc)
+                    console.log('twscalc ' + twscalc)
+
                     tabvmg = resvoiles.tabvmg
                     vitessemax = resvoiles.vitessemax
                     tabrecouvrements = resvoiles.tabrecouvrements
                     // on affiche les valeurs 
                     document.getElementById('twscalc').innerHTML = twscalc.toFixed(2)
-                    document.getElementById('twdcalc').innerHTML = twdcalc.toFixed(2)
+                    document.getElementById('twdcalc').innerHTML = twdcalc.toFixed(2) // C est bien la valeur qui apparait dans twdcalc 
                     document.getElementById('vmgmin2').innerHTML = tabvmg[2].toFixed(1)
                     document.getElementById('vmgmax2').innerHTML = tabvmg[4].toFixed(1)
                     document.getElementById('vmax2').innerHTML = tabvmg[6].toFixed(1)
@@ -2322,22 +2376,10 @@
 
 
 
-            async function calculeroute(user_id, course, programmations, voilesauto) {
-                // avant d envoyer la demande de calcul au serveur on uniformise la premiere date jaune avec les programmations rouges
 
-                console.log(' ligne 706 heure de la premiere programmation jaune ' + hmns.format(programmations[0][0] * 1000))
-                console.log(' ligne 706 heure de la premiere programmation rouge ' + hmns.format(heurePremiereProg * 1000))
-                programmations[0][0] = heurePremiereProg
-                const progs5 = JSON.stringify(programmations);        // pour envoi par url 
 
-                url = serveur + "/calculeroute?username=" + username + "&user_id=" + user_id + "&course=" + course + "&programmations=" + progs5 + "&voilesauto=" + voilesauto
-                let response = await fetch(url);
-                if (!response.ok) { throw new Error('Probleme dans calculroute ' + response.statusText); }
-                let data = await response.json();
-                polylineprog = data.polylineprog
-                //console.log (polylineprog)
-                afficheligneprogsjaunes(polylineprog)// il n y a plus qu a tracer 
-            }
+
+
 
 
 
@@ -2351,7 +2393,11 @@
 
 
 
-            async function calculeroutage(username, y0, x0, heuredepart, waypoints, ari, cocheexclusions, mode) {
+
+
+
+
+            async function calculeroutage(username, y0, x0, heuredepart, waypoints, ari, cocheexclusions, mode, boatinfos) {
                 // on va tout transmettre sauf waypoints qui est deja dans personalinfos pour eviter d avoir a faire 2 versions completement differentes 
                 let isMe = 'yes'
                 usernameRoutage = username
@@ -2362,6 +2408,7 @@
 
                 isochronesLayer.clearLayers()
                 strari = JSON.stringify(ari)
+                boatinfosstr = JSON.stringify(boatinfos)
                 const select = document.getElementById('iddepart');
                 optionroutage = select.value    // option de routage position et heure vr , positionmanuelle   ou position depart heure depart course 
 
@@ -2379,7 +2426,8 @@
                     progressbar(y0, x0, latcible, loncible)
                 }
 
-                url = serveur + `/calculeroutage?course=${course}&user_id=${user_id}&isMe=${isMe}&username=${username}&y0=${y0}&x0=${x0}&t0=${heuredepart}&ari=${strari}&retardpeno=${retardpeno}&tolerancehvmg=${tolerancehvmg}&cocheexclusions=${cocheexclusions}&optionroutage=${optionroutage}&mode=${mode}`
+
+                url = serveur + `/calculeroutage?course=${course}&user_id=${user_id}&isMe=${isMe}&username=${username}&y0=${y0}&x0=${x0}&t0=${heuredepart}&ari=${strari}&retardpeno=${retardpeno}&tolerancehvmg=${tolerancehvmg}&cocheexclusions=${cocheexclusions}&optionroutage=${optionroutage}&mode=${mode}&boatinfos=${boatinfosstr}`
 
                 console.log('\nDemande de routage url : ' + url + '\n***************************************************************************')
                 let response = await fetch(url); if (!response.ok) { throw new Error('Le routage n a pas pu etre calculé ' + response.statusText); }
@@ -2388,21 +2436,18 @@
                 let data = await response.json();      // recuperation des donnees de routage
                 message = data.message
                 //console.log(' message de retour ' + message)
-                if (message != 'Erreur') {
-                    tabroutage = data.arrayroutage2
-                    //tabroutage2 = data.arrayroutage
-                    dicoIsochrones = data.isochrones
-                    t1routage = data.t0routage                    // temps initial du routage
-                    tabtempsroutage = tabroutage.map(row => row[1] + t1routage)
-                    tc = tabtempsroutage
 
-                    // Deboguage 
-                    // console.log ('tc')
-                    // console.log(tc)
-                    // console.log('t0routage issu de calculeroutage ' + hmns.format((t0routage * 1000)))
+
+                if (message != 'Erreur') {
+                    tabroutage = data.arrayroutage
+                    dicoIsochrones = data.isochrones
+                    t1routage = tabroutage[0][4]                    // temps initial du routage
+                    // console.log('t1routage '+t1routage) 
                     // console.log ('tabroutage')
-                    // console.log (tabroutage)
-                    // affichage de la route avec les tooltips suivant dernière methode 
+                    //  console.log (tabroutage)
+
+                    tc = tabroutage.map(row => row[4])     // tableau des temps sur le routage sert au point qui se deplace  
+
 
                     if (mode == 'gfs') {
 
@@ -2427,56 +2472,7 @@
 
 
 
-
-                    // routageECMLayer.clearLayers()
-                    //             for (var i = 1; i <= tabroutage.length - 1; i++)                // on affiche les nouveaux points mais pas le premier pas necessaire 
-                    //             {
-                    //                 couleur = colors[tabroutage[i][10]]
-                    //                 voile = tabroutage[i][10]
-                    //                 nomvoile = typeVoilesShort[voile]
-                    //                 twa = tabroutage[i][5].toFixed(2)
-                    //                 tws = tabroutage[i][12].toFixed(2)
-                    //                 twd = tabroutage[i][13].toFixed(2)
-                    //                 cap = tabroutage[i][6].toFixed(2)
-                    //                 date = intlhmn.format((t0routage + tabroutage[i][1]) * 1000)
-                    //                 vmgmin = tabroutage[i][7].toFixed(2)
-                    //                 vmgmax = tabroutage[i][8].toFixed(2)
-                    //                 vmg = twa < 90 ? vmgmin : vmgmax
-
-                    //                 tooltipprog[i] = '<b> Point ' + i + ' le ' + date + ' <br>(Routage du ' + intlhmn.format((heuredepart * 1000)) + ')</b>  <br> Twa ' + twa + '°  Vmg ' + vmg + '°<br>Tws ' + tws + ' Twd ' + twd + ' <br>Cap : ' + cap + '  Voile :' + nomvoile              // le temps est en position 3
-                    //                 tourcol = 'red'; opac = 1; poids = 1; fillopac = 0.5; fillCol = couleur; rayon = 10;       // valeur par defaut  
-                    //                 if (i % 10 == 0) { rayon = 20, tourcol = 'red'; fillopac = 0.5 }              // tous les 10    
-                    //                 if (tabroutage[i][1] % 3600 == 0) { tourcol = 'black'; rayon = 50, fillopac = 0.5 }                    // toutes les heures 
-                    //                 circleprog[i] = L.circle([tabroutage[i][2], tabroutage[i][3]], { fillColor: fillCol, color: tourcol, weight: poids, opacity: opac, fillOpacity: fillopac, radius: rayon, })
-                    //                     .bindTooltip(tooltipprog[i]).bindPopup(tooltipprog[i]).addTo(routageECMLayer)
-                    //             }
-
-                    //             for (var i = 0; i <= tabroutage.length - 2; i++)                // on affiche les nouveaux points mais pas le premier pas necessaire 
-                    //             {
-                    //                 couleur = colors[tabroutage[i][10]]
-                    //                 polyglobal[i] = L.polyline([[tabroutage[i][2], tabroutage[i][3]], [tabroutage[i + 1][2], tabroutage[i + 1][3]]], { color: couleur, weight: 1 }).addTo(routageECMLayer);
-                    //             }
-
-                    //             routageECMLayer.addTo(map)
-
-                    //             }
-
-
-
-
-
-
-
                     isochronesLayer.clearLayers()
-
-                    // if (Array.isArray(dicoIsochrones)) {
-                    //     console.log("C'est un tableau, longueur =", dicoIsochrones.length);
-                    // } else if (typeof dicoIsochrones === 'object') {
-                    //     console.log("C'est un objet avec", Object.keys(dicoIsochrones).length, "clés");
-                    // } else if (typeof dicoIsochrones === 'string') {
-                    //     console.log("C'est une chaîne JSON ?");
-                    // }
-
 
 
                     // On transforme l'objet en tableau
@@ -2506,11 +2502,6 @@
                             }).bindTooltip('iso : ' + idx).addTo(isochronesLayer);
                         }
                     });
-
-
-
-
-
 
 
 
@@ -2748,105 +2739,105 @@
 
 
 
-function creerCercleDepuisRow(row) {
-    const lat = Number(row.lat);
-    const lon = Number(row.lon);
-    const rayonMn = Number(row.rayon);
-    const couleur = row.couleur || "#ffff00";
-    const nom = row.nom;
+            function creerCercleDepuisRow(row) {
+                const lat = Number(row.lat);
+                const lon = Number(row.lon);
+                const rayonMn = Number(row.rayon);
+                const couleur = row.couleur || "#ffff00";
+                const nom = row.nom;
 
-    if (!Number.isFinite(lat) || !Number.isFinite(lon)) return null;
-    if (!Number.isFinite(rayonMn) || rayonMn < 0) return null;
+                if (!Number.isFinite(lat) || !Number.isFinite(lon)) return null;
+                if (!Number.isFinite(rayonMn) || rayonMn < 0) return null;
 
-    // Nettoyage si un cercle de même nom existe déjà
-    supprimerCercleWaypoint(nom);
+                // Nettoyage si un cercle de même nom existe déjà
+                supprimerCercleWaypoint(nom);
 
-    const cercle = L.circle([lat, lon], {
-        color: 'black',
-        weight: 0.5,
-        fillColor: couleur,
-        fillOpacity: 0.5,
-        radius: rayonMn * 1852,
-        draggable: true
-    });
+                const cercle = L.circle([lat, lon], {
+                    color: 'black',
+                    weight: 0.5,
+                    fillColor: couleur,
+                    fillOpacity: 0.5,
+                    radius: rayonMn * 1852,
+                    draggable: true
+                });
 
-    cercle.bindTooltip(nom+ ' Rayon '+radius+ 'Mn');
-    cercle.addTo(WpCirclesLayer);
+                cercle.bindTooltip(nom + ' Rayon ' + radius + 'Mn');
+                cercle.addTo(WpCirclesLayer);
 
-    cercle.on('click', async function () {
-        cercleSelectionne = cercle;
-        await ouvrirEditeurEtSelectionnerWp(nom);
-    });
+                cercle.on('click', async function () {
+                    cercleSelectionne = cercle;
+                    await ouvrirEditeurEtSelectionnerWp(nom);
+                });
 
-    cercle.on('drag', function (event) {
-        cercleSelectionne = cercle;
+                cercle.on('drag', function (event) {
+                    cercleSelectionne = cercle;
 
-        const latlng = event.target.getLatLng();
-        const idx = wpEditorRows.findIndex(r => r.nom === nom);
+                    const latlng = event.target.getLatLng();
+                    const idx = wpEditorRows.findIndex(r => r.nom === nom);
 
-        if (idx !== -1) {
-            wpEditorRows[idx].lat = latlng.lat;
-            wpEditorRows[idx].lon = latlng.lng;
-            mettreAJourLigneTableauDepuisIndex(idx);
-        }
-    });
+                    if (idx !== -1) {
+                        wpEditorRows[idx].lat = latlng.lat;
+                        wpEditorRows[idx].lon = latlng.lng;
+                        mettreAJourLigneTableauDepuisIndex(idx);
+                    }
+                });
 
-    waypointsJS[nom] = cercle;
-    return cercle;
-}
-
-
+                waypointsJS[nom] = cercle;
+                return cercle;
+            }
 
 
 
 
 
-            
 
-function majCercleDepuisRow(row, ancienNom = null) {
-    const nom = row.nom;
-    const lat = Number(row.lat);
-    const lon = Number(row.lon);
-    const rayonMn = Number(row.rayon);
-    const couleur = row.couleur || "#ffff00";
 
-    console.log(' dans maj cercle rayonMn'+rayonMn)
 
-    let cercle = null;
 
-    // Cas renommage
-    if (ancienNom && waypointsJS[ancienNom]) {
-        cercle = waypointsJS[ancienNom];
-        delete waypointsJS[ancienNom];
-        waypointsJS[nom] = cercle;
-    } else {
-        cercle = waypointsJS[nom];
-    }
+            function majCercleDepuisRow(row, ancienNom = null) {
+                const nom = row.nom;
+                const lat = Number(row.lat);
+                const lon = Number(row.lon);
+                const rayonMn = Number(row.rayon);
+                const couleur = row.couleur || "#ffff00";
 
-    // Si on n'a pas trouvé le cercle, on nettoie d'abord puis on recrée
-    if (!cercle) {
-        supprimerCercleWaypoint(nom);
-        creerCercleDepuisRow(row);
-        return;
-    }
+                console.log(' dans maj cercle rayonMn' + rayonMn)
 
-    if (Number.isFinite(lat) && Number.isFinite(lon)) {
-        cercle.setLatLng([lat, lon]);
-    }
+                let cercle = null;
 
-    if (Number.isFinite(rayonMn) && rayonMn >= 0) {
-        rayonMetres=rayonMn * 1852
-        console.log(' rayonMetres '+rayonMetres )
-        cercle.setRadius(rayonMetres);
-    }
+                // Cas renommage
+                if (ancienNom && waypointsJS[ancienNom]) {
+                    cercle = waypointsJS[ancienNom];
+                    delete waypointsJS[ancienNom];
+                    waypointsJS[nom] = cercle;
+                } else {
+                    cercle = waypointsJS[nom];
+                }
 
-    cercle.setStyle({
-        fillColor: couleur
-    });
+                // Si on n'a pas trouvé le cercle, on nettoie d'abord puis on recrée
+                if (!cercle) {
+                    supprimerCercleWaypoint(nom);
+                    creerCercleDepuisRow(row);
+                    return;
+                }
 
-    cercle.unbindTooltip();
-    cercle.bindTooltip(nom+ ' Rayon '+rayonMn+ 'Mn');
-}
+                if (Number.isFinite(lat) && Number.isFinite(lon)) {
+                    cercle.setLatLng([lat, lon]);
+                }
+
+                if (Number.isFinite(rayonMn) && rayonMn >= 0) {
+                    rayonMetres = rayonMn * 1852
+                    console.log(' rayonMetres ' + rayonMetres)
+                    cercle.setRadius(rayonMetres);
+                }
+
+                cercle.setStyle({
+                    fillColor: couleur
+                });
+
+                cercle.unbindTooltip();
+                cercle.bindTooltip(nom + ' Rayon ' + rayonMn + 'Mn');
+            }
 
 
 
@@ -2863,98 +2854,98 @@ function majCercleDepuisRow(row, ancienNom = null) {
 
 
 
-function recreerCercleDepuisRow(row, ancienNom = null) {
-    const nomASupprimer = ancienNom || row.nom;
+            function recreerCercleDepuisRow(row, ancienNom = null) {
+                const nomASupprimer = ancienNom || row.nom;
 
-    // supprimer l'ancien cercle
-    if (waypointsJS[nomASupprimer]) {
-        WpCirclesLayer.removeLayer(waypointsJS[nomASupprimer]);
-        delete waypointsJS[nomASupprimer];
-    }
+                // supprimer l'ancien cercle
+                if (waypointsJS[nomASupprimer]) {
+                    WpCirclesLayer.removeLayer(waypointsJS[nomASupprimer]);
+                    delete waypointsJS[nomASupprimer];
+                }
 
-    // recréer le nouveau cercle
-    creerCercleDepuisRow(row);
-}
-
-
-
-function creerCercleDepuisRow(row) {
-    const lat = Number(row.lat);
-    const lon = Number(row.lon);
-    const rayonMn = Number(row.rayon);
-    const couleur = row.couleur || "#ffff00";
-    const nom = row.nom;
-
-    if (!Number.isFinite(lat) || !Number.isFinite(lon)) return null;
-    if (!Number.isFinite(rayonMn) || rayonMn < 0) return null;
-
-    const cercle = L.circle([lat, lon], {
-        color: 'black',
-        weight: 0.5,
-        fillColor: couleur,
-        fillOpacity: 0.5,
-        radius: (rayonMn * 1852),
-        draggable: true
-    });
-
-    cercle.bindTooltip(nom+ ' Rayon '+rayonMn+ 'Mn');
-    cercle.addTo(WpCirclesLayer);
-
-    cercle.on('click', async function () {
-        cercleSelectionne = cercle;
-        await ouvrirEditeurEtSelectionnerWp(nom);
-    });
-
-    cercle.on('drag', function (event) {
-        cercleSelectionne = cercle;
-
-        const latlng = event.target.getLatLng();
-        const idx = wpEditorRows.findIndex(r => r.nom === nom);
-
-        if (idx !== -1) {
-            wpEditorRows[idx].lat = latlng.lat;
-            wpEditorRows[idx].lon = latlng.lng;
-            mettreAJourLigneTableauDepuisIndex(idx);
-        }
-    });
-
-    waypointsJS[nom] = cercle;
-    return cercle;
-}
+                // recréer le nouveau cercle
+                creerCercleDepuisRow(row);
+            }
 
 
-function onWpInputChange(event) {
-    const input = event.target;
-    const index = Number(input.dataset.index);
-    const field = input.dataset.field;
 
-    const row = wpEditorRows[index];
-    if (!row) return;
+            function creerCercleDepuisRow(row) {
+                const lat = Number(row.lat);
+                const lon = Number(row.lon);
+                const rayonMn = Number(row.rayon);
+                const couleur = row.couleur || "#ffff00";
+                const nom = row.nom;
 
-    const ancienNom = row.nom;
+                if (!Number.isFinite(lat) || !Number.isFinite(lon)) return null;
+                if (!Number.isFinite(rayonMn) || rayonMn < 0) return null;
 
-    let value;
-    if (field === "selectionne") {
-        value = input.checked;
-    } else if (["ordre", "lat", "lon", "rayon"].includes(field)) {
-        value = input.value === "" ? "" : Number(input.value);
-    } else {
-        value = input.value;
-    }
+                const cercle = L.circle([lat, lon], {
+                    color: 'black',
+                    weight: 0.5,
+                    fillColor: couleur,
+                    fillOpacity: 0.5,
+                    radius: (rayonMn * 1852),
+                    draggable: true
+                });
 
-    row[field] = value;
+                cercle.bindTooltip(nom + ' Rayon ' + rayonMn + 'Mn');
+                cercle.addTo(WpCirclesLayer);
 
-    if (["nom", "lat", "lon", "rayon", "couleur"].includes(field)) {
-        const latOk = Number.isFinite(Number(row.lat));
-        const lonOk = Number.isFinite(Number(row.lon));
-        const rayonOk = Number.isFinite(Number(row.rayon)) && Number(row.rayon) >= 0;
-        const nomOk = String(row.nom || "").trim() !== "";
+                cercle.on('click', async function () {
+                    cercleSelectionne = cercle;
+                    await ouvrirEditeurEtSelectionnerWp(nom);
+                });
 
-        if (latOk && lonOk && rayonOk && nomOk) {
-            recreerCercleDepuisRow(row, field === "nom" ? ancienNom : null);
-        }
-    }
-}
+                cercle.on('drag', function (event) {
+                    cercleSelectionne = cercle;
+
+                    const latlng = event.target.getLatLng();
+                    const idx = wpEditorRows.findIndex(r => r.nom === nom);
+
+                    if (idx !== -1) {
+                        wpEditorRows[idx].lat = latlng.lat;
+                        wpEditorRows[idx].lon = latlng.lng;
+                        mettreAJourLigneTableauDepuisIndex(idx);
+                    }
+                });
+
+                waypointsJS[nom] = cercle;
+                return cercle;
+            }
+
+
+            function onWpInputChange(event) {
+                const input = event.target;
+                const index = Number(input.dataset.index);
+                const field = input.dataset.field;
+
+                const row = wpEditorRows[index];
+                if (!row) return;
+
+                const ancienNom = row.nom;
+
+                let value;
+                if (field === "selectionne") {
+                    value = input.checked;
+                } else if (["ordre", "lat", "lon", "rayon"].includes(field)) {
+                    value = input.value === "" ? "" : Number(input.value);
+                } else {
+                    value = input.value;
+                }
+
+                row[field] = value;
+
+                if (["nom", "lat", "lon", "rayon", "couleur"].includes(field)) {
+                    const latOk = Number.isFinite(Number(row.lat));
+                    const lonOk = Number.isFinite(Number(row.lon));
+                    const rayonOk = Number.isFinite(Number(row.rayon)) && Number(row.rayon) >= 0;
+                    const nomOk = String(row.nom || "").trim() !== "";
+
+                    if (latOk && lonOk && rayonOk && nomOk) {
+                        recreerCercleDepuisRow(row, field === "nom" ? ancienNom : null);
+                    }
+                }
+            }
 
 
 
@@ -3436,7 +3427,7 @@ function onWpInputChange(event) {
                     console.log('nouvelle valeur de ari apres suppression du WP   : ' + ari)
                     console.log('\nnouvelle valeur du tableau des waypoints apres  suppression du WP  ')
                     console.log(waypointsnew)
-                   // afficheselectarrivee(waypointsnew, ari)
+                    // afficheselectarrivee(waypointsnew, ari)
                     fermerEditeurWaypoint()
                 }
             });
@@ -3501,7 +3492,7 @@ function onWpInputChange(event) {
 
 
 
-                        cercle.bindTooltip(nom+ ' Rayon '+rayon+ 'Mn').addTo(WpCirclesLayer);
+                        cercle.bindTooltip(nom + ' Rayon ' + rayon + 'Mn').addTo(WpCirclesLayer);
                     });
 
                     WpCirclesLayer.addTo(map);
@@ -3783,7 +3774,7 @@ function onWpInputChange(event) {
             // Evénements
             // ==========================================================
             function brancherEvenementsWp() {
-               
+
                 document.querySelectorAll("#wpEditorContainer input[data-field]").forEach(input => {
                     input.addEventListener("input", onWpInputChange);
                     input.addEventListener("change", onWpInputChangeAndSave);
@@ -3882,7 +3873,7 @@ function onWpInputChange(event) {
                     }
 
                     row[field] = value;
-                    console.log ('ligne 3880'+JSON.stringify(row))
+                    console.log('ligne 3880' + JSON.stringify(row))
 
                     if (["nom", "lat", "lon", "rayon", "couleur"].includes(field)) {
                         majCercleDepuisRow(row, field === "nom" ? ancienNom : null);
@@ -3893,7 +3884,7 @@ function onWpInputChange(event) {
 
                 async function onWpInputChangeAndSave(event) {
                     onWpInputChange(event);
-          
+
 
 
                     await sauverEditeurWp();
@@ -4194,26 +4185,26 @@ function onWpInputChange(event) {
             // ==========================================================
 
 
-            window.EditeurWP2 = () => {toggleEditeurWP2() }
-            
+            window.EditeurWP2 = () => { toggleEditeurWP2() }
+
 
 
 
             function toggleEditeurWP2() {
 
                 const el = document.getElementById("wpEditorContainer");
-                console.log ('On est dans toggle ')
+                console.log('On est dans toggle ')
                 const isVisible = window.getComputedStyle(el).display !== "none";
 
                 if (isVisible) {
 
-                     console.log ('On est dans isVisible')
+                    console.log('On est dans isVisible')
                     fermerEditeurWP2();
                 } else {
 
                     ouvrirEditeurWP2();
                 }
-}
+            }
 
 
             async function ouvrirEditeurWP2() {
@@ -4889,18 +4880,17 @@ function onWpInputChange(event) {
 
 
 
-                    if (boat[1] == "normal") couleur = "grey";
+                    if (boat[1] == "normal") couleur = "Darkgrey";
                     else if (boat[1] == "top") couleur = "#ffd700";
                     else if (boat[1] == "friend") couleur = "#32cd32";
-                    else if (boat[1] == "sponsor") couleur = "#4169e1";
+                    else if (boat[1] == "sponsor") couleur = "#41e19e";
                     else if (boat[1] == "real") couleur = "#87ceeb";
                     else couleur = "white";
-                    if (teamnames.includes(boat[0])) { couleur = 'purple' };
+                    if (teamnames.includes(boat[0])) { couleur = '#ae1030' };
 
 
                     if (boat[0] == username) {
                         couleur = "blue";
-
                         fleche4([boat[2], boat[3]], boat[4], 0.05, 'blue', fleetMarkers);
                         fleche4([boat[2], boat[3]], twd + 180, 0.10, 'green', fleetMarkers);
                         fleche4([boat[2], boat[3]], twd + 90, 0.15, 'green', fleetMarkers);
@@ -5299,120 +5289,288 @@ function onWpInputChange(event) {
 
 
             var dupliquerprogsvr = document.getElementById('dupliquerprogsvr')
-            dupliquerprogsvr.addEventListener("click", function (evt) {
-                console.log('Bouton de duplication cliqué')
-                console.log('user_id ' + user_id)
-                console.log('course ' + course)
-                //programmationsvr=chercheprogsserveur(user_id,course)
-                console.log('programmationsvr issues de la demande de duplication')
-                console.log(programmationsvr)
-                programmationsvrjaunes = [].concat(programmationsvr)
-                afficherTableau3(programmationsvr)
-                let voileautojaunes = document.getElementById('voileautojaunes')
+            var boitejaune = document.getElementById('boitejaune')
 
-                voilesauto = voileautojaunes.checked
-                calculeroute(user_id, course, programmationsvr, voilesauto)
+
+
+            dupliquerprogsvr.addEventListener("click", function (evt) {
+                console.log('Bouton de duplication cliqué user_id ' + user_id + ' course ' + course)
+                //programmationsvr=chercheprogsserveur(user_id,course)
+                console.log('Programmationsvr dupliquées')
+                console.log(programmationsvr)
+
+                Layer = progsvrLayerJaune 
+                Layer.clearLayers()
+                programmationsvrjaunes = structuredClone(programmationsvr);
+
+                afficherTableau3(programmationsvrjaunes)
+                const voileautojaunes = document.getElementById('voileautojaunes')
+               
             });
 
 
 
 
+            function initialiserEvenementsT3() {
+                const boitejaune = document.getElementById("boitejaune");
+                boitejaune.addEventListener("click", function (event) {
 
+                console.log("Clic détecté :", event.target);
 
+                if (event.target.classList.contains("add-row")) {
+                    event.preventDefault();
 
-            function afficherTableau3(progra) {
-                let texte = '';
-                texte += `<div class='progsvr' > <span class= 'col120' > Progs Jaunes </span>
-    <span class= 'col30' ><input type='checkbox' id='showprogsvrjaunes' name='showprogsvrjaunes'  checked    /></span>
-    <span class= 'col120' >Voiles Auto jaunes</span>
-    <span class= 'col30' ><input type='checkbox' id='voileautojaunes' name='voileautojaunes'  checked    /></span>
-    </div>`
-
-                if (!Array.isArray(progra) || progra.length === 0) {
-                    // Si programmationsvr n'est pas un tableau ou est vide, on affiche un message ou on ne fait rien
-                    texte = 'Aucune donnée disponible.';
+                    const index = parseInt(event.target.dataset.index, 10);
+                    ajouterLigneT3(index);
                 }
-                else {
-                    progra.forEach((ligne, i) => {
-                        let [unixTime, option, valeur] = ligne;
-                        //console.log (ligne)
-                        // Recalculer heure et minutes à partir du timestamp Unix
-                        const date = new Date(unixTime * 1000); // Conversion en millisecondes
-                        const heure = date.getHours(); // Heure locale
-                        const mn = date.getMinutes(); // Minutes locales
 
-                        // Déterminer la classe et l'option sélectionnée
-                        let classcolor, selected;
-                        if (option === 1) { classcolor = 'green'; selected = 0; }
-                        if (option === -1) { classcolor = 'red'; selected = 1; }
-                        if (option === 0) { classcolor = 'purple'; selected = 2; }
+                if (event.target.classList.contains("remove-row")) {
+                    event.preventDefault();
 
-                        // Construire la ligne HTML
-                        texte += `
-                A <input class="classinput" id="heureprog${i}" type="number" min="0" max="24" step="1" value="${heure}">
-                H <input class="classinput" id="mnprog${i}" type="number" min="0" max="60" step="1" value="${mn}">
-                <span class="col20"></span>
-                <select id="twacap${i}" class="black">
-                    <option value="Twa+" ${selected === 0 ? "selected" : ""}>Twa+</option>
-                    <option value="Twa-" ${selected === 1 ? "selected" : ""}>Twa-</option>
-                    <option value="Cap" ${selected === 2 ? "selected" : ""}>Cap</option>
-                </select>
-                <input type="number" id="valtwacap${i}" class="${classcolor}" min="0" max="${selected === 2 ? 360 : 180}" step="1" value="${Math.abs(valeur)}">
-                <span class="col20"></span>
-                <button class="black12 add-row" data-index="${i}">+</button>
-                <button class="black12 remove-row" data-index="${i}">-</button>
-                <br>
-            `;
-                    });
-
-                    // Insérer le tableau dans un conteneur HTML (par exemple, une div avec id="boitejaune")
-                    document.getElementById('boitejaune').innerHTML = texte;
-                    const showprogsvrjaunes = document.getElementById('showprogsvrjaunes')
-                    showprogsvrjaunes.addEventListener('change', toggleshowprogsLayerJaune())
-
-
-                    //gestionnaire d 'evenements pour changement voileauto 
-                    document.getElementById('voileautojaunes').addEventListener('change', function () {
-                        voilesauto = voileautojaunes.checked
-                        calculeroute(user_id, course, progra, voilesauto);
-                    });
+                    const index = parseInt(event.target.dataset.index, 10);
+                    supprimerLigneT3(index);
                 }
+            });
+             
             }
 
+            initialiserEvenementsT3();
+
+     
+
+
+            function afficherTableau3(programmations) {
+
+                console.log(' On est dans affichertableau3')
+                console.log('  progra' + JSON.stringify(programmations))
+
+
+                if (!programmations || !Array.isArray(programmations.progs)) {
+                document.getElementById("boitejaune").innerHTML =
+                    "Aucune donnée disponible.";
+                return;
+                 }
+
+                const progra = programmations.progs;
+
+                    let texte = `
+                        <div class="progsvr">
+                            <span class="col120">Affichage</span>
+
+                            <span class="col30">
+                                <input
+                                    type="checkbox"
+                                    id="showprogsvrjaunes"
+                                    name="showprogsvrjaunes"
+                                    checked
+                                >
+                            </span>
+
+                            <span class="col120">Voiles Auto jaunes</span>
+
+                            <span class="col30">
+                                <input
+                                    type="checkbox"
+                                    id="voileautojaunes"
+                                    name="voileautojaunes"
+                                    checked
+                                >
+                            </span>
+                        </div>
+                    `;
+
+
+               
+                        progra.forEach((ligne, i) => {
+                            let [unixTime, option, valeur, prog] = ligne;
+                            //console.log (ligne)
+                            // Recalculer heure et minutes à partir du timestamp Unix
+                            const date  = new Date(unixTime * 1000); // Conversion en millisecondes
+                            const heure = date.getHours(); // Heure locale
+                            const mn    = date.getMinutes(); // Minutes locales
+
+                            // Déterminer la classe et l'option sélectionnée
+                            let classcolor, selected;
+                            if (valeur > 0)  { classcolor = 'green'; selected = 0; }
+                            if (valeur < 0)  { classcolor = 'red'; selected = 1; }
+                            if (option == 0) { classcolor = 'purple'; selected = 2; }
+
+                            // Construire la ligne HTML
+                            texte += `
+                                A <input class="classinput" id="heureprog${i}" type="number" min="0" max="24" step="1" value="${heure}">
+                                H <input class="classinput" id="mnprog${i}" type="number" min="0" max="59" step="1" value="${mn}">
+                                <span class="col20"></span>
+                                <select id="twacap${i}" class="black">
+                                    <option value="Twa+" ${selected === 0 ? "selected" : ""}>Twa+</option>
+                                    <option value="Twa-" ${selected === 1 ? "selected" : ""}>Twa-</option>
+                                    <option value="Cap" ${selected === 2 ? "selected" : ""}>Cap</option>
+                                </select>
+                                <input type="number" id="valtwacap${i}" class="${classcolor}" min="0" max="${selected === 2 ? 360 : 180}" step="1" value="${Math.abs(valeur)}">
+                                <span class="col20"></span>
+
+                                <button type="button" class="black12 add-row" data-index="${i}">+</button>
+                                <button type="button" class="black12 remove-row" data-index="${i}">-</button>
+                                                               
+                                
+                                <br>
+                            `;
+
+                        });
+                    
+
+                        // Insérer le tableau dans un conteneur HTML (par exemple, une div avec id="boitejaune")
+                        document.getElementById('boitejaune').innerHTML = texte;
+                        const showprogsvrjaunes = document.getElementById('showprogsvrjaunes')
+                        //showprogsvrjaunes.addEventListener('change', toggleshowprogsLayerJaune())
+
+
+                        //gestionnaire d 'evenements pour changement voileauto 
+                        document.getElementById('voileautojaunes').addEventListener('change', function () {
+                            voilesauto = voileautojaunes.checked
+                            //calculeroute(user_id, course, progra, voilesauto);
+
+                        });
+                    }
+ 
+                    
+
+
+
+            
+                    function mettreAJourProgrammationsT3() {
+
+                        if (
+                            !programmationsvrjaunes ||
+                            !Array.isArray(programmationsvrjaunes.progs)
+                        ) {
+                            console.error(
+                                "programmationsvrjaunes.progs n'est pas disponible"
+                            );
+                            return [];
+                        }
+
+
+                        const progra = programmationsvrjaunes.progs;
+                        progra.forEach((ligne, i) => {
+
+                            const inputHeure =
+                                document.getElementById(`heureprog${i}`);
+
+                            const inputMinute =
+                                document.getElementById(`mnprog${i}`);
+
+                            const selectTwaCap =
+                                document.getElementById(`twacap${i}`);
+
+                            const inputValeur =
+                                document.getElementById(`valtwacap${i}`);
+
+                            if (
+                                !inputHeure ||
+                                !inputMinute ||
+                                !selectTwaCap ||
+                                !inputValeur
+                            ) {
+                                return;
+                            }
+
+                            const heure = Number(inputHeure.value);
+                            const minute = Number(inputMinute.value);
+                            const valeurSaisie = Number(inputValeur.value);
+                            const twacap = selectTwaCap.value;
+
+                            const date = new Date(ligne[0] * 1000);
+
+                            date.setHours(heure, minute, 0, 0);
+
+                            const nouveauTimestamp =
+                                Math.floor(date.getTime() / 1000);
+
+                            let option;
+                            let valeurFinale;
+
+                            if (twacap === "Twa+") {
+                                option = 1;
+                                valeurFinale = Math.abs(valeurSaisie);
+
+                            } else if (twacap === "Twa-") {
+                                option = 1;
+                                valeurFinale = -Math.abs(valeurSaisie);
+
+                            } else {
+                                option = 0;
+                                valeurFinale = Math.abs(valeurSaisie);
+                            }
+
+                            // Modification directe de la ligne existante
+                            ligne[0] = nouveauTimestamp;
+                            ligne[1] = option;
+                            ligne[2] = valeurFinale;
+                            ligne[3] = i === 0 ? false : true;
+                        });
+
+                        console.log(
+                            "Objet mis à jour :",
+                            JSON.stringify(programmationsvrjaunes)
+                        );
+
+                        return progra;
+                    }
 
 
 
 
-            // Fonction pour ajouter une ligne au tableau en dessous de la ligne selectionnée 
             function ajouterLigneT3(index) {
-                // Déterminer un timestamp Unix pour une nouvelle ligne (par exemple, l'heure actuelle)
-                console.log('programmationsvrjaunes')
-                console.log(programmationsvrjaunes)
-                console.log(programmationsvrjaunes[0])
-                let timeplus60 = programmationsvrjaunes[index][0] + 600
-                let optionplus = programmationsvrjaunes[index][1]
-                let valeurplus = programmationsvrjaunes[index][2]
-                const nowUnix = Math.floor(Date.now() / 1000); // Timestamp Unix en secondes
-                //programmationsvrjaunes.splice(index + 1, 0, [nowUnix, 0, 0]);
-                programmationsvrjaunes.splice(index + 1, 0, [timeplus60, optionplus, valeurplus]);
-                // Rafraîchir l'affichage
+                console.log("Ajout après la ligne", index);
+                // Très important : lire les inputs avant de refaire le HTML
+                const progra = mettreAJourProgrammationsT3();
+
+                console.log ('apres click du bouton progra '+progra)
+                if (!progra[index]) {
+                    console.error("Ligne de référence introuvable :", index);
+                    return;
+                }
+                const ligneReference = progra[index];
+                const nouvelleLigne = [
+                    ligneReference[0] + 600,
+                    ligneReference[1],
+                    ligneReference[2],
+                    true
+                ];
+                progra.splice(index + 1, 0, nouvelleLigne);
+
+                // Garantir que seule la première ligne est l'état initial
+                progra.forEach((ligne, i) => {
+                    ligne[3] = i === 0 ? false : true;
+                });
+
+                console.log(
+                    "Après ajout :",
+                    JSON.stringify(programmationsvrjaunes)
+                );
+
                 afficherTableau3(programmationsvrjaunes);
             }
 
 
+       
 
-
-
-            // Fonction pour supprimer une ligne du tableau
             function supprimerLigneT3(index) {
-                console.log('Bouton de suppression  cliqué')
-                if (programmationsvrjaunes.length >= 1) {
-                    programmationsvrjaunes.splice(index, 1); // Supprime la ligne à l'index donné
+                console.log("Bouton de suppression cliqué");
+                // Enregistrer les modifications présentes dans les inputs
+                const progra = mettreAJourProgrammationsT3();
+                if (progra.length > 1) {
+                    progra.splice(index, 1);
 
-                    // Rafraîchir l'affichage
-                    console.log('index de la ligne a supprimer ' + index)
-                    console.log('programmationsvrjaunes apres suppression ')
-                    console.log(programmationsvrjaunes)
+                    // La première ligne représente toujours l'état initial
+                    if (progra.length > 0) {
+                        progra[0][3] = false;
+                    }
+
+                    programmationsvrjaunes = {
+                        progs: progra
+                    };
+
                     afficherTableau3(programmationsvrjaunes);
                 } else {
                     alert("Vous ne pouvez pas supprimer la dernière ligne.");
@@ -5420,20 +5578,67 @@ function onWpInputChange(event) {
             }
 
 
+            let timerProgrammationsJaunes = null;
 
 
-            // Gestionnaire d'événements pour les boutons Ajouter et Supprimer
-            function initialiserEvenementsT3() {
-                document.getElementById('boitejaune').addEventListener('click', (event) => {
-                    if (event.target.classList.contains('add-row')) {
-                        const index = parseInt(event.target.dataset.index, 10);
-                        ajouterLigneT3(index);
-                    } else if (event.target.classList.contains('remove-row')) {
-                        const index = parseInt(event.target.dataset.index, 10);
-                        supprimerLigneT3(index);
+
+            boitejaune.addEventListener("change", function (evt) {
+
+                if (
+                    evt.target.matches(
+                        '[id^="heureprog"], ' +
+                        '[id^="mnprog"], ' +
+                        '[id^="twacap"], ' +
+                        '[id^="valtwacap"]'
+                    )
+                ) {
+                    console.log("Modification d'une programmation jaune");
+
+                    // Mise à jour immédiate de l'objet principal
+                    mettreAJourProgrammationsT3();
+                  
+                    timerProgrammationsJaunes = setTimeout(() => {
+
+                        // On utilise directement l'objet qui vient d'être mis à jour
+                        const progsjaunes = programmationsvrjaunes.progs;
+
+                        const programmationsJaunesString = JSON.stringify({
+                            progs: progsjaunes
+                        });
+
+                        const voileautojaunes =
+                            document.getElementById("voileautojaunes");
+
+                        const voilesauto = voileautojaunes.checked;
+
+                        console.log(
+                            "Programmations jaunes envoyées :",
+                            programmationsJaunesString
+                        );
+
+                        calculeroutejaune(
+                            user_id,
+                            course,
+                            programmationsJaunesString,
+                            voilesauto
+                        );
+
+                    }, 1000);
+                }
+
+                if (evt.target.matches("#showprogsvrjaunes")) {
+                    if (evt.target.checked) {
+                        progsvrLayerJaune.addTo(map);
+                    } else {
+                        map.removeLayer(progsvrLayerJaune);
                     }
-                });
-            }
+                }
+            });
+
+
+
+
+
 
 
 
@@ -5458,13 +5663,7 @@ function onWpInputChange(event) {
             }
 
 
-
-            initialiserEvenementsT3()
-
-
-
-
-            var boitejaune = document.getElementById('boitejaune')
+            
             boitejaune.addEventListener("change", function (evt) {
                 console.log('changement dans boite jaune')
                 if (evt.target.matches('[id^="heureprog"], [id^="mnprog"], [id^="twacap"], [id^="valtwacap"]')) {
@@ -5490,14 +5689,19 @@ function onWpInputChange(event) {
                         console.log('programmations : ')
                         console.log(programmations)
 
-
-
+                        const progsjaunes = programmations.map(([t, signe, valeur]) => [t, Math.abs(signe), signe < 0 ? -valeur : valeur, true]);
+                        const programmationsJaunesString = JSON.stringify({ progs: progsjaunes });
 
                         let voileautojaunes = document.getElementById('voileautojaunes')
                         voilesauto = voileautojaunes.checked
                         console.log('\n Ligne 2550 Voileautojaune  ' + voilesauto)
+                        console.log('\n Ligne 2550 programmations  ' + programmations)
 
-                        calculeroute(user_id, course, programmations, voilesauto) // on envoie sur l appele ajax 
+
+                        calculeroutejaune(user_id, course, programmationsJaunesString, voilesauto) // on envoie sur l appele ajax 
+
+
+
                     }, 1000); // Délai de 1 seconde
                 }
 
@@ -5799,7 +6003,7 @@ function onWpInputChange(event) {
                 console.log('ari' + ari)
                 waypoints = Object.values(personalInfosJS.wp).sort((a, b) => a[0] - b[0]);
 
-               //afficheselectarrivee(waypoints, ari)// on affiche le select arrivee avec les waypoints et ceux selectionnes  contenus dans localstorage
+                //afficheselectarrivee(waypoints, ari)// on affiche le select arrivee avec les waypoints et ceux selectionnes  contenus dans localstorage
 
 
 
@@ -5867,25 +6071,12 @@ function onWpInputChange(event) {
                 try { L.polyline(zonesExclusions).setStyle({ color: 'red', weight: 1, opacity: 1, }).addTo(lgDashLines); }
                 catch { 'console.log pas de zones d exclusion' }
 
-
-
-
-                //console.log('boatinfosdata ' + boatinfosdata)
-
-                //    console.log (`boatinfosdata recuperees \n********************\n`)
-                //    console.log ('boatinfosdata ' +boatinfosdata)
-                //    console.log ('boatinfosdata keys ' +Object.keys(boatinfosdata))
-                //   console.log ('boatinfosdata.result'+boatinfosdata.result)
                 boatinfosJSON = JSON.parse(boatinfosdata.result)
                 //console.log('boatinfos' + boatinfos)
 
                 user_id = boatinfosJSON['bs']['_id']['user_id']
                 state = boatinfosJSON['bs']['state']
                 legStartDate = boatinfosJSON['bs']['legStartDate']
-                // console.log('user_id ' + user_id)
-                // console.log('State ' + state)
-                // console.log('legStartDate ' + legStartDate)
-                // on les affiche 
                 if (boatinfosdata.result == null) {/*utilisateurinconnu()*/console.log('Utilisateur inconnu '); affichecoordsdep(ycoord, xcoord) }
                 // on va mettre a jour  memoiretrajets avec les donnees recuperes  
 
@@ -5898,43 +6089,6 @@ function onWpInputChange(event) {
                 // on va chercher progsvr       qui donne la dernière  programmations enregistrées pour le user et la course 
                 try { await chercheprogsvr(user_id, course, t0routage) }
                 catch { console.log('Probleme dans la recuperation de progsvr') }
-
-
-
-
-
-                //  les valeurs pour les voiles et le vent sont traitees avec l affichage boatinfos 
-
-                /// Partie relative au websocket 
-                //**********************************************************************************************************
-                //        console.log(' user_id ' + user_id)
-
-
-                //             if (sourceinfos=='dash' && isMe == 'no')
-                // {
-                //             // On est dans le cas ou on route un concurrent 
-                //   console.log ('on remplit avec les coordonnees du concurrent ')    
-
-
-                //                 //         // trouve dernier trajet a retabli l ancienne valeur de waypoints  
-                //                          username = posStart.username
-                //                 //    // teamname = posStart.teamname
-                //                 //    // sourcedash = posStart.source
-                //                 race = posStart.race
-                //                 leg = posStart.leg
-                //                 course = race + '.' + leg
-                //                 y0vr = posStart['lat']               // Dernière position VR 
-                //                 x0vr = posStart['lon']
-                //                 t0 = posStart['lastCalcDate']      // dernier temps de calcul en s   
-
-
-                //  //         trajet = trouvederniertrajet()
-                //                 //         ari = trajet[11]
-                //                 //         waypoints = trajet[12]
-
-
-
-                // } 
 
 
             }//fin du main 
@@ -6370,37 +6524,6 @@ function onWpInputChange(event) {
 
 
 
-            // function afficheprogsvr(data) {
-            //     //  programmationsJson=JSON.parse(data.programmations)  
-            //     // console.log (' Ligne 3686 type de programmations '+data.programmations)   
-            //     console.log('Type de programmations : ' + data.typeprogs)
-
-
-
-            //     if (data.typeprogs == "progs") {
-            //         console.log('On a affaire a des progs')
-            //         afficheligneprogs(data)   //# on peut alors tracer la polyline  tracer
-            //         //   affichetabprogsvr(data) 
-            //     }
-
-            //     else if (data.typeprogs == "wps") {
-            //         console.log('On a affaire a des wp')
-
-            //         afficheligneprogs(data)   //# on peut alors tracer la polyline  tracer
-            //         //   affichetabwpvr(data)
-            //         // affichelignewaypoints2(polylineprogs)
-            //     }
-
-            //     else (console.log('Probleme dans la recuperation progs ou wp  '))
-
-            // }
-
-
-
-
-
-
-
 
 
             function affichelignewaypoints(data) {
@@ -6659,26 +6782,6 @@ function onWpInputChange(event) {
                 document.getElementById('tabrecou').innerHTML = texte;
 
 
-
-
-
-
-                /*
-                                texte = '<div class="recou">Recouvrements </div>';
-                                texte += "<tr><td>----</td><td>----</td><td>" + typeVoiles[tableau[0][0]] + "</td><td>" + tableau[0][2].toFixed(1) + "</td><td>" + tableau[0][4].toFixed(1) + "</td></tr>"
-                                for (var i = 1; i < tableau.length - 1; i++) {
-                                    texte += "<tr><td>" + tableau[i][3].toFixed(1) + "</td><td>" + tableau[i][1].toFixed(1) + "</td><td>" + typeVoiles[tableau[i][0]] + "</td><td>" + tableau[i][2].toFixed(1) + "</td><td>" + tableau[i][4].toFixed(1) + "</td></tr>"
-                                }
-                                texte += "<tr><td>" + tableau[i][3].toFixed(1) + "</td><td>" + tableau[i][1].toFixed(1) + "</td><td>" + typeVoiles[tableau[i][0]] + "</td><td>----</td><td>----</td></tr>"
-                                
-                 */
-
-
-
-                //document.getElementById('tabrecou').innerHTML = texte
-
-
-
             }
 
 
@@ -6723,7 +6826,7 @@ function onWpInputChange(event) {
             // dupliquerprogsvr    Dupplique les progs Vr dans les programmations jaunes 
             // lancerroutage       Lance le routage  
             // detailroute2        Affiche le detail du routage
-            // rafraichir          Pour rafraichir l affichage des progs vr 
+            // echouages          Pour echouages l affichage des progs vr 
 
 
             // 
@@ -6865,16 +6968,10 @@ function onWpInputChange(event) {
 
                 if (ari.length > 0) {
                     let dernier = ari[ari.length - 1]
-                    // // on change les coordonnees de l arrivee 
-                    // dernierwp=ari[ari.length-1]
+
                     let dernierwaypoint = waypoints.find(ligne => ligne[1] === dernier);
                     y1 = dernierwaypoint[2]
                     x1 = dernierwaypoint[3]
-                    // y1=waypoints[dernierwp-1][2]
-                    // x1=waypoints[dernierwp-1][3]
-                    // // console.log('dernierwp'+dernierwp)
-                    // // console.log ('coordonnees dernier wp'+ waypoints[dernierwp-1][2],waypoints[dernierwp-1][3]) 
-                    // // On affiche dans les co0rdas ari
                     affichecoordsari(y1, x1)
                 }
             });
@@ -7083,16 +7180,6 @@ function onWpInputChange(event) {
             }
 
 
-            // Changement sur le showprogsvrjaunes 
-            // const showprogsvrjaunes=document.getElementById('showprogsvrjaunes')
-            //     showprogsvrjaunes.addEventListener('change', toggleshowprogsLayerJaune)
-
-            //     function toggleshowprogsLayerJaune() {
-            //     console.log ('checkbox layer jaune activee')
-            //     if (showprogsvrjaunes.checked) { progsvrLayerJaune.addTo(map); } // Ajouter le layer à la carte   
-            //     else                           {  map.removeLayer(progsvrLayerJaune);}// Retirer le layer de la carte
-            //     }
-
 
 
             //Changement sur le twsvmg
@@ -7112,26 +7199,16 @@ function onWpInputChange(event) {
 
 
 
-
-            // c est le bouton rafraichir pour les progs pas utile avec le websocket
-
-            var rafraichir = document.getElementById('rafraichir')
-            rafraichir.addEventListener("click", function (evt) {
-                console.log('Bouton de rafraichissement des progs cliqué')
+            var ligneproj = document.getElementById('ligneproj')
+            ligneproj.addEventListener("click", function (evt) {
+                console.log('Bouton de ligneproj cliqué')
                 // on appelle la fonction ajax qui recupere le trace des progs
                 // il faut avoir user_id et course qui sont des variables globales      
-                chercheprogsvr(user_id, course, t0routage)                              // se charge egalement de l'affichage
+                chercheprogsvr(user_id, course, t0routage, detail = 1)                              // se charge egalement de l'affichage
 
             });
 
 
-
-            // document.getElementById("wptconsole").addEventListener("click", function () {
-            //     console.log('waypoints pour test dans console ')
-
-            //     console.log(waypoints)
-
-            // });
 
 
 
@@ -7318,150 +7395,20 @@ function onWpInputChange(event) {
 
 
 
-            // window.exportCSV = function (tabroutage, t0, race, v = "v") {
-            //   if (!Array.isArray(tabroutage) || tabroutage.length === 0) {
-            //     console.warn("tabroutage vide");
-            //     return;
-            //   }
-
-            // //   // t0 peut être en secondes unix (10 chiffres) ou en ms (13 chiffres)
-            // //   const t0Num = Number(t0);
-            // //   if (!Number.isFinite(t0Num)) {
-            // //     console.error("t0 invalide:", t0);
-            // //     return;
-            // //   }
-            // //   const t0ms = (t0Num < 1e12) ? (t0Num * 1000) : t0Num; // heuristique
-
-            // const t0ms = toMsEpoch(t0);
-            // if (!Number.isFinite(t0ms)) {
-            //   console.error("t0 invalide (non numérique):", t0);
-            //   return;
-            // }
+            // // bouton dupliquer dans jaune 
+            // var dupliquerprogsvr = document.getElementById('dupliquerprogsvr')
+            // dupliquerprogsvr.addEventListener("click", function (evt) {
+            //     console.log('Bouton de duplication cliqué')
+            //     console.log('user_id ' + user_id)
+            //     console.log('course ' + course)
+            //     //programmationsvr=chercheprogsserveur(user_id,course)
+            //     console.log('programmationsvr issues de la demande de duplication')
+            //     console.log(programmationsvr)
+            //     programmationsvrjaunes = [].concat(programmationsvr)
+            //     afficherTableau3(programmationsvr)
 
 
-
-            //   const raceStr = String(race).padStart(3, "0");
-            //   const filename = `${v}${raceStr}.csv`;
-
-            //   let csv = "";
-            //   csv += "Date,Latitude,Longitude,Heading,Speed,SailSet,TWA,TWD,TWS,STAMINA,BOOST\n";
-
-            //   for (let i = 0; i < tabroutage.length; i++) {
-            //     const row = tabroutage[i];
-            //     if (!row || !Array.isArray(row)) continue;
-
-            //     const dtSec = Number(row[1]);
-
-            //     const lat   = Number(row[2]);
-            //     const lon   = Number(row[3]);
-            //     const twa   = Number(row[5]);
-            //     const head  = Number(row[6]);
-            //     const speed = Number(row[9]);
-            //     const sailCode = row[10];
-
-            //     const boost = Number(row[11]);
-            //     const tws   = Number(row[12]);
-            //     const twd   = Number(row[13]);
-            //     const stamina = Number(row[14]);
-
-            //     if (!Number.isFinite(dtSec) || !Number.isFinite(lat) || !Number.isFinite(lon)) continue;
-
-            //     const dateStr = formatDateYYYYMMDD_HHMM(t0ms + dtSec * 1000);
-
-
-
-            //     const sailIdx = parseInt((Number(sailCode) % 10), 10);
-            //     const sailSet = (Number.isFinite(sailIdx) && sailIdx >= 0 && sailIdx < typeVoiles.length)
-            //       ? typeVoiles[sailIdx]
-            //       : "";
-            // const line = [
-            //   dateStr,
-            //   fmt(lat, 6),
-            //   fmt(lon, 6),
-            //   fmt(head, 2),
-            //   fmt(speed, 2),
-            //   sailSet,          // string
-            //   fmt(twa, 2),
-            //   fmt(twd, 2),
-            //   fmt(tws, 2),
-            //   fmt(stamina, 2),
-            //   fmt(boost, 2),
-            // ].join(",") + "\n";
-
-
-            //     csv += line;
-            //   }
-
-            //   const blob = new Blob([csv], { type: "text/csv;charset=utf-8" });
-            //   const url = URL.createObjectURL(blob);
-            //   const a = document.createElement("a");
-            //   a.href = url;
-            //   a.download = filename;
-            //   document.body.appendChild(a);
-            //   a.click();
-            //   document.body.removeChild(a);
-            //   URL.revokeObjectURL(url);
-            // };
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-            // bouton dupliquer dans jaune 
-            var dupliquerprogsvr = document.getElementById('dupliquerprogsvr')
-            dupliquerprogsvr.addEventListener("click", function (evt) {
-                console.log('Bouton de duplication cliqué')
-                console.log('user_id ' + user_id)
-                console.log('course ' + course)
-                //programmationsvr=chercheprogsserveur(user_id,course)
-                console.log('programmationsvr issues de la demande de duplication')
-                console.log(programmationsvr)
-                programmationsvrjaunes = [].concat(programmationsvr)
-                afficherTableau3(programmationsvr)
-
-
-            });
-
-
-
-
-
-
-            // n existe pas encore 
-            // const showprogsvrjaunes=document.getElementById('showprogsvrjaunes')
-            // showprogsvrjaunes.addEventListener('change', toggleshowprogsLayerJaune)
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
+            // });
 
 
             //affichage de la programmation jaune 
@@ -7481,7 +7428,6 @@ function onWpInputChange(event) {
             lancerRoutage.addEventListener("click", function (evt) {   // on va recuperer les donnees du routage  sur l interface
                 const mode = document.querySelector('input[name="routage_mode"]:checked').value;
                 console.log('\n Lancement d\'un routage mode ' + mode + ' pour user _id' + user_id)
-
                 var { lat, lng } = recuperecoordsdep();
                 console.log('lat lng' + lat + ' ' + lng)
                 //var trajetsencours = JSON.parse(localStorage.getItem("memoiretrajets"))  // on recupere le tableau des waypoints 
@@ -7497,8 +7443,6 @@ function onWpInputChange(event) {
                 if (ari == []) { ari = ['Arrivee']; }    //Si on a oublié de cocher une case       
 
                 console.log('ligne 4364 ari ' + ari)
-
-
                 heuredepart = document.getElementById('datetime').value     // on recupere l heure de depart 
                 console.log("Valeurs des WP selectionnés : ari = ", ari);
                 console.log('y0, ' + y0 + ' x0 ' + x0)
@@ -7523,21 +7467,16 @@ function onWpInputChange(event) {
                 if (mode == 'gfs') { routageLayer.clearLayers() }
                 else { routageECMLayer.clearLayers() }
 
-
-
-                calculeroutage(username, lat, lng, heuredepart, waypoints, ari, cocheexclusions, mode)
+                calculeroutage(username, lat, lng, heuredepart, waypoints, ari, cocheexclusions, mode, heading = 0)
                 // chercheprogsvr(user_id,course,heuredepart+120)
             });
 
 
             const container = document.getElementById("detailroute2");
-
             container.addEventListener("click", (e) => {
                 const btn = e.target.closest("button[data-action]");
                 if (!btn || !container.contains(btn)) return;
-
                 const action = btn.dataset.action;
-
                 if (action === "genereCSV") {
                     console.log("generation CSV");
                     // exportRoutageCSV(...)
@@ -7546,79 +7485,18 @@ function onWpInputChange(event) {
                     console.log(t0routage)
                     console.log(race)
                     exportCSV(tabroutage, t0routage, race);
-
-
                 }
 
                 else if (action === "detailroute") {
-                    console.log('bouton detailroute ')
-                    var popupBlocked = false;
-                    var testPopup = null;
+                    console.log('bouton detailroute cliqué ')
+                    console.log(username)
+                    var nomcourse = (tabNameCourses[indiceCourse][1])
+                    afficherRoutage(tabroutage, username, nomcourse, typeVoiles)
 
-                    try {
-                        testPopup = window.open("", "_blank", "width=100,height=100");
-                        if (!testPopup || testPopup.closed || typeof testPopup.closed === "undefined") {
-                            popupBlocked = true;
-                        } else {
-                            // Vérifier l'accès au document (bloqueur de popup empêche cela)
-                            testPopup.document.write("<p>Test</p>");
-                            testPopup.document.close();
-                        }
-                    } catch (e) {
-                        popupBlocked = true;
-                    }
-
-                    if (testPopup) {
-                        testPopup.close();
-                    }
-
-                    if (!popupBlocked) {
-                        openPopupWindow();
-                    } else {
-                        openPopupDiv();
-                    }
-
-
-
-
-
-                    // openPopupDiv(...)
                 }
+
             });
 
-
-
-            //    document.getElementById("genereCSV").addEventListener("click", function () { console.log ('generation CSV')});
-
-
-            //     document.getElementById("detailroute").addEventListener("click", function () {
-            //         console.log ('bouton detailroute ')
-            //         var popupBlocked = false;
-            //         var testPopup = null;
-
-            //         try {
-            //             testPopup = window.open("", "_blank", "width=100,height=100");
-            //             if (!testPopup || testPopup.closed || typeof testPopup.closed === "undefined") {
-            //                 popupBlocked = true;
-            //             } else {
-            //                 // Vérifier l'accès au document (bloqueur de popup empêche cela)
-            //                 testPopup.document.write("<p>Test</p>");
-            //                 testPopup.document.close();
-            //             }
-            //         } catch (e) {
-            //             popupBlocked = true;
-            //         }
-
-            //         if (testPopup) {
-            //             testPopup.close();
-            //         }
-
-            //         if (!popupBlocked) {
-            //             openPopupWindow();
-            //         } else {
-            //             openPopupDiv();
-            //         }
-            //     });
 
 
 
@@ -7764,247 +7642,6 @@ function onWpInputChange(event) {
                 });
             });
 
-
-
-
-
-
-            // document.getElementById('gpx-input').addEventListener('change', function (e) {
-
-            //             //trace des lignes vertes (zezo)  
-            //             const file = e.target.files[0];
-            //         if (!file) return;
-
-            //         const reader = new FileReader();
-            //         reader.onload = function (event) {
-            //             const gpxText = event.target.result;
-
-            //             // Parse XML
-            //             const parser = new DOMParser();
-            //             const xml = parser.parseFromString(gpxText, "application/xml");
-
-            //             // Convert to GeoJSON
-            //             const geojson = toGeoJSON.gpx(xml);
-            //             console.log("GeoJSON extrait :", geojson);
-
-            //             const coordsList = []; // on va stocker les coordonnées ici
-
-            //             const layer = L.geoJSON(geojson, {
-            //                 pointToLayer: function (feature, latlng) {
-            //                     // Enregistre les points dans un tableau
-            //                     coordsList.push([latlng.lat, latlng.lng]);
-
-            //                     // Tooltip info
-            //                     const props = feature.properties || {};
-            //                     const isoTime = props.time || '';
-            //                     const timeStr = isoTime
-            //                         ? new Date(isoTime).toLocaleString('fr-FR', {
-            //                             timeZone: 'Europe/Paris',
-            //                             hour: '2-digit',
-            //                             minute: '2-digit',
-            //                             day: '2-digit',
-            //                             month: '2-digit'
-            //                         })
-            //                         : 'N/A';
-
-            //                     const tooltipText = `
-            //   <b>Zezo</b><br>
-            //   <b>Lat:</b> ${latlng.lat.toFixed(6)}<br>
-            //   <b>Lon:</b> ${latlng.lng.toFixed(6)}<br>
-            //   <b>Heure:</b> ${timeStr}
-            // `;
-
-            //                     // Point sur la carte
-            //                     return L.circle(latlng, {
-            //                         radius: 30,
-            //                         color: 'black',
-            //                         fillColor: '#3399ff',
-            //                         fillOpacity: 0.5,
-            //                         weight: 0.5
-            //                     }).bindTooltip(tooltipText, { direction: 'top', permanent: false })
-            //                         .bindPopup(tooltipText, { direction: 'top', permanent: false })
-            //                         ;
-
-
-            //                 }
-            //             }).addTo(gpx1LayerGroup);
-
-            //             // Ajout de la polyligne reliant tous les points
-            //             if (coordsList.length > 1) {
-            //                 L.polyline(coordsList, {
-            //                     color: 'green',
-            //                     weight: 1,
-            //                     opacity: 0.9
-            //                 }).addTo(gpx1LayerGroup);
-            //             }
-
-            //             // Affichage du groupe sur la carte
-            //             gpx1LayerGroup.addTo(map);
-
-            //             // Optionnel : ajuste le zoom pour voir toute la trace
-            //             if (gpx1LayerGroup.getLayers().length) {
-            //                 map.fitBounds(gpx1LayerGroup.getBounds(), { padding: [20, 20] });
-            //             }
-            //         };
-
-            //         reader.readAsText(file);
-            //     });
-
-
-            //VRZEN-----------------------------------------------------------------------------------------
-
-            // document.getElementById('csv-vrzen').addEventListener('change', function (event) {
-            //   console.log('chargement csv (Avalon) lancé');
-            //   const file = event.target.files[0];
-            //   if (!file) return;
-
-            //   Papa.parse(file, {
-            //     header: true,
-            //     skipEmptyLines: true,
-            //     dynamicTyping: false,     // on gère nous-même les floats (virgules, etc.)
-            //     delimiter: "",            // auto-détection (tab, ;, , ...)
-            //     complete: function (results) {
-            //       avalonLayerGroup.clearLayers();
-
-            //       const coords = [];
-
-            //       const toFloat = (v) => {
-            //         if (v === null || v === undefined) return NaN;
-            //         if (typeof v === "number") return v;
-            //         const s = String(v).trim().replace(",", "."); // "17,39" -> "17.39"
-            //         const n = parseFloat(s);
-            //         return Number.isFinite(n) ? n : NaN;
-            //       };
-
-            //       results.data.forEach((row) => {
-            //         const lat = toFloat(row.Latitude ?? row.latitude ?? row.lat);
-            //         const lon = toFloat(row.Longitude ?? row.longitude ?? row.lon);
-
-            //         if (!Number.isFinite(lat) || !Number.isFinite(lon)) return;
-
-            //         coords.push([lat, lon]);
-
-            //         const heading = toFloat(row.Heading);
-            //         const speed   = toFloat(row.Speed);
-            //         const twa     = toFloat(row.TWA);
-            //         const twd     = toFloat(row.TWD);
-            //         const tws     = toFloat(row.TWS);
-
-            //         const popup = `
-            //           <b>VRZEN</b>
-            //           <b>${row.Date ?? ""}</b><br>
-            //           Lat/Lon: ${lat.toFixed(5)}, ${lon.toFixed(5)}<br>
-            //           Heading: ${Number.isFinite(heading) ? heading.toFixed(0) : ""}°<br>
-            //           Speed: ${Number.isFinite(speed) ? speed.toFixed(2) : ""} kn<br>
-            //           SailSet: ${row.SailSet ?? ""}<br>
-            //           TWA: ${Number.isFinite(twa) ? twa.toFixed(1) : ""}°<br>
-            //           TWD: ${Number.isFinite(twd) ? twd.toFixed(1) : ""}°<br>
-            //           TWS: ${Number.isFinite(tws) ? tws.toFixed(2) : ""} kn<br>
-            //           STAMINA: ${row.STAMINA ?? ""}<br>
-            //           BOOST: ${row.BOOST ?? ""}
-            //         `;
-
-            //         L.circle([lat, lon], {
-            //           radius: 10,
-            //           weight: 0.5,
-            //           color: 'blue',
-            //           fillColor: 'cyan',
-            //           fillOpacity: 0.5
-            //         })
-            //           .bindTooltip(popup)
-            //           .bindPopup(popup)
-
-            //           .addTo(VRZENLayerGroup);
-            //       });
-
-            //       // trace la trajectoire
-            //       if (coords.length > 1) {
-            //         L.polyline(coords, { color: 'lime', weight: 1, opacity: 0.9 })
-            //           .addTo(avalonLayerGroup);
-
-            //         map.fitBounds(coords, { padding: [20, 20] });
-            //       } else if (coords.length === 1) {
-            //         map.setView(coords[0], Math.max(map.getZoom(), 6));
-            //       }
-
-            //       // si tu veux être sûr que le layer est visible
-            //       if (!map.hasLayer(VRZENLayerGroup)) VRZENLayerGroup.addTo(map);
-
-            //       console.log(`VRZEN: ${coords.length} points chargés`);
-            //     }
-            //   });
-            // });
-
-
-
-
-
-
-
-
-
-            // version gpx
-
-            //     document.getElementById('csv-vrzen').addEventListener('change', function (e) {
-
-            //         // Pas de lignes, VRZEN
-            //         const file = e.target.files[0];
-            //         if (!file) return;
-
-            //         const reader = new FileReader();
-            //         reader.onload = function (event) {
-            //             const gpxText = event.target.result;
-
-            //             // Parse XML
-            //             const parser = new DOMParser();
-            //             const xml = parser.parseFromString(gpxText, "application/xml");
-
-            //             // Convert to GeoJSON
-            //             const geojson = toGeoJSON.gpx(xml);
-            //             console.log("GeoJSON extrait :", geojson);
-
-
-            //             const layer = L.geoJSON(geojson, {
-            //                 pointToLayer: function (feature, latlng) {
-            //                     // Récupération des données
-            //                     const coords = latlng;
-            //                     const properties = feature.properties || {};
-            //                     const isoTime = properties.time || '';
-            //                     const timeStr = isoTime
-            //                         ? new Date(isoTime).toLocaleString('fr-FR', {
-            //                             timeZone: 'Europe/Paris',
-            //                             hour: '2-digit',
-            //                             minute: '2-digit',
-            //                             day: '2-digit',
-            //                             month: '2-digit'
-            //                         })
-            //                         : 'N/A';
-
-            //                     // Construction du contenu du tooltip
-            //                     const tooltipText = `
-            //     <b> VRZen <b><br>
-            //     <b>Lat:</b> ${coords.lat.toFixed(6)}<br>
-            //     <b>Lon:</b> ${coords.lng.toFixed(6)}<br>
-            //     <b>Heure:</b> ${timeStr}
-            // `;
-
-            //                     // Cercle avec tooltip
-            //                     return L.circle(latlng, {
-            //                         radius: 15,
-            //                         color: 'black',
-            //                         fillColor: '#3399ff',
-            //                         fillOpacity: 0.5,
-            //                         weight: 0.5
-            //                     }).bindTooltip(tooltipText, { direction: 'top', permanent: false })
-            //                         .bindPopup(tooltipText, { direction: 'top', permanent: false })
-            //                         ;
-            //                 }
-            //             }).addTo(gpx3LayerGroup);
-            //         };
-
-            //         gpx3LayerGroup.addTo(map);
-            //         reader.readAsText(file);
-            //     });
 
             //2) AVALON ----------------------------------------------------------------------------------------
 
@@ -8189,13 +7826,6 @@ function onWpInputChange(event) {
 
 
 
-
-
-
-            //4)DORADO
-
-
-
             document.getElementById('csv-dorado').addEventListener('change', function (event) {
                 console.log('chargement csv lancé')
                 const file = event.target.files[0];
@@ -8257,6 +7887,619 @@ function onWpInputChange(event) {
                 VRZENLayerGroup.clearLayers()
 
             });
+
+
+
+
+            function afficherRoutage(arrayroutage, username, course, typeVoiles) {
+                console.log('Fonction afficherRoutage')
+
+                // console.log(arrayroutage)
+                // console.log (username)
+                // console.log(course)
+                // console.log(typeVoiles)
+
+
+                const COL_ORDRE = 0;
+                const COL_HEURE = 1;
+                const COL_LAT = 2;
+                const COL_LON = 3;
+                const COL_DATE = 4;
+                const COL_TWA = 5;
+                const COL_CAP = 6;
+                const COL_VMGMIN = 7;
+                const COL_VMGMAX = 8;
+                const COL_SPEED = 9;
+                const COL_VOILE = 10;
+                const COL_BOOST = 11;
+                const COL_TWS = 12;
+                const COL_TWD = 13;
+                const COL_STAMINA = 14;
+                const COL_PENO = 15;
+
+                if (!arrayroutage || arrayroutage.length === 0) {
+                    alert("Aucun routage à afficher");
+                    return;
+                }
+
+                const dateDepart = formatDateLocale(arrayroutage[0][COL_DATE]);
+                const eta = formatDateLocale(arrayroutage[arrayroutage.length - 1][COL_DATE]);
+
+                const popup = window.open(
+                    "",
+                    "Routage",
+                    "width=1500,height=850,scrollbars=yes,resizable=yes"
+                );
+
+
+
+
+
+                let html = `
+                <!DOCTYPE html>
+                <html>
+                <head>
+                <meta charset="UTF-8">
+                <title>Routage</title>
+
+
+                <style>
+                    body {
+                        font-family: Arial, sans-serif;
+                        font-size: 12px;
+                        margin: 12px;
+                        background: #f4f4f4;
+                    }
+
+                    h2 {
+                        margin: 0 0 12px 0;
+                        font-size: 18px;
+                        color: #003366;
+                    }
+
+                    table {
+                        border-collapse: collapse;
+                        width: 100%;
+                        background: white;
+                    }
+
+                    th {
+                        position: sticky;
+                        top: 0;
+                        background: #0057b8;
+                        color: white;
+                        padding: 6px;
+                        border: 1px solid #003f85;
+                        white-space: nowrap;
+                    }
+
+                    td {
+                        padding: 5px;
+                        border: 1px solid #ccc;
+                        text-align: right;
+                        white-space: nowrap;
+                    }
+
+                    td.txt {
+                        text-align: left;
+                    }
+
+                    tr:nth-child(even) {
+                        background: #f7f7f7;
+                    }
+
+                    tr:hover {
+                        background: #dceeff;
+                        cursor: pointer;
+                    }
+
+
+                
+
+                    tbody tr.selected td {
+                            background: #e6edf5 !important;
+                            border-top: 2px solid black !important;
+                            border-bottom: 2px solid black !important;
+                        }
+
+
+                    .col-angle {
+                        background: #e9e9e9;
+                    }
+
+                    .twa-pos {
+                        color: green;
+                        font-weight: bold;
+                    }
+
+                    .twa-neg {
+                        color: red;
+                        font-weight: bold;
+                    }
+
+                    .cap {
+                        color: blue;
+                        font-weight: bold;
+                    }
+
+                    .boosted {
+                        background: #ffa6ff !important;
+                    }
+
+
+                </style>
+                </head>
+                <body>
+
+
+                <h2>${username} -- ${course} -- Routage du  ${dateDepart} -- ETA: ${eta}</h2>
+
+                <table id="tableRoutage">
+                <thead>
+                <tr>
+                    <th>N° </th>
+                    <th>H+</th>
+                    <th>Date</th>
+                    <th>TWA</th>
+                    <th>Cap</th>
+                    <th>VMG</th>
+                    <th>TWS</th>
+                    <th>TWD</th>
+                    <th>Sail</th>
+                    <th>Boost</th>
+                    <th>Speed</th>
+                    <th>Position</th>
+                    <th>Pen.</th>
+                    <th>Stamina</th>
+                </tr>
+                </thead>
+                <tbody>
+                `;
+
+
+                const t0 = Number(arrayroutage[0][COL_HEURE]);
+
+                for (const row of arrayroutage) {
+
+                    const twa = Number(row[COL_TWA]);
+
+                    let boost = Number(row[COL_BOOST]);
+                    if (boost > 1.014) { boost = 1 }
+
+                    const twaClass = twa >= 0 ? "twa-pos" : "twa-neg";
+                    const boostClass = boost > 1 ? "boosted" : "";
+
+                    const vmg = Math.abs(twa) < 80
+                        ? row[COL_VMGMIN]
+                        : row[COL_VMGMAX];
+
+
+
+                    html += `
+                    <tr >
+                    <td>${fmt0(row[COL_ORDRE])}</td>
+                    <td>${formatEcartTemps(Number(row[COL_HEURE]) - t0)}</td>
+                    <td>${formatDateLocale(row[COL_DATE])}</td>
+
+                    <td class="col-angle ${twaClass}">${fmt(twa, 1)}</td>
+                    <td class="col-angle cap">${fmt(row[COL_CAP], 1)}</td>
+
+                    <td>${fmt(vmg, 1)}</td>
+                    <td>${fmt(row[COL_TWS], 2)}</td>
+                    <td>${fmt(row[COL_TWD], 2)}</td>
+
+                    <td class="txt ${boostClass}">${voileTexte(row[COL_VOILE], typeVoiles)}</td>
+                    <td class="${boostClass}">${fmt(boost, 3)}</td>
+
+                    <td>${fmt(row[COL_SPEED], 2)}</td>
+                    <td class="txt">${toDMSString(row[COL_LAT], row[COL_LON])}</td>
+                    <td>${fmt(row[COL_PENO], 0)}</td>
+                    <td>${fmt(row[COL_STAMINA], 1)}</td>
+                </tr>
+                `;
+                }
+                html += ` </tbody> </table> </body> </html> `;
+                popup.document.open();
+                popup.document.write(html);
+                popup.document.close();
+
+                popup.document.querySelectorAll("tbody tr").forEach(tr => {
+                    tr.addEventListener("click", function () {
+                        popup.document
+                            .querySelectorAll("tbody tr.selected")
+                            .forEach(row => row.classList.remove("selected"));
+                        this.classList.add("selected");
+                    });
+                });
+
+            }  // fin de la fonction afficherroutage
+
+
+
+
+
+            function afficheFeuilleRoute(routeprogs2, username, nomcourse, typeVoiles) {
+
+                // --------------------------------------------------
+                // Colonnes du tableau position
+                // À ajuster si besoin
+                // --------------------------------------------------
+
+                const COL_ORDRE = 0
+                COL_OPTION = 1
+                COL_VALEUR = 2
+                COL_DTI = 3
+                COL_LAT = 4
+                COL_LON = 5
+                COL_TIME = 6
+                COL_TWA = 7
+                COL_HDG = 8
+                COL_SAIL = 9
+                COL_MEVOILE = 10
+                COL_BOOST = 11
+                COL_SPEED = 12
+                COL_BESTVMGMIN = 13
+                COL_BESTVMGMAX = 14
+                COL_TWD = 15
+                COL_TWS = 16
+                COL_STAMINA = 17
+                COL_PENOSAIL = 18
+                COL_PENOGYBE = 19
+                COL_PENOTACK = 20
+                COL_ISMER = 21
+
+
+                console.log(' ON EST DANS afficheFeuilleRoute')
+
+                //console.log (routeprogs2)
+
+
+                // Si routeprogs2 est du type [[[...], [...]]], on aplatit
+                const positions = Array.isArray(routeprogs2?.[0]?.[0])
+                    ? routeprogs2.flat()
+                    : routeprogs2;
+
+                if (!positions || positions.length === 0) {
+                    alert("Aucune position à afficher");
+                    return;
+                }
+
+                const heureDepart = formatDateLocale(positions[0][COL_TIME]);
+
+                const popup = window.open(
+                    "",
+                    "FeuilleRoute",
+                    "width=1500,height=800,scrollbars=yes,resizable=yes"
+                );
+
+                let html = `
+                    <!DOCTYPE html>
+                    <html>
+                    <head>
+                    <meta charset="UTF-8">
+                    <title>Ligne de projection</title>
+                    <style>
+                        body {
+                            font-family: Arial, sans-serif;
+                            font-size: 12px;
+                            margin: 12px;
+                            background: #f5f5f5;
+                        }
+
+                        h2 {
+                            margin: 0 0 12px 0;
+                            font-size: 18px;
+                        }
+
+                        table {
+                            border-collapse: collapse;
+                            width: 100%;
+                            background: white;
+                        }
+
+                        th {
+                            position: sticky;
+                            top: 0;
+                            background: #222;
+                            color: white;
+                            padding: 6px;
+                            border: 1px solid #555;
+                            white-space: nowrap;
+                        }
+
+                        td {
+                            padding: 5px;
+                            border: 1px solid #ccc;
+                            text-align: right;
+                            white-space: nowrap;
+                        }
+
+                        td.txt {
+                            text-align: left;
+                        }
+
+                        tr:nth-child(even) {
+                            background: #f0f0f0;
+                        }
+
+                        tr:hover {
+                            background: #dceeff;
+                        }
+
+                        
+                        tbody tr.selected td {
+                            background: #e6edf5 !important;
+                            border-top: 2px solid black !important;
+                            border-bottom: 2px solid black !important;
+                        }
+
+                        tbody tr.selected td:first-child {
+                            border-left: 2px solid black !important;
+                        }
+
+                        tbody tr.selected td:last-child {
+                            border-right: 2px solid black !important;
+                        }
+
+
+                        tbody tr.manoeuvre td {
+                        background:#a5d6ab;
+                        
+                        }
+
+                        tr.echoue {
+                            background: #ffd0d0 !important;
+                            color: 'black';
+                            font-weight: bold;
+                        }
+
+
+
+                        .boosted {
+                           background: #cfefff !important;
+                            }
+                    </style>
+                    </head>
+                    <body>
+
+                    <h2>Ligne de projection pour ${username} sur la course ${nomcourse} à ${heureDepart}</h2>
+
+                    <table>
+                    <thead>
+                    <tr>
+                        <th>N°</th>
+                        <th>Type</th>
+                        <th>Valeur</th>
+                        <th>Time</th>
+                        <th>Stamina</th>
+                        <th>TWD</th>
+                        <th>TWS</th>
+                        <th>TWA</th>
+                        <th>HDG</th>
+                        <th>Sail</th>
+                        <th>Recouvrement</th>
+                        <th>Boost %</th>
+                        <th>Speed</th>
+                        <th>Position</th>
+                        <th>P. Sail</th>
+                        <th>P. Gybe</th>
+                        <th>P. Tack</th>
+                        <th>Echouage</th>
+                    </tr>
+                    </thead>
+                    <tbody>
+                    `;
+
+
+
+
+                for (let i = 0; i < positions.length; i++) {
+
+                    const row = positions[i];
+
+                    const option = row[COL_OPTION];
+                    const typeProg = typeProgrammation(option);
+                    const valeur = row[COL_VALEUR];
+                    const sailTxt = voileTexte(row[COL_SAIL], typeVoiles);
+                    const meVoileTxt = voileTexte(row[COL_MEVOILE], typeVoiles);
+                    const positionTxt = toDMSString(row[COL_LAT], row[COL_LON]);
+                    if (row[COL_SAIL] == row[COL_MEVOILE]) { row[COL_BOOST] = 1 }
+                    var boost = row[COL_BOOST]
+                    const boostClass = boost > 1 ? "boosted" : "";
+                    const echoueClass = Number(row[COL_ISMER]) !== 0 ? "echoue" : "";
+
+
+                    let manoeuvreClass = "";
+                    if (i > 0) {
+                        const prec = positions[i - 1];
+                        const changementVoile = row[COL_SAIL] != prec[COL_SAIL];
+                        const changementBord =
+                            Math.sign(row[COL_TWA]) != Math.sign(prec[COL_TWA]);
+                        if (changementVoile || changementBord)
+                            manoeuvreClass = "manoeuvre";
+                    }
+
+
+
+
+
+
+
+
+
+
+                    html += `
+                    
+                        <tr class="${echoueClass} ${manoeuvreClass}">
+                        <td>${fmt0(row[COL_ORDRE])}</td>
+                        <td class="txt">${typeProg}</td>
+                        <td>${fmtValeur(valeur, typeProg)}</td>
+                        <td>${formatDateLocale(row[COL_TIME])}</td>
+                        <td>${fmt(row[COL_STAMINA], 1)}</td>
+                        <td>${fmt(row[COL_TWD], 3)}</td>
+                        <td>${fmt(row[COL_TWS], 3)}</td>
+                        <td>${fmt(row[COL_TWA], 3)}</td>
+                        <td>${fmt(row[COL_HDG], 3)}</td>
+                        <td class="txt ${boostClass}">${voileTexte(row[COL_SAIL], typeVoiles)}</td>
+                        <td class="txt ${boostClass}">${voileTexte(row[COL_MEVOILE], typeVoiles)}</td>
+                        <td class="${boostClass}">${fmt((boost - 1) * 100, 2)}</td>
+                        <td>${fmt(row[COL_SPEED], 3)}</td>
+                        <td class="txt">${positionTxt}</td>
+                        <td>${fmt(row[COL_PENOSAIL], 0)}</td>
+                        <td>${fmt(row[COL_PENOGYBE], 0)}</td>
+                        <td>${fmt(row[COL_PENOTACK], 0)}</td>
+                          <td class="txt">${Number(row[COL_ISMER]) === 0 ? " " : "Échoué"}</td>
+                       
+                        
+                  
+                    </tr>
+                    `;
+                }
+
+                //<td class="txt">${row[COL_ISMER] == 0 ? "Non" : "Échoué"}</td>
+                // <td class="txt">${row[COL_ISMER]}</td>
+
+                //<td class="txt">${row[COL_ISMER] == 0 ? "OK" : "Échoué"}</td>
+
+
+
+                html += `
+                    </tbody>
+                    </table>
+                    </body>
+                    </html>
+                    `;
+
+                popup.document.open();
+                popup.document.write(html);
+                popup.document.close();
+
+
+                popup.document.querySelectorAll("tbody tr").forEach(tr => {
+                    tr.addEventListener("click", function () {
+                        popup.document
+                            .querySelectorAll("tbody tr.selected")
+                            .forEach(row => row.classList.remove("selected"));
+
+                        this.classList.add("selected");
+                    });
+                });
+
+
+
+
+
+            }
+
+
+            function selectFeuilleRouteLine(tr) {
+
+                document
+                    .querySelectorAll('tr.selected')
+                    .forEach(row => row.classList.remove('selected'));
+
+                tr.classList.add('selected');
+            }
+
+
+
+
+
+
+            // --------------------------------------------------
+            // Fonctions utilitaires
+            // --------------------------------------------------
+
+            function typeProgrammation(option) {
+                if (option === 0) return "Cap";
+                if (option === 1) return "TWA";
+                if (option === 2) return "WP";
+                return "";
+            }
+
+            function fmtValeur(v, typeProg) {
+                if (v === undefined || v === null || Number.isNaN(v)) return "";
+                if (typeProg === "WP") return "WP " + v;
+                return Number(v).toFixed(3);
+            }
+
+            function fmt(v, n) {
+                if (v === undefined || v === null || Number.isNaN(v)) return "";
+                return Number(v).toFixed(n);
+            }
+
+            function fmt0(v) {
+                if (v === undefined || v === null || Number.isNaN(v)) return "";
+                return Math.round(Number(v));
+            }
+
+
+
+            function formatDateLocale(timestamp) {
+                if (!timestamp) return "";
+
+                // Si timestamp en secondes Unix
+                const d = new Date(timestamp * 1000);
+
+                const jour = String(d.getDate()).padStart(2, "0");
+                const mois = String(d.getMonth() + 1).padStart(2, "0");
+                const heure = String(d.getHours()).padStart(2, "0");
+                const minute = String(d.getMinutes()).padStart(2, "0");
+
+                return `${jour}/${mois} ${heure}:${minute}`;
+            }
+
+            function voileTexte(voile, typeVoiles) {
+                if (voile === undefined || voile === null || Number.isNaN(voile)) return "";
+                const idx = Math.round(Number(voile));
+                if (idx >= 0 && idx < typeVoiles.length) {
+                    return typeVoiles[idx];
+                }
+                return String(voile);
+            }
+
+            function toDMSString(lat, lon) {
+                return `${toDMS(lat, true)} ${toDMS(lon, false)}`;
+            }
+
+            function toDMS(value, isLat) {
+                const dir = isLat
+                    ? (value >= 0 ? "N" : "S")
+                    : (value >= 0 ? "E" : "W");
+
+                const abs = Math.abs(value);
+                const deg = Math.floor(abs);
+                const minFloat = (abs - deg) * 60;
+                const min = Math.floor(minFloat);
+                const sec = (minFloat - min) * 60;
+
+                return `${deg}°${String(min).padStart(2, "0")}'${sec.toFixed(2).padStart(5, "0")}"${dir}`;
+            }
+
+
+
+
+            function formatEcartTemps(deltaSecondes) {
+                const totalMinutes = Math.round(deltaSecondes / 60);
+                const h = Math.floor(totalMinutes / 60);
+                const m = totalMinutes % 60;
+
+                return `+${h}h ${m}mn`;
+            }
+
+
+            function selectRoutageLine(tr) {
+                const old = document.querySelector("#tableRoutage tr.selected");
+                if (old) old.classList.remove("selected");
+                tr.classList.add("selected");
+            }
+
+
+
+
+
+
+
 
 
 
@@ -8497,9 +8740,6 @@ function onWpInputChange(event) {
             //***********   Fin Variante avec popup *******************************************************************
             //*****************************************************************************************************
 
-
-
-
             window.centrage = () => {
                 try {
                     map.panTo([y0vr, x0vr])
@@ -8512,7 +8752,6 @@ function onWpInputChange(event) {
 
             window.copyLatLonToClipboard = async (lat, lon) => {
                 try {
-
                     var position = toDMSString(lat, lon)
                     await navigator.clipboard.writeText(position);
                     console.log("Coordonnées copiées :", position);
@@ -8524,34 +8763,28 @@ function onWpInputChange(event) {
 
 
 
-            window.autreRoutage = async (
-                encodedName,
-                lat,
-                lon,
-                heuredepart,
-                encodedWaypoints,
-                encodedAri,
-                cocheexclusions
-            ) => {
+            window.autreRoutage = async (encodedName, lat, lon, heuredepart, encodedWaypoints, encodedAri, cocheexclusions, boatinfosStr) => {
                 try {
                     const name = decodeURIComponent(encodedName);
                     const waypoints = JSON.parse(decodeURIComponent(encodedWaypoints));
                     const ari = JSON.parse(decodeURIComponent(encodedAri));
+                    const boatinfos = JSON.parse(decodeURIComponent(boatinfosStr));
+                    // console.log(boatinfos); // contient heading,sail,speed,twa,twd,tws
+                    // console.log(boatinfos.twa);
+                    // console.log(boatinfos.heading);
+                    // console.log(boatinfos.sail);
                     usernameRoutage = name;
                     let heuredepart = document.getElementById('datetime').value
                     let timestamp = new Date(heuredepart).getTime() / 1000; // Convertit en secondes
-                    heuredepart = Math.ceil(timestamp / 60) * 60; // Arrondi à la minute supérieure
-                    console.log('heure de depart en secondes du routage ' + heuredepart + 'soit ' + hmns.format(heuredepart * 1000))
-
-
-
-                    // console.log (t0)
-                    console.log(heuredepart)
-                    // heuredepart=t0
                     const mode = document.querySelector('input[name="routage_mode"]:checked').value;
-                    console.log(name, lat, lon, heuredepart, waypoints, ari, cocheexclusions, mode)
+                    heuredepart = Math.ceil(timestamp / 60) * 60; // Arrondi à la minute supérieure
 
-                    calculeroutage(name, lat, lon, heuredepart, waypoints, ari, cocheexclusions, mode);
+
+                    console.log('heure de depart en secondes du routage ' + heuredepart + 'soit ' + hmns.format(heuredepart * 1000))
+                    console.log(name, lat, lon, heuredepart, waypoints, ari, cocheexclusions, mode, heading)
+
+
+                    calculeroutage(name, lat, lon, heuredepart, waypoints, ari, cocheexclusions, mode, boatinfos);
                 }
                 catch (err) {
                     console.error("Erreur dans autreroutage :", err);
@@ -8560,6 +8793,101 @@ function onWpInputChange(event) {
 
 
 
+
+            const pointIcon = L.divIcon({
+                className: "custom-grid-point",
+                html: "",
+                iconSize: [3, 3],
+                iconAnchor: [1.5, 1.5]
+            });
+
+
+
+            function traceGrillePoints(lat, lon, grilleLayer, map) {
+                const pas = 1e-5;          // 0.00001°
+                const demiGrille = 5;      // 5 points de chaque côté
+
+                // centre aligné sur la grille 1e-5
+                const lat0 = Math.round(lat / pas) * pas;
+                const lon0 = Math.round(lon / pas) * pas;
+
+                for (let i = -demiGrille; i <= demiGrille; i++) {
+                    for (let j = -demiGrille; j <= demiGrille; j++) {
+
+                        const latPoint = +(lat0 + i * pas).toFixed(5);
+                        const lonPoint = +(lon0 + j * pas).toFixed(5);
+                        console.log('point' + [latPoint, lonPoint])
+                        L.marker([latPoint, lonPoint], {
+                            icon: pointIcon,
+                            interactive: false
+                        }).addTo(grilleLayer);
+                    }
+                }
+
+                if (!map.hasLayer(grilleLayer)) {
+                    grilleLayer.addTo(map);
+                }
+            }
+
+
+            // // Couche contenant les marqueurs ajoutés manuellement
+            const marqueursWptLayer = L.layerGroup().addTo(map);
+
+            // Compteur pour attribuer un identifiant unique au marqueur 
+            let compteurMarqueursWpt = 0;
+
+
+
+
+            window.ajouterMarqueurWpt = function (lat, lng) {                        // Ajoute un marqueur à la position demandée
+                compteurMarqueursWpt++;
+
+                const idMarqueur = compteurMarqueursWpt;
+
+                const marker = L.marker([lat, lng], {
+                    draggable: true
+                });
+
+                // On mémorise son identifiant
+                marker.idMarqueurWpt = idMarqueur;
+
+                marker.bindPopup(`
+                        <b>Marqueur ${idMarqueur}</b><br>
+                        Latitude : ${lat.toFixed(5)}<br>
+                        Longitude : ${lng.toFixed(5)}<br><br>
+
+                        <a href="javascript:void(0);"
+                        onclick="supprimerMarqueurWpt(${idMarqueur})">
+                        Supprimer ce marqueur
+                        </a>
+                    `);
+
+                marker.addTo(marqueursWptLayer);
+
+                // Mise à jour du popup après déplacement
+                marker.on("dragend", function () {
+                    const position = marker.getLatLng();
+                    marker.setPopupContent(`
+                            <b>Marqueur ${idMarqueur}</b><br>
+                            Latitude : ${position.lat.toFixed(5)}<br>
+                            Longitude : ${position.lng.toFixed(5)}<br><br>
+                            <a href="javascript:void(0);"
+                            onclick="supprimerMarqueurWpt(${idMarqueur})">
+                            Supprimer ce marqueur
+                            </a>
+                        `);
+                });
+                marker.openPopup();
+            }
+
+
+            window.supprimerMarqueurWpt = function (idMarqueur) {
+                marqueursWptLayer.eachLayer(function (marker) {
+                    if (marker.idMarqueurWpt === idMarqueur) {
+                        marqueursWptLayer.removeLayer(marker);
+                    }
+                });
+            };
 
 
 
@@ -8574,48 +8902,45 @@ function onWpInputChange(event) {
                 }
             };
 
-            var pointIcon = L.divIcon({
-                className: "custom-point",
-                html: '<div style="width:4px;height:4px; background:black;border-radius:50%;"></div>',
-                iconSize: [2, 2]
-            });
+
 
 
             window.grilleWpt = async (lat, lng) => {
-                try {
-                    var minLat = Math.abs(lat < 10 ? 5 : 5)
-                    var minLng = 5;
-                    var lat0 = Number(lat.toFixed(minLat))
-                    var lng0 = Number(lng.toFixed(minLng))
-                    var pasLat = Number(Math.pow(10, -1 * minLat).toFixed(minLat))
-                    var pasLng = Number(Math.pow(10, -1 * minLng).toFixed(minLng))
+                console.log('grille waypoints lat ' + lat + ' ' + lng)
 
-                    console.log('pasLat ' + pasLat)
-                    console.log('pasLng' + pasLng)
+                traceGrillePoints(lat, lng, grilleLayer, map);
 
-                    for (let i = 0; i < 10; i++) {
-                        for (let j = 0; j < 10; j++) {
+            }
 
-                            let lat = lat0 + (i - 5) * pasLat;
-                            let lng = lng0 + (j - 5) * pasLng;
-
-                            L.marker([lat, lng], { icon: pointIcon }).addTo(grilleLayer);
-
-                        }
-
-                        grilleLayer.addTo(map)
-
-                    }
+            // // le pas est de 1 -5
 
 
+            //     var minLat = Math.abs(lat < 10 ? 5 : 5)
+            //     var minLng = 5;
+            //     var lat0 = Number(lat.toFixed(minLat))
+            //     var lng0 = Number(lng.toFixed(minLng))
+            //     var pasLat = Number(Math.pow(10, -1 * minLat).toFixed(minLat))
+            //     var pasLng = Number(Math.pow(10, -1 * minLng).toFixed(minLng))*2
+
+            //     console.log('pasLat ' + pasLat)
+            //     console.log('pasLng' + pasLng)
+
+            //     for (let i = 0; i < 10; i++) {
+            //         for (let j = 0; j < 10; j++) {
+
+            //             let lat = lat0 + (i - 5) * pasLat;
+            //             let lng = lng0 + (j - 5) * pasLng;
+
+            //             L.marker([lat, lng], { icon: pointIcon }).addTo(grilleLayer);
+
+            //         }
+
+            //         grilleLayer.addTo(map)
 
 
 
-                    console.log(lat, lng)
-                } catch (error) {
-                    console.log('Récupération pas possible', error);
-                }
-            };
+
+
 
 
 
@@ -8696,35 +9021,62 @@ function onWpInputChange(event) {
 
 
             map.on('contextmenu', function (e) {
+
+                console.log('username' + username + ' course' + course + 'lat' + e.latlng.lat)
                 let lat = e.latlng.lat;
                 let lng = e.latlng.lng;
 
-                console.log('username' + username + ' course' + course + 'lat' + e.latlng.lat)
+                let contenuPopup = ` <b> Latitude &nbsp;&nbsp;: ${pos_dec_mn(lat)} (${arrondi(lat, 4)})<br>
+        Longitude : ${pos_dec_mn(lng)} (${arrondi(lng, 4)})
+   
 
-                popup.setLatLng(e.latlng, map)
-                    .setContent
-                    ("  <b>   Latitude &nbsp; &nbsp;: " + pos_dec_mn(e.latlng.lat) + " (" + arrondi(e.latlng.lat, 4) + ") "
-                        + " <br> Longitude : " + pos_dec_mn(e.latlng.lng) + " (" + arrondi(e.latlng.lng, 4) + ")"
+    <br><a href="javascript:void(0);"
+           onclick="cartelocale(${lat}, ${lng});">
+        Carte locale 10°x10°
+    </a>
 
+    <br><a href="javascript:void(0);"
+           onclick="grilleWpt(${lat}, ${lng});">
+        Grille Wpt
+    </a>
 
-                        // + `<br><a href="javascript:void(0);"  onclick= "cartelocaleOld(${lat},${lng}) ";> Carte locale</a>`
-                        + `<br><a href="javascript:void(0);"  onclick= "cartelocale(${lat},${lng}) ";> Carte locale 10°x10°</a>`
+    <br><a href="javascript:void(0);"
+           onclick="centrage();">
+        Centrage sur Bateau
+    </a>
 
-                        + `<br><a href="javascript:void(0);"  onclick= "grilleWpt(${lat},${lng}) ";> Grille Wpt</a>`
-                        + "<br><a href=javascript:void(0); onclick= 'centrage() ';> Centrage sur Bateau</a>"
+    <br><a href="javascript:void(0);"
+           onclick="ajouterMarqueurWpt(${lat}, ${lng});">
+        Ajouter un marqueur
+    </a>
+     </b>
+`;
 
-                        // + `<br><a href="javascript:void(0);"  onclick= "ajoutewaypoint3(${lat},${lng}) ";> Ajouter un waypoint</a>`
-                        //     //+'<br> {"lat":'+arrondi(e.latlng.lat,4)+',"lon":'+arrondi(e.latlng.lng,4)+'},'
-                        //     +"<br><a href=javascript:void(0); onclick= 'Routagejsdepart("+e.latlng.lat+","+e.latlng.lng+") ';> Definir comme Depart</a>"
-
-                        //     +"<br><a href=javascript:void(0); onclick= 'Routagejsarrivee("+e.latlng.lat+","+e.latlng.lng+") ';> Definir comme Arrivee</a>"
-                        //    // +"<br><a href=javascript:void(0); onclick= 'Routagejsarrivee("+e.latlng.lat+","+e.latlng.lng+") ';> Definir comme Arrivee</a>"
-
-                        // +"<br><a href=javascript:void(0); onclick= 'stockepoint("+e.latlng.lat+","+e.latlng.lng+") ';> Ajouter une Zone d'exclusions </a>"
-                    )
-
+                popup
+                    .setLatLng(e.latlng)
+                    .setContent(contenuPopup)
                     .openOn(map);
+
                 PopupOpen = true;
+
+
+
+                // let lat = e.latlng.lat;
+                // let lng = e.latlng.lng;
+
+                // popup.setLatLng(e.latlng, map)
+                //     .setContent
+                //     ("  <b>   Latitude &nbsp; &nbsp;: " + pos_dec_mn(e.latlng.lat) + " (" + arrondi(e.latlng.lat, 4) + ") "
+                //         + " <br> Longitude : " + pos_dec_mn(e.latlng.lng) + " (" + arrondi(e.latlng.lng, 4) + ")"                  
+                //         + `<br><a href="javascript:void(0);"  onclick= "cartelocale(${lat},${lng}) ";> Carte locale 10°x10°</a>`
+                //         + `<br><a href="javascript:void(0);"  onclick= "grilleWpt(${lat},${lng}) ";> Grille Wpt</a>`
+                //         + "<br><a href=javascript:void(0); onclick= 'centrage() ';> Centrage sur Bateau</a>"
+                //         +`<br><a href="javascript:void(0); onclick='ajouterMarqueurWpt(${lat}, ${lng});'> Ajouter un marqueur </a>`
+
+                //    )
+
+                //     .openOn(map);
+                // PopupOpen = true;
             });
 
 
@@ -8836,6 +9188,10 @@ function onWpInputChange(event) {
                 return indice
             }
 
+
+
+
+
             function lon360to180(lon) {
                 // ramène n'importe quoi dans [-180, 180)
                 return ((lon + 180) % 360 + 360) % 360 - 180;
@@ -8852,12 +9208,15 @@ function onWpInputChange(event) {
                     let sec = parseInt((store.get('timestamp')) / 1000);
                     console.log('sec ' + sec + ' tc [0] ' + tc[0])
                     let npoint = rechercheV(sec, tc) - 1;
+
+
+                    console.log('npoint', npoint)
                     if (npoint > 0)    // pour eviter que le cercle n apparaisse dès le debut 
                     {
                         console.log('npoint ' + npoint)
                         npoint += 3
                         console.log(' point   ' + arrayroutage[npoint][0] + ' ' + arrayroutage[npoint][2] + ' ' + arrayroutage[npoint][3])
-                        circlew = L.circle([arrayroutage[npoint][2], lon360to180(arrayroutage[npoint][3])], { color: 'red', fillColor: 'white', opacity: 1, fillOpacity: 0.5, radius: 3000 }).addTo(map);
+                        circlew = L.circle([arrayroutage[npoint][2], lon360to180(arrayroutage[npoint][3])], { color: 'white', fillColor: 'white', opacity: 1, fillOpacity: 0.5, radius: 3000 }).addTo(map);
                     }
                 }
                 catch {
@@ -8865,6 +9224,11 @@ function onWpInputChange(event) {
                 }
 
             });
+
+
+
+
+
 
 
 
@@ -9071,12 +9435,12 @@ function onWpInputChange(event) {
 
                 let nowJS = new Date();
                 let nowSec = nowJS.getTime() / 1000;
-                   
-                if (lastCalcDate ==null) {
+
+                if (lastCalcDate == null) {
                     console.log("lastCalcDate est undefined");
                 }
-           
-           
+
+
 
                 var ecartTemps = parseInt((nowSec - lastCalcDate / 1000));
                 console.log('EcartTemps depuis la dernière mise à jour VR ' + ecartTemps);
