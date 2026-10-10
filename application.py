@@ -2418,6 +2418,103 @@ def plagevoiles2(polar_id,tws):
 ########### Reponses appels ajax      #########################################
 ###############################################################################
 
+from flask import request, jsonify
+
+
+@app.route('/windy-extension')
+def windy_extension():
+    return render_template('windy_extension.html')
+
+
+
+
+
+
+@app.route('/calcul_dash', methods=['POST'])
+def calcul_dash():
+
+    data = request.get_json()
+
+    print("data :", data)
+    type_message = data.get('type')
+    course       = data.get('course')
+    user_id      = data.get('user_id')
+    Etat         = data.get('Etat')
+    
+    print('****************************************************************************************************************')
+    print('****************************************************************************************************************')
+    print('****************************************************************************************************************')
+    print(r'****************************************************************************************************************')
+
+    print("type    : ", type_message)
+    print ("course : ",course)
+    print('user_id : ',user_id)
+    print("message :", Etat)
+    print('****************************************************************************************************************')
+    print('****************************************************************************************************************')
+    # on calcule le tableau comme dans rechercheprogsvr2
+
+    # ton calcul
+    
+    positionsLigneProj=rechercheligneproj(course,user_id,Etat)
+
+    return jsonify({'course':course,'user_id':user_id,'resultat': positionsLigneProj  })
+
+
+
+def rechercheligneproj(course,user_id,Etat):
+    echouage   = 0                                   # on ne recherche pas les echouages 
+    #cache = CarteCache()                            # on ne recherche pas les echouages   
+
+    
+    simulation                  = Simulateur (course, user_id)
+    lat=Etat['lat']
+    lon=Etat['lon']
+    tws=Etat['tws']
+    twd=Etat['twd']
+    ts=Etat['ts']
+    sail=Etat['sail']
+    speed=Etat['speed']
+    stamina=Etat['stamina']
+    penoSail=Etat['penoSail']
+    penoGybe=Etat['penoGybe']
+    penoTack=Etat['penoTack']
+    programmations=Etat['programmations']
+
+    posDash = simulation.positionDash(lat,lon,twd,tws,ts,sail,speed,stamina,penoSail,penoGybe,penoTack,programmations)
+    print ('posDash',posDash)
+    print ('programmations',programmations )
+    if "progs" in programmations:
+        print ('\nOn est dans le cas de programmations\n')
+        print ('programmations ',programmations )
+        positions                   =simulation.trajectoire_24h( posDash, programmations, duree_h=24)
+
+    if "wps" in programmations:  
+        print ('\non est dans le cas de waypoints\n')
+        # print ('\nposdepart\n',simulateur.posDepart)
+        sections, routeprogs, positions = simulation.trajectoire_waypoints(  posDash, programmations, duree_h=24, dt_standard=60)  
+
+    # if echouage==1:
+    #     y0  =  positions[0,4]
+    #     x0  =  positions[0,5]
+    #     carte =  get_carte3(y0,x0)
+    #     masque          = cache.get_masque_carte(y0, x0, get_carte3)
+    #     touche          = cache.segments_touchent_masque(positions, masque, y0, x0)
+    #     indices_croises = cache.indices_intersections_route(  positions, carte,touche, marge=0.1)
+    #     positions[indices_croises + 1, 21] = 1
+
+
+   # NB positions est un np.array
+    positions_affichage= simulation.positions_pour_affichage( positions) 
+    positionsLigneProj =[arr.tolist() for arr in positions_affichage]
+    print ('positionsligneProj \n',positionsLigneProj[0])
+    print (positionsLigneProj[1])
+    print (positionsLigneProj[2])
+
+    return positionsLigneProj
+
+
+
 @app.route('/majgrib', methods=["GET", "POST"])
 # recherche les coursesactives pour le username
 def majgribajax():
@@ -2845,6 +2942,26 @@ def extraitprogrammations (boatInfos,user_id,course):
     return date,origine,programmations
 
 
+def calculLigneProj(user_id,course,lat,lon,ts,programmations):
+
+    simulateur                  = Simulateur (course, user_id)
+    if "wps" in programmations:  
+        print ('\non est dans le cas de waypoints\n')
+        # print ('\nposdepart\n',simulateur.posDepart)
+        sections, routeprogs, positions = simulateur.trajectoire_waypoints(  simulateur.posDepart, programmations, duree_h=24, dt_standard=60) 
+
+    if "progs" in programmations:
+            print ('\nOn est dans le cas de programmations\n')
+            print ('programmations ',programmations )
+            positions                   = simulateur.trajectoire_24h( simulateur.posDepart, programmations, duree_h=24)
+
+    return positions        
+        
+
+
+
+
+
 
 
 @app.route('/rechercheprogsvr2', methods=["GET", "POST"])   
@@ -2855,7 +2972,7 @@ def rechercheprogsvr2():
     cache = CarteCache()
 
     print ('valeur de echouage = ',echouage) 
-    simulateur                  = Simulation (course, user_id)
+    simulateur                  = Simulateur (course, user_id)
     date,origine,programmations = simulateur.extraitprogrammations ()
     print ('programmations',programmations )
     if "progs" in programmations:
@@ -2910,7 +3027,7 @@ def rechercheprogsjaunes():
     for i in range (len(progsjaunes['progs'])):
         print ('ligne 3193', time.strftime(" %d %b %H:%M ",time.localtime(progsjaunes['progs'][i][0])))
     
-    simulateur                  = Simulation (course, user_id)
+    simulateur                  = Simulateur (course, user_id)
     cache = CarteCache()
 
     if "progs" in progsjaunes:
@@ -3327,7 +3444,7 @@ def ajaxmessage():
         typeinfos    = data.get('type')
         envoi = {'Reception':typeinfos}                              # sert a preciser le type d info que l on a recu pour envoi par websocket
 
-        reponse ='Données bien reçues par le serveur '  # reponse envoyee au dash pour test
+        reponse ='Donnes recues par le serveur '  # reponse envoyee au dash pour test
         print ("\nType du Message reçu : {}".format(typeinfos) )     
         # print ('Message         : {} \n***********************************'.format( message))
 
@@ -3377,24 +3494,21 @@ def ajaxmessage():
         if typeinfos=='boatinfos':
                # print('ligne 897 boatinfos \n ',message)
                 # message est un objet il est necessaire de le serialiser si on veut l enregistrer dans la base
-                try:
-                    username    = message['bs']['displayName']
-                    user_id     = message['bs']['_id']['user_id']
-                    race        = message['bs']['_id']['race_id']
-                    leg         = message['bs']['_id']['leg_num']
-                    course      = str(race)+'.'+str(leg)
-                    state       = message['bs']['state']
-                    tini0       = message['bs']['lastCalcDate']/1000
+            try:
+                username    = message['bs']['displayName']
+                user_id     = message['bs']['_id']['user_id']
+                race        = message['bs']['_id']['race_id']
+                leg         = message['bs']['_id']['leg_num']
+                course      = str(race)+'.'+str(leg)
+                # state       = message['bs']['state']
+                # tini0       = message['bs']['lastCalcDate']/1000
 
 
-                    updateUsers(users, username, user_id)
-                    print('users',users)
-                    # print ('\n boatinfos pour  {}  le  {} \n********************************************************\n {} \n'.format(username,time.strftime(" %d %b %Y %H:%M ",time.localtime(tini0)), message))
-                    # print()    
-                except:
-                    print (' toutes les infos ne sont pas disponibles')
-                    state       =  message['bs']['state']
-                    #print    ('\nstate :',state) 
+                updateUsers(users, username, user_id)
+                print('users',users)
+                # print ('\n boatinfos pour  {}  le  {} \n********************************************************\n {} \n'.format(username,time.strftime(" %d %b %Y %H:%M ",time.localtime(tini0)), message))
+                # print()    
+               
 
                 # enregistrement dans la base
                 timestamp   = time.time()            
@@ -3422,7 +3536,9 @@ def ajaxmessage():
                 print ('une demande d update suite à boatinfos a ete envoyée pour user id {} et course {}'.format (user_id,course))                     
                 print('****************************************************************************************************************')  
                 print()
-                
+            except:
+                    print (' Les boatinfos ne contiennent pas bs ')
+                    
 
 
 
@@ -3432,19 +3548,21 @@ def ajaxmessage():
         if typeinfos=='boatActions':
                 # try:         # destine a couvrir si pas de prog dans boatActions
                
-                boatActions = message['boatActions']
+            boatActions = message['boatActions']
 
-                #print ("Ligne 3024 message['boatActions']")
-                print (boatActions)
-                print()
+            #print ("Ligne 3024 message['boatActions']")
+            print (boatActions)
+            print()
+
+            try:
                 user_id     = boatActions[0]['_id']['user_id']
                 race        = boatActions[0]['_id']['race_id']
                 leg         = boatActions[0]['_id']['leg_num']
                 course      = str(race)+'.'+str(leg)
                 timestamp   = boatActions[0]['_id']['ts']/1000  # c'est l heure de depart de la course ne doit pas servir de reference pour l enregistrement 
-                # timestamp   = time.time()           
-                #timestamp =time.time()
-
+            # timestamp   = time.time()           
+            #timestamp =time.time()
+              
 
 
 
@@ -3555,14 +3673,16 @@ def ajaxmessage():
                     # print('******************************************************************************************')
                     # print ('Verification des programmations enregistrees  dans la base le {}  pour {}  sur la course {} {} '.format(time.strftime(" %d %b %Hh %Mmn ", time.localtime(timestamp)),user_id,course,strwaypointsvr))
                     # print()
-                envoi = {'Reception':typeinfos ,'course':course}
-                print ('tentative d envoi au client   ',user_id ,'  envoi ' ,envoi )
+                envoi = {'Reception par Vrouteur de ':typeinfos }
+                print ('tentative d envoi au client  ' ,envoi )
                 send_update_to_client( user_id, envoi)         # envoi par websocket de l info que l on a recu une actualisation  de boatActions 
                     
                 # except:
                 #     print ('On est dans le except de boatactions')
                 
-
+            except:
+                print ('boatactions est probablement vide ')
+            
 
 
 
@@ -3604,10 +3724,13 @@ def ajaxmessage():
                 print('Derniere date de mise a jour {} pour la polaire  id {} de {}'.format( date_obj,_id,label))
                 enregistrerPolaireSiPlusRecent(timestamp, _id, json.dumps(message))
                 # verification de l enregistrement 
-                updated,polar_id,polaires=rechercheTablePolaires(_id)
+                # updated,polar_id,polaires=rechercheTablePolaires(_id)
                 # print () 
                 # print ('Verification de l enregistrement de polaires pour id {} mise a jour le  {} \n {}'.format(polar_id,updated,polaires))
                 # print()
+
+
+
 
 
         if typeinfos=='teamList':
@@ -3634,7 +3757,9 @@ def ajaxmessage():
 
              
 
-
+        if typeinfos =='track':
+            print ('track reçue ')
+            envoi = {'Reception':typeinfos }
 
 
 
@@ -3745,7 +3870,7 @@ def gestionlocalstorage():
 ########### Fonctions de routage  et Classes           ########################
 ###############################################################################
 # Classe routageSession
-# Classe Simulation
+# Classe Simulateur
 # Classe CarteCache 
 
 
@@ -4958,10 +5083,10 @@ class RoutageSession:                                                  # version
               
 # fin de la classe RoutageSession               
 
-# classe simulation
+# classe Simulateur
 ###################
 
-class Simulation:                                                  # version avec nouvel algorithme
+class Simulateur:                                                  # version avec nouvel algorithme
 
     
     def __init__(self, course, user_id):
@@ -5115,7 +5240,7 @@ class Simulation:                                                  # version ave
             timestamp,progstable           = rechercheTableProgsvr(user_id,course) 
             
             progstable                             = json.loads(progstable) 
-            print ('\n***************************************dans init de simulation',progstable)
+            print ('\n***************************************dans init de Simulateur',progstable)
             if "progs" in progstable:
                 Option=progstable['progs'][0][1]
                 valeur=progstable['progs'][0][2]
@@ -5239,6 +5364,30 @@ class Simulation:                                                  # version ave
     
   
     
+    def positionDash(self,lat,lon,twd,tws,ts,voile,speed,stamina,penoSail,penoGybe,penoTack,programmations):
+        print ('on est dans positionDash')
+        print ('programmations',programmations)
+        self.dtig0GFS               = ts-tigGFS
+        tws10 = int(round(tws * 10))
+        bestvmgmin = self.tabvmg10to[tws10, 2]
+        bestvmgmax = self.tabvmg10to[tws10, 4]
+        boost=1  
+        bestvmgmin        = self.tabvmg[tws10, 2]
+        bestvmgmax        = self.tabvmg[tws10, 4] 
+        voile=voile%10 -1        
+        if "progs" in programmations:
+                Option=programmations['progs'][0][1]
+                valeur=programmations['progs'][0][2]
+                if Option==0:
+                    heading=valeur                
+                    twa=ftwaos(heading,twd)  
+                if Option==1:
+                    twa=valeur 
+                    heading= fcap(twa,twd)               
+        
+        posDash = np.array([0,Option,valeur,60,lat,lon,ts,twa,heading,voile,voile,boost,speed,bestvmgmin,bestvmgmax,twd,tws,stamina,penoSail,penoGybe,penoTack,0])        
+        return posDash 
+  
   
     
             
@@ -6118,7 +6267,7 @@ class Simulation:                                                  # version ave
         speed_voile_ant= speed[voile_ant]
         speed_max      = np.max(speed)
         voile_max      = np.argmax(speed)
-        boost          = speed_max/speed_voile_ant
+        boost          = speed_max/(speed_voile_ant+0.0001)
         
         if boost>1.014 :
             voile_def=voile_max
@@ -6336,7 +6485,7 @@ class Simulation:                                                  # version ave
             
     
   
-# fin de la classe Simulation
+# fin de la classe Simulateur
 #############################    
 
 

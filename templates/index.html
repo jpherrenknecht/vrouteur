@@ -76,7 +76,7 @@
 
 
         var serveurdistant = "https://vrouteur.com";   //sur linux0
-        var serveurlocal = "http://127.0.0.1:5000";   //sur linux1 et linux 3 
+        var serveurlocal   = "http://127.0.0.1:5000";   //sur linux1 et linux 3 
 
         if (origine == 'http://127.0.0.1:5000/') { var serveur = serveurlocal; document.title = "Vrouteur local"; }
         else { var serveur = serveurdistant }
@@ -731,7 +731,7 @@
        <div class='checkbox'>
         Zezo  <input type='checkbox' id='showgpx1' name='showgpx1' checked />   
         Avalon<input type='checkbox' id='showAvalon' name='showAvalon'  checked />   
-        VRZen  <input type='checkbox' id='showVRZEN' name='showVRZEN'  checked />
+        VRZen  <input type='chec'kbox id='showVRZEN' name='showVRZEN'  checked />
         Dorado   <input type='checkbox' id='showcsv'  name='showcsv'  checked />   
 
         <button id='ClearAllRoutes' class="blackwhite11">Clear</button>
@@ -834,14 +834,14 @@
 
 
 
-            var texteEditeurWP2 =
-                `<div id="wpEditorContainer" class = "wpEditorContainer" >
-         <span class="close-button" onclick="fermerEditeurWP2()">×</span>  
-        <h3>Editeur de WP</h3>
-        <label> Modification des waypoints </label>
-        <button onclick="sauveWP2()"  id="sauveroute">Sauvegarder les modifications</button>
-        <br>
-        </div>`;
+        var texteEditeurWP2 =
+            `<div id="wpEditorContainer" class = "wpEditorContainer" >
+            <span class="close-button" onclick="fermerEditeurWP2()">×</span>  
+            <h3>Editeur de WP</h3>
+            <label> Modification des waypoints </label>
+            <button onclick="sauveWP2()"  id="sauveroute">Sauvegarder les modifications</button>
+            <br>
+            </div>`;
 
 
 
@@ -2705,20 +2705,20 @@
 
 
 
-            async function ajouterWaypointDepuisDblClick(lat, lon) {
-                const wpEditorContainer = document.getElementById("wpEditorContainer");
+            // async function ajouterWaypointDepuisDblClick(lat, lon) {
+            //     const wpEditorContainer = document.getElementById("wpEditorContainer");
 
-                const editeurVisible =
-                    wpEditorContainer &&
-                    wpEditorContainer.style.display !== "none" &&
-                    wpEditorRows.length > 0;
+            //     const editeurVisible =
+            //         wpEditorContainer &&
+            //         wpEditorContainer.style.display !== "none" &&
+            //         wpEditorRows.length > 0;
 
-                if (!editeurVisible) {
-                    await ouvrirEditeurWP2();
-                }
+            //     if (!editeurVisible) {
+            //         await ouvrirEditeurWP2();
+            //     }
 
-                ajouterLigneWpDepuisCarte(lat, lon);
-            }
+            //     ajouterLigneWpDepuisCarte(lat, lon);
+            // }
 
 
 
@@ -3884,8 +3884,6 @@
 
                 async function onWpInputChangeAndSave(event) {
                     onWpInputChange(event);
-
-
 
                     await sauverEditeurWp();
                 }
@@ -6590,6 +6588,8 @@
 
             function afficheleginfos(leginfos)  // affiche les particularites de la course
             {  //leginfos contient les marques les zones exclusion la trajectoire 
+                console.log ('leginfos')
+                console.log (leginfos)
 
                 if (leginfos != null) {
                     leginfos = JSON.parse(leginfos)
@@ -6602,24 +6602,31 @@
                         var starti = [leginfos['checkpoints'][i]['start']['lat'], leginfos['checkpoints'][i]['start']['lon'], leginfos['checkpoints'][i]['name']]
                         var endi = [leginfos['checkpoints'][i]['end']['lat'], leginfos['checkpoints'][i]['end']['lon'], leginfos['checkpoints'][i]['name']]
                         var displayi = leginfos['checkpoints'][i]['display']
-                        tabLignesCheckPoints[i] = [starti, endi, displayi]
+                        var namei =    leginfos['checkpoints'][i]['name']
+                        tabLignesCheckPoints[i] = [starti, endi, displayi,namei]
                     }
                     console.log('Lignes de checkpoints récupérées')
-                    //console.log (tabLignesCheckPoints)
+                    console.log (tabLignesCheckPoints)
+
+                    console.log ('tabLignesCheckPoints')
+                    console.log(tabLignesCheckPoints[0][2]);
 
                     // tracage des lignes de checkpoints
-                    for (var i = 0; i < tabLignesCheckPoints.length; i++) {
-                        let y0 = tabLignesCheckPoints[i][0][0]
-                        let x0 = tabLignesCheckPoints[i][0][1]
-                        let y1 = tabLignesCheckPoints[i][1][0]
-                        let x1 = tabLignesCheckPoints[i][1][1]
-                        tracearc(y0, x0, y1, x1)
-                        // on va mettre un marqueur a chaque point de depart  
+                    // for (var i = 0; i < tabLignesCheckPoints.length; i++) {
+                    //     let y0 = tabLignesCheckPoints[i][0][0]
+                    //     let x0 = tabLignesCheckPoints[i][0][1]
+                    //     let y1 = tabLignesCheckPoints[i][1][0]
+                    //     let x1 = tabLignesCheckPoints[i][1][1]
 
-                        //L.marker([y0,x0 ],    {icon: blackIcon}).bindTooltip(tabLignesCheckPoints[i][0][2]).addTo(lgMarkers)     
-                        // L.circle([y0,x0] ,{fillColor: 'white' ,color:'green' , weight:1 ,opacity:1,fillOpacity: 0,radius: 100,}).bindTooltip('bouee').addTo(lgMarkersVR)
+  
 
-                    }
+                    //     tracearc(y0, x0, y1, x1)
+                    //     // on va mettre un marqueur a chaque point de depart  
+
+                    //     //L.marker([y0,x0 ],    {icon: blackIcon}).bindTooltip(tabLignesCheckPoints[i][0][2]).addTo(lgMarkers)     
+                    //     // L.circle([y0,x0] ,{fillColor: 'white' ,color:'green' , weight:1 ,opacity:1,fillOpacity: 0,radius: 100,}).bindTooltip('bouee').addTo(lgMarkersVR)
+
+                    // }
                     // On recupere les points du trace de la course servant a definir la courbe de bezier   
                     var tracecourse = leginfos['course']
 
@@ -6688,8 +6695,18 @@
                         x1 = tabLignesCheckPoints[i][1][1]
                         tracearc(y0, x0, y1, x1)
                         // on va mettre un marqueur a chaque point de depart  
-                        L.marker([y0, x0], { icon: blackIcon }).bindTooltip(tabLignesCheckPoints[i][0][2]).addTo(lgMarkers)
+
+                        if (tabLignesCheckPoints[i][2]  == "gate"){
+                        L.marker([y0, x0], { icon: greenIcon }).bindTooltip(tabLignesCheckPoints[i][0][2]).addTo(lgMarkers)
+                        L.marker([y1, x1], { icon: redIcon }).bindTooltip(tabLignesCheckPoints[i][0][2]).addTo(lgMarkers)
+
+                        }
+                        else 
+                        
+                       { 
+                          L.marker([y0, x0], { icon: blackIcon }).bindTooltip(tabLignesCheckPoints[i][0][2]).addTo(lgMarkers)
                         L.circle([y0, x0], { fillColor: 'white', color: 'black', weight: 1, opacity: 1, fillOpacity: 0, radius: 500, }).bindTooltip('bouee').addTo(lgMarkers)
+                       }
                     }
                     troncons = couperPolyligneLongitude(polylineCurve)       // trajectoire theorique 
                     troncons.forEach(troncon => {
@@ -7472,6 +7489,11 @@
             });
 
 
+
+
+
+
+            
             const container = document.getElementById("detailroute2");
             container.addEventListener("click", (e) => {
                 const btn = e.target.closest("button[data-action]");

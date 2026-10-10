@@ -1,5 +1,8 @@
 em {font-weight:600;}
 
+
+
+
 #windy      { width: 100%; height: 100%;}
 #container  {width:1920px; margin:0 auto;font-family : Arial;}
 #progress   { visibility :block; z-index:11;width:110px; }
@@ -8,6 +11,22 @@ em {font-weight:600;}
 #divzezo   {color:blue; font-size:12px;font-weight:600;text-decoration: underline;}
 
 #curseur {color:red}
+
+
+
+.progress-bar {
+    position: fixed !important;
+    bottom: 10px !important;
+    top: auto !important;
+    z-index: 99999 !important;
+}
+
+
+
+.timeline {
+    display: block !important;
+    visibility: visible !important;
+}
 
 
 a {
