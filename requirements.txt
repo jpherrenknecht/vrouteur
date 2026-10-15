@@ -27,7 +27,7 @@ decorator==5.2.1
 defusedxml==0.7.1
 dnspython==2.8.0
 eccodes==2.43.0
-eccodeslib==2.43.0
+eccodeslib==2.44.0.7
 eckitlib==1.31.4
 ecmwf-opendata==0.3.26
 eventlet==0.40.3
