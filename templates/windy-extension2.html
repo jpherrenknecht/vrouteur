@@ -1,0 +1,61 @@
+<!DOCTYPE html>
+<html>
+    <head>
+    <title>Windy basique </title>
+   
+        <meta name="Author" content="JP Herrenknecht">
+        <meta charset="utf-8"/>   
+        <meta  name="viewport" content="width=device-width, initial-scale=1.0, shrink-to-fit=no"    />
+        <script src="https://unpkg.com/leaflet@1.4.0/dist/leaflet.js"></script>
+        <script src="https://api.windy.com/assets/map-forecast/libBoot.js"></script>
+        <script src="https://code.jquery.com/jquery-3.3.1.min.js"></script>
+        <script src="https://unpkg.com/leaflet-arc/bin/leaflet-arc.min.js"></script>
+        <script src="https://unpkg.com/leaflet.boatmarker/leaflet.boatmarker.min.js"></script>
+        <link rel="stylesheet" type="text/css" href="{{ url_for('static', filename='css/vrouteur.css') }}">
+        <link rel="shortcut icon" href="{{ url_for('static', filename='img/favicon.ico') }}">
+        <script  type="text/javascript" src="{{ url_for('static', filename='js/leaflet.curve.js') }}"></script>
+   
+    <script type="text/javascript">
+
+
+
+var windiv=document.getElementById("windy")
+const options = {
+    key:'ydO74Xuxv2WWOEShDpel1kaiae8zCnLO',
+    verbose: false,
+    lat: 45,
+    lon: -3,
+    zoom: 7
+};
+
+windyInit(options, windyAPI => {
+
+   const {map, picker, utils, broadcast,store }  = windyAPI;
+
+    // On reçoit les ordres de l'extension
+    window.addEventListener("message", event => {
+
+        // On n'accepte que les messages utiles
+        if (!event.data || event.data.type !== "setView") {
+            return;
+        }
+
+        const lat = event.data.lat;
+        const lon = event.data.lon;
+        const zoom = event.data.zoom;
+
+        map.setView([lat, lon], zoom, {
+            animate: false
+        });
+
+    });
+
+});
+</script>
+</head>
+    <body>
+        <div id="windy"></div>   
+    </body>
+</html>
+
+

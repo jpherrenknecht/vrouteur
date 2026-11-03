@@ -6,7 +6,7 @@ import json
 
 
 #from fonctions2024 import *
-from fonctions2025 import *
+from fonctions2026 import *
 
 
 pg_pool = pool.SimpleConnectionPool(
@@ -878,7 +878,7 @@ def rechercheTablePersonalInfos(user_id, course):
 
 
 
-course='826.2'
+course='812.1'
 username,user_id='Sacron','5f6703a652e859ef03043bb8'
 
 # conn = pg_pool.getconn()
@@ -891,8 +891,13 @@ username,user_id='Sacron','5f6703a652e859ef03043bb8'
 #     print (row)
 
 
-
-print (user_id,course)
+print ()
+print (user_id,' course ',course)
 result    = rechercheTableBoatActions(user_id,course)  #recherche dans la table locale  
 print (result)
-boatactions = json.loads(result)
+
+
+
+result=rechercheTablePersonalInfos(user_id, course)
+
+print (result)

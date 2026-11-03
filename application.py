@@ -2421,10 +2421,19 @@ def plagevoiles2(polar_id,tws):
 from flask import request, jsonify
 
 
+@app.route("/health")                             # pour verifier si serveur dispo 
+def health():
+    return {"status": "ok"}, 200
+
+
 @app.route('/windy-extension')
 def windy_extension():
-    return render_template('windy_extension.html')
+    return render_template('windy-extension.html')
 
+
+@app.route('/windy-extension2')
+def windy_extension2():
+    return render_template('windy-extension2.html')
 
 
 
@@ -2457,8 +2466,16 @@ def calcul_dash():
     # ton calcul
     
     positionsLigneProj=rechercheligneproj(course,user_id,Etat)
+    # on va renvoyer egalement la date du grib 
 
-    return jsonify({'course':course,'user_id':user_id,'resultat': positionsLigneProj  })
+    #tig * 1000 + decalageUTC * 60000)) + ' + ' + indicemajgrib
+    tig=tigGFS
+    indicemajgrib=indiceGR
+    from datetime import datetime
+    decalageUTC = datetime.now().astimezone().utcoffset().total_seconds()  # en secondes 
+
+
+    return jsonify({'course':course,'user_id':user_id,'resultat': positionsLigneProj,'tig':tig,'decalageUTC':decalageUTC,'indicemajgrib':indicemajgrib,'tigECM':tigECM  })
 
 
 
@@ -2605,7 +2622,11 @@ def recherchepersonalinfos():
 
 @app.route('/modifpersonalinfos', methods=["POST"])
 def modifpersonalinfos():
+
+    print (' on est dans mofifpersonalinfos ')
     data = request.get_json()
+
+    print ('data', data )
     if not data:
         return jsonify({"message": "Aucune donnée reçue"}), 400
 
@@ -2617,6 +2638,8 @@ def modifpersonalinfos():
     nom        = data.get('nom')
     valeur     = data.get('valeur')
 
+
+    print (username,user_id,course,typeinfo,typeaction,nom,valeur)
     
     # print(type(valeur))          # → <class 'list'>
 
@@ -3327,6 +3350,36 @@ def recherchevoiles():
 
 
 
+@app.route('/recherchevoilesdash', methods=["GET", "POST"])
+def recherchevoilesdash ():
+    #  contrairement a la fonction precedente
+    #  la tws et twa ne sont pas reclaculees mais recuperees directement du dash 
+
+    tws     = float(request.args.get('tws'))
+    twa     = float(request.args.get('twa'))
+    polar_id = int(request.args.get('polar_id'))  
+    print('tws {} polar_id {}  twa {}'.format(tws,polar_id,twa ))
+    twa10        = abs(round(twa*10))
+    tws10        = int(round(tws*10))
+  
+    filenamelocal2='vmg10_'+str(polar_id)+'.npy'
+    filename2=basedirnpy+filenamelocal2
+    tabvmg10=get_fichier(filename2)
+    
+    filenamelocal1='polairesglobales10_'+str(polar_id)+'.npy'
+    filename1=basedirnpy+filenamelocal1
+    polairesglobales10=get_fichier(filename1)
+    
+    speedCalc=float(polairesglobales10[7,tws10,twa10])      
+    tabvmg       = tabvmg10[tws10]                        #on calcule les vmg pour tws
+    tabvmg       = tabvmg.tolist()
+    tabrecouvrements = plagevoiles2(polar_id,tws)
+    tabrecouvrements = [arr.tolist() for arr in tabrecouvrements]
+
+    response=make_response(jsonify({"tabvmg":tabvmg,"tabrecouvrements":tabrecouvrements,"vitessemax":speedCalc }))
+    response.headers.add('Access-Control-Allow-Origin', '*')
+    return response
+
 
 ###############################################################################
 ########### Reponses appels pages web #########################################
@@ -3363,7 +3416,7 @@ def index():
 
 @app.route("/windybase")
 def windybase():
-     return render_template("windybasique.html")
+     return render_template("windybase.html")
 
 
 
@@ -3895,7 +3948,9 @@ class RoutageSession:                                                  # version
         # Chargement des données
         DonneesCourse1                                                      = rechercheDonneesCourseCache(course)   # c 'est un objet de la classe DonneesCourse
         self.boatinfos,self.posStartVR,self.exclusionsVR2  ,self.positionvr = rechercheDonneesCourseUser( user_id,course)                  # self.exclusionsVR2 est un dictionnaire avec les exclusions VR qui ne sert pas 
+        
         self.personalinfos,self.ari,self.waypoints,self.exclusionsperso,self.barrieres,self.trajets,self.tolerancehvmg,retardpeno = rechercheDonneesPersoCourseUser( user_id,course)
+       
      
         self.leginfos              = DonneesCourse1.leginfos
         self.exclusionsVR          = DonneesCourse1.tabexclusions                     # ce sont les exclusions VR
@@ -3908,7 +3963,12 @@ class RoutageSession:                                                  # version
 
         self.typevoile             = self.carabateau['typevoile']  
         # self.posStart ,self.isodep_record    = calculePosDepart(self.posStartVR,self.polaires_np,self.carabateau,dt=60)    # Position de depart du routage au bout de 60 s
-        # self.isodepart             = calculeisodepart2(self.posStart)                                            # Transformation en iso de depart de la position  
+        # self.isodepart             = calculeisodepart2(self.posStart)                                            # Transformation en iso de depart de la position   
+        # print ('selfexclusionsVR dans RoutageSession ',self.exclusionsVR)
+        # print ('selfexclusionsVR2 dans RoutageSession ',self.exclusionsVR2)
+        # print ('selfexclusionsperso dans RoutageSession ',self.exclusionsperso)
+        self.exclusionsVR=self.exclusionsVR2    #on remet à zero les exclusions pour eviter que les exclusions ne se cumulent 
+                  
         self.exclusionsVR.update(self.exclusionsperso)          # on rajoute exclusionsperso à exclusions VR 
        
 
@@ -4088,8 +4148,8 @@ class RoutageSession:                                                  # version
             y0          = iso[0,2].item()
             x0          = iso[0,3].item()
            
-            seuils = [[180,60],[144, 300],[108,600], [672, 1800], [240, 3600]]       # 14h a 5 mn = 120 --  18h a 10 mn =108 -- 14 jours a 30mn =24*2*14=672
-            tabdt  = construire_dt(seuils, taille=1000)
+            seuils = [[180,300],[144, 300],[108,600], [672, 1800], [240, 3600]]       # 14h a 5 mn = 120 --  18h a 10 mn =108 -- 14 jours a 30mn =24*2*14=672
+            tabdt  = construire_dt(seuils, taille=2000)
             self.isoglobal[0,0:10] = iso[0,0:10]                  # il est necessaire de remplir le premier terme de isoglobal uniquement pour le premier tronçon 
 
 
@@ -4328,7 +4388,7 @@ class RoutageSession:                                                  # version
         twa_ant_valid   = trajets_valid[:, COL_TWA_ANT]
         twa_valid       = trajets_valid[:, COL_TWA]
         stamina_valid   = trajets_valid[:, COL_STAMINA]
-        voile_ini_valid = trajets_valid[:, COL_VOILE].to(torch.long)
+        voile_ini_valid = trajets_valid[:, COL_VOILE].to(torch.long)%10
     
         tws10_valid = torch.round(tws_valid * 10).to(torch.long).clamp_(0, 699)
         twa10_valid = torch.round(twa_valid.abs() * 10).to(torch.long).clamp_(0, 1799)
@@ -4339,6 +4399,8 @@ class RoutageSession:                                                  # version
         # Voile / vitesse / changement
         # ---------------------------------------------------------
         pol = self.polairesglobales10to
+
+        #print ('test',voile_ini_valid, tws10_valid, twa10_valid)
         vitessevoileini_valid = pol[voile_ini_valid, tws10_valid, twa10_valid]
         vitessemaxi_valid = pol[7, tws10_valid, twa10_valid]
         meilleurevoile_valid = pol[8, tws10_valid, twa10_valid].to(torch.long)
@@ -4830,7 +4892,7 @@ class RoutageSession:                                                  # version
         routage[:, 8] = self.tabvmg10to[tws10, 4]
     
         # boost
-        voile = routage[:, 10].long()
+        voile = routage[:, 10].long()%10
         twa10 = torch.round(routage[:, 5].abs() * 10).long().clamp(0, 1799)
     
         vitesse_voile = self.polairesglobales10to[voile, tws10, twa10]
@@ -5031,7 +5093,7 @@ class RoutageSession:                                                  # version
             tws_i = tws10[i]
             twa_i = twa10[i]
         
-            vitesse_voile_prec = self.polairesglobales10to[voile_prec, tws_i, twa_i]
+            vitesse_voile_prec = self.polairesglobales10to[voile_prec%10, tws_i, twa_i]
             boost_i = vitesse_best[i] / (vitesse_voile_prec + 1e-4)
         
             if boost_i > 1.014:

@@ -731,7 +731,7 @@
        <div class='checkbox'>
         Zezo  <input type='checkbox' id='showgpx1' name='showgpx1' checked />   
         Avalon<input type='checkbox' id='showAvalon' name='showAvalon'  checked />   
-        VRZen  <input type='chec'kbox id='showVRZEN' name='showVRZEN'  checked />
+        VRZen  <input type='checkbox' id='showVRZEN' name='showVRZEN'  checked />
         Dorado   <input type='checkbox' id='showcsv'  name='showcsv'  checked />   
 
         <button id='ClearAllRoutes' class="blackwhite11">Clear</button>
@@ -1018,8 +1018,8 @@
             }
 
 
-            function arrondirALHeure(timestamp) {
-                const msParHeure = 3600 * 1000;
+           function arrondirALHeure(timestamp) {
+                 const msParHeure = 3600 * 1000;
                 return Math.round(timestamp / msParHeure) * msParHeure;
             }
 
@@ -6595,6 +6595,8 @@
                     leginfos = JSON.parse(leginfos)
                     lgMarkers.clearLayers();  // Contient les lignes de checkpoints   
                     lgDashLines.clearLayers();
+
+                    try{
                     var nombreLignes = leginfos['checkpoints'].length // on recupere les lignes de checkpoint 
 
                     tabLignesCheckPoints.length = nombreLignes
@@ -6610,6 +6612,11 @@
 
                     console.log ('tabLignesCheckPoints')
                     console.log(tabLignesCheckPoints[0][2]);
+
+                }
+
+                catch
+                {tabLignesCheckPoints=[] }
 
                     // tracage des lignes de checkpoints
                     // for (var i = 0; i < tabLignesCheckPoints.length; i++) {
@@ -6688,6 +6695,9 @@
                     var circleari = new L.circle(arrivee, { color: 'white', weight: 0.7, fillColor: '#f03', opacity: 1, fillOpacity: 0, radius: radiusend, }).addTo(lgMarkers);
 
                     // lignes de checkpoints
+
+                    if (!tabLignesCheckPoints || tabLignesCheckPoints.length === 0) { // Tableau vide ou non initialisé
+
                     for (var i = 0; i < tabLignesCheckPoints.length; i++) {
                         y0 = tabLignesCheckPoints[i][0][0]
                         x0 = tabLignesCheckPoints[i][0][1]
@@ -6708,6 +6718,10 @@
                         L.circle([y0, x0], { fillColor: 'white', color: 'black', weight: 1, opacity: 1, fillOpacity: 0, radius: 500, }).bindTooltip('bouee').addTo(lgMarkers)
                        }
                     }
+
+                }
+
+
                     troncons = couperPolyligneLongitude(polylineCurve)       // trajectoire theorique 
                     troncons.forEach(troncon => {
                         var bezierPath = createBezierPath(troncon);
@@ -6787,7 +6801,6 @@
 
                 let voileLast = typeVoiles[tableau[i][0]];
                 let classLast = (voileLast === voileActuelle) ? 'voile-active' : '';
-
                 texte += `<tr>
                     <td>${tableau[i][3].toFixed(1)}</td>
                     <td>${tableau[i][1].toFixed(1)}</td>
@@ -6795,10 +6808,7 @@
                     <td>----</td>
                     <td>----</td>
                 </tr>`;
-
                 document.getElementById('tabrecou').innerHTML = texte;
-
-
             }
 
 
