@@ -901,3 +901,8 @@ print (result)
 result=rechercheTablePersonalInfos(user_id, course)
 
 print (result)
+
+username,user_id='Takron-BSP','59c2706db395b292ed622d84'
+
+rechercheTableBoatInfos(user_id,course)
+course='845.1'

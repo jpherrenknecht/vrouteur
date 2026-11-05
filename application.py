@@ -248,20 +248,15 @@ fileName = None
 
 def charge_grib(basedirGribs025):
     global GRGFS, GR_t, tigGFS, indiceGR, fileName
-
     fileName, tig_file, fileNameP, tigP = gribFileName(basedirGribs025)
-
-
     GRGFS, tig_loaded, indice_loaded = load_npz(fileName)
     GR_t = torch.as_tensor(GRGFS, device=device, dtype=torch.float32)
-
     tigGFS = tig_loaded
     indiceGR = indice_loaded
     print ('*****************************************************************************')
     print ('*****************************************************************************')
     print("Grib chargé en base :", fileName, "tigP", tigP,"soit ------", time.strftime(" %d %b %H:%M ",time.gmtime(tigP))," -----indice", indiceGR)
     print("Grib chargé en base :", fileName, "tig", tigGFS,"soit ------", time.strftime(" %d %b %H:%M ",time.gmtime(tigGFS))," -----indice", indiceGR)
-
     print ('*****************************************************************************')
     print ('*****************************************************************************')
 
@@ -269,15 +264,12 @@ def charge_grib(basedirGribs025):
 
 def majgrib(basedirGribs025):
     global GRGFS, GR_t, tigGFS, indiceGR, fileName
-
     newFileName, tig_file, fileNameP, tigP = gribFileName(basedirGribs025)
     tigmeta, indicemeta = load_meta(fileMeta)
-
     # changement de run
     if tigGFS is None or tigmeta > tigGFS:
         GRGFS, tig_loaded, indice_loaded = load_npz(newFileName)
         GR_t = torch.as_tensor(GRGFS, device=device, dtype=torch.float32)
-
         fileName = newFileName
         tigGFS = tig_loaded
         indiceGR = indice_loaded
@@ -285,12 +277,10 @@ def majgrib(basedirGribs025):
         print ('*****************************************************************************')
         print("Nouveau grib chargé :", fileName, "tigGFS", tigGFS, "indice", indiceGR)
         return
-
     # même run, mais plus d'indices chargés
     if tigmeta == tigGFS and indicemeta > indiceGR:
         GRGFS, tig_loaded, indice_loaded = load_npz(newFileName)
         GR_t = torch.as_tensor(GRGFS, device=device, dtype=torch.float32)
-
         fileName = newFileName
         tigGFS   = tig_loaded
         indiceGR = indice_loaded
@@ -298,7 +288,6 @@ def majgrib(basedirGribs025):
         print ('*****************************************************************************')
         print("Grib mis à jour par majgrib :", fileName, "tig", tigGFS, "soit *****", time.strftime(" %d %b %H:%M ",time.gmtime(tigGFS))," ***** indice", indiceGR)
         return
-
     print("Grib déjà à jour")
 
 
@@ -312,7 +301,6 @@ def gribFileName(basedir):
     date_formatcourt = time.strftime("%Y%m%d", date_tuple)
     dateveille_formatcourt = time.strftime("%Y%m%d", time.gmtime(temps_secondes - 86400) )
     mn_jour_utc = date_tuple.tm_hour * 60 + date_tuple.tm_min
-
     if mn_jour_utc < 3*60 + 40:
         filename = basedir + "gfsvr_" + dateveille_formatcourt + "-18.npz"
     elif mn_jour_utc < 9*60 + 40:
@@ -327,8 +315,6 @@ def gribFileName(basedir):
     tigP = tig - 6 * 3600
     fileNameP = basedir + "gfsvr_" + time.strftime("%Y%m%d-%H", time.gmtime(tigP) ) + ".npz"
     return filename, tig, fileNameP, tigP
-
-
 charge_grib(basedirGribs025)
 majgrib(basedirGribs025)
 
@@ -1729,8 +1715,7 @@ def charger_donnees(course):
     leginfos    = json.loads(leginfostr)
       
     # print(leginfos)
-    polar_id=leginfos['boat']['polar_id']
-    
+    polar_id=leginfos['boat']['polar_id']   
 
     filenamelocal1='polairesglobales10_'+str(polar_id)+'.npy'
     filename1=basedirnpy+filenamelocal1
@@ -2352,6 +2337,7 @@ def calculeisodepart2(posStart):
 
 
 def plagevoiles2(polar_id,tws):
+    # sert pour le calcul des recouvrements 
     # On n 'est pas pressé par le temps on peut aller chercher l info sur le fichier  "
     basedir='/home/jp/staticLocal/npy/'
 
@@ -2440,7 +2426,7 @@ def windy_extension2():
 
 
 @app.route('/calcul_dash', methods=['POST'])
-def calcul_dash():
+def calcul_dash():                          # sert à calculer la ligne de projection pour le dash 
 
     data = request.get_json()
 
@@ -2481,9 +2467,7 @@ def calcul_dash():
 
 def rechercheligneproj(course,user_id,Etat):
     echouage   = 0                                   # on ne recherche pas les echouages 
-    #cache = CarteCache()                            # on ne recherche pas les echouages   
-
-    
+    #cache = CarteCache()                            # on ne recherche pas les echouages       
     simulation                  = Simulateur (course, user_id)
     lat=Etat['lat']
     lon=Etat['lon']
@@ -2574,19 +2558,14 @@ def rechercheracesinfos():
 def recherchepersonalinfos():
     username            = request.args.get('username')            # recupere les donnees correspondant a valeur dans le site html
     user_id             = request.args.get('user_id')
-    course              = request.args.get('course')              # recupere les donnees correspondant a valeur dans le site html  
-
-
-    
+    course              = request.args.get('course')              # recupere les donnees correspondant a valeur dans le site html      
     infos=rechercheTablePersonalInfos (user_id,course)           # recupere directement un fichier texte    
     print()
     print ('Personalinfos récupérées  pour username {} course {} : \n \n'.format(username,course) )    # ici on affiche pas infos (trop long)
     print() 
 
-    if infos is None:                           # on va creer un premier enregistrement pour l utilisateur sur la course specifiee 
-       
-        print ('pas d enregistrement dans personalinfos pour  {}  id {} sur course {} ',username,user_id,course  )
-       
+    if infos is None:                           # on va creer un premier enregistrement pour l utilisateur sur la course specifiee        
+        print ('pas d enregistrement dans personalinfos pour  {}  id {} sur course {} ',username,user_id,course  )       
         # pour cela il nous faut aller rechercher dans la liste des courses comme chercheracesinfos 
         infotoutescoursesStr = rechercheTableRacesinfos()               # va chercher dans la table racesinfos
         print ('infotoutescoursesStr', infotoutescoursesStr)
@@ -2801,6 +2780,11 @@ def frechercheboatinfos():
     response   = make_response(jsonify({'result':boatinfostr,'tig':tigGFS,'heure':heure,'indicemajgrib':indicemajgrib}))
     response.headers.add('Access-Control-Allow-Origin', '*')  # Autorise toutes les origines
     return response
+
+
+
+
+
 
 
 
@@ -3417,11 +3401,6 @@ def index():
 @app.route("/windybase")
 def windybase():
      return render_template("windybase.html")
-
-
-
-
-
 
 
 
