@@ -24,7 +24,6 @@ import copy
 import logging
 
 import gc
-
 from datetime import datetime,timezone,timedelta
 from matplotlib.path import Path
 from flask import (Flask, flash, jsonify, redirect, render_template,make_response, request,session, url_for)
@@ -2425,43 +2424,67 @@ def windy_extension2():
 
 
 
-@app.route('/calcul_dash', methods=['POST'])
-def calcul_dash():                          # sert à calculer la ligne de projection pour le dash 
+# @app.route('/calcul_dash', methods=['POST'])
+# def calcul_dash():                          # sert à calculer la ligne de projection pour le dash 
 
-    data = request.get_json()
+#     data = request.get_json()
 
-    print("data :", data)
-    type_message = data.get('type')
-    course       = data.get('course')
-    user_id      = data.get('user_id')
-    Etat         = data.get('Etat')
+#     print("data :", data)
+#     type_message = data.get('type')
+#     course       = data.get('course')
+#     user_id      = data.get('user_id')
+#     Etat         = data.get('Etat')
     
-    print('****************************************************************************************************************')
-    print('****************************************************************************************************************')
-    print('****************************************************************************************************************')
-    print(r'****************************************************************************************************************')
+#     print('****************************************************************************************************************')
+#     print('****************************************************************************************************************')
+#     print('****************************************************************************************************************')
+#     print(r'****************************************************************************************************************')
 
-    print("type    : ", type_message)
-    print ("course : ",course)
-    print('user_id : ',user_id)
-    print("message :", Etat)
-    print('****************************************************************************************************************')
-    print('****************************************************************************************************************')
-    # on calcule le tableau comme dans rechercheprogsvr2
+#     print("type    : ", type_message)
+#     print ("course : ",course)
+#     print('user_id : ',user_id)
+#     print("message :", Etat)
+#     print('****************************************************************************************************************')
+#     print('****************************************************************************************************************')
+#     # on calcule le tableau comme dans rechercheprogsvr2
 
-    # ton calcul
+#     # ton calcul
     
-    positionsLigneProj=rechercheligneproj(course,user_id,Etat)
-    # on va renvoyer egalement la date du grib 
+#     positionsLigneProj=rechercheligneproj(course,user_id,Etat)
+#     # on va renvoyer egalement la date du grib 
 
-    #tig * 1000 + decalageUTC * 60000)) + ' + ' + indicemajgrib
-    tig=tigGFS
-    indicemajgrib=indiceGR
-    from datetime import datetime
-    decalageUTC = datetime.now().astimezone().utcoffset().total_seconds()  # en secondes 
+#     #tig * 1000 + decalageUTC * 60000)) + ' + ' + indicemajgrib
+#     tig=tigGFS
+#     indicemajgrib=indiceGR
+#     from datetime import datetime
+#     decalageUTC = datetime.now().astimezone().utcoffset().total_seconds()  # en secondes 
+#     return jsonify({'course':course,'user_id':user_id,'resultat': positionsLigneProj,'tig':tig,'decalageUTC':decalageUTC,'indicemajgrib':indicemajgrib,'tigECM':tigECM  })
 
 
-    return jsonify({'course':course,'user_id':user_id,'resultat': positionsLigneProj,'tig':tig,'decalageUTC':decalageUTC,'indicemajgrib':indicemajgrib,'tigECM':tigECM  })
+
+@app.route('/calcul_projection', methods=['POST'])
+def calcul_projection ():
+    Etat = request.get_json()
+    print("data :", Etat)
+    # Etat         = data.get('Etat')
+    # course='coursetest'
+    # user_id='id_test'
+
+    course=Etat['course']
+    user_id=Etat['user_id']
+    programmations = Etat["programmations"]
+   
+    if "wps" in programmations:
+        print ('Navigation par waypoints' )
+     
+    elif "progs" in programmations:
+         print ('Navigation par programmations' )      # Navigation par programmations
+
+    # on en profite pour transmettre les infos sur la maj du grib 
+    positionsLigneProj=rechercheligneproj(course,user_id,Etat)    
+    decalageUTC = datetime.now().astimezone().utcoffset().total_seconds()  # en secondes
+    return jsonify({'course':course,'user_id':user_id,'resultat': positionsLigneProj,'tig':tigGFS,'decalageUTC':decalageUTC,'indicemajgrib':indiceGR,'tigECM':tigECM })
+    
 
 
 
@@ -5301,16 +5324,17 @@ class Simulateur:                                                  # version ave
                 progswaypoints = progstable["wps"]
                             
                 WP0 = [self.y0,self.x0]
-
                 WP1 =[progswaypoints[0]['lat'],progswaypoints[0]['lon']]
-
+               
                
                 print ('WP1 ',WP1)
                 self.heading = calcul_cap_grand_cercle( WP0 [0],WP0[1], WP1[0], WP1[1] )
+                valeur=self.heading       # c'est la valeur du cap vers le pemier waypoint 
                 print ('cap_initial',self.heading)
-               
-                
+                            
                 self.twa=ftwaos(self.heading, self.twd)     
+
+
             twa10=round(abs(self.twa)*10)
               
             vitessevoileini        = self.polaires_np[int(self.voile), tws10, twa10] 
@@ -5332,6 +5356,7 @@ class Simulateur:                                                  # version ave
             self.penoSail         = 0
             self.penoGybe         = 0
             self.penoTack         = 0      
+
 
             
             self.posDepart=np.array([0,Option,valeur,60,self.y0,self.x0,self.t0,self.twa,   self.heading,self.voile,self.voile,\
@@ -5406,7 +5431,7 @@ class Simulateur:                                                  # version ave
   
     
     def positionDash(self,lat,lon,twd,tws,ts,voile,speed,stamina,penoSail,penoGybe,penoTack,programmations):
-        print ('on est dans positionDash')
+        print ('on est dans positionDash')  # donne l initialisation de la position pour les calculs successifs 
         print ('programmations',programmations)
         self.dtig0GFS               = ts-tigGFS
         tws10 = int(round(tws * 10))
@@ -5424,7 +5449,12 @@ class Simulateur:                                                  # version ave
                     twa=ftwaos(heading,twd)  
                 if Option==1:
                     twa=valeur 
-                    heading= fcap(twa,twd)               
+                    heading= fcap(twa,twd)  
+        if "wps" in programmations:     
+               Option=0
+               heading=self.heading      # c'est la valeur du premier cap              
+               twa=ftwaos(heading,twd) 
+               valeur=heading 
         
         posDash = np.array([0,Option,valeur,60,lat,lon,ts,twa,heading,voile,voile,boost,speed,bestvmgmin,bestvmgmax,twd,tws,stamina,penoSail,penoGybe,penoTack,0])        
         return posDash 
@@ -6030,9 +6060,15 @@ class Simulateur:                                                  # version ave
         position = position_depart.copy()
     
         WP = [[position[COL_LAT], position[COL_LON]]]
-    
+
+        print ('WP',WP)
+        print ('progswaypoints',progswaypoints)
+
+        print     
         for elt in progswaypoints:
-            WP.append([elt["lat"], elt["lon"]])
+            WP.append([elt[0], elt[1]])
+
+        WP=   progswaypoints  
     
         nmax = int(duree_h * 3600 // dt_standard) + len(WP) + 10
     
@@ -6044,12 +6080,15 @@ class Simulateur:                                                  # version ave
         # Cap initial vers le premier waypoint
         if len(WP) > 1:
             cap_initial = calcul_cap_grand_cercle(
-                position[COL_LAT],
-                position[COL_LON],
+                WP[0][0],
+                WP[0][1],
+               
                 WP[1][0],
                 WP[1][1]
             )
-    
+
+
+            print ('capinitial',cap_initial)
             position[COL_OPTION]  = 0
             position[COL_VALEUR]  = cap_initial
             position[COL_HEADING] = cap_initial
